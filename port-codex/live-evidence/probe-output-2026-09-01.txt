@@ -1,0 +1,87 @@
+== listing live binary markets ==
+live rows: 14
+series summary: [
+  [ 'BTC/1m', 1 ],
+  [ 'ETH/1m', 1 ],
+  [ 'BTC/5m', 2 ],
+  [ 'ETH/5m', 2 ],
+  [ 'BTC/60m', 1 ],
+  [ 'ETH/60m', 1 ],
+  [ 'BTC/15m', 1 ],
+  [ 'ETH/15m', 1 ],
+  [ 'ETH/240m', 1 ],
+  [ 'BTC/240m', 1 ],
+  [ 'ETH/1440m', 1 ],
+  [ 'BTC/1440m', 1 ]
+]
+
+-- market 0x0000000000000000000000000000000000000000000000000000000000010668
+   asset: BTC cadence: 1m secondsLeft: 54
+   onchain status: 1 (1=Trading) pool: 0xCCF43B7bB390004864a026631FBdB52Fe7577553
+   venueId: 0x1a1e6821cde7d0159c0d293177871e09677b4e42307c7db3ba94f8648a5a050f
+   outcomes: undefined
+   book params: { tickSize: '1000', lotSize: '1000', minQuantity: '1000' }
+
+-- market 0x0000000000000000000000000000000000000000000000000000000000010669
+   asset: ETH cadence: 1m secondsLeft: 54
+   onchain status: 1 (1=Trading) pool: 0x4BA2403bDea1a8DF97F9f91c1BD0b02158f106Fd
+   venueId: 0x1a1e6821cde7d0159c0d293177871e09677b4e42307c7db3ba94f8648a5a050f
+   outcomes: undefined
+   book params: { tickSize: '1000', lotSize: '1000', minQuantity: '1000' }
+
+-- market 0x000000000000000000000000000000000000000000000000000000000001066c
+   asset: BTC cadence: 5m secondsLeft: 294
+   onchain status: 1 (1=Trading) pool: 0x4775Eb5d6DE9463B81834D8f333DB8cc6865274f
+   venueId: 0x679795a0195a1b76cdebb7c51d74e058aee92919b8c3389af86ef24535e8a28c
+   outcomes: undefined
+   book params: { tickSize: '1000', lotSize: '1000', minQuantity: '1000' }
+
+== opening prices ==
+0x000000000000000000000000000000000000000000000000000000000001066c "7656750"
+0x000000000000000000000000000000000000000000000000000000000001066d "238937"
+
+== recently finalized == 5
+BTC 5m expiry 2026-09-01T18:45:00.000Z trades 2 vol(quote) 56941920 lastPrice 588000
+ETH 1m expiry 2026-09-01T18:45:00.000Z trades 0 vol(quote) 0 lastPrice undefined
+BTC 1m expiry 2026-09-01T18:45:00.000Z trades 0 vol(quote) 0 lastPrice undefined
+BTC 5m expiry 2026-09-01T18:45:00.000Z trades 0 vol(quote) 0 lastPrice undefined
+ETH 5m expiry 2026-09-01T18:45:00.000Z trades 0 vol(quote) 0 lastPrice undefined
+
+== price feed ==
+BTC spot: {
+  symbol: 'BTC',
+  price: 76483.45,
+  ema: 76515.76748622213,
+  timestamp: 1788288333000,
+  datetime: '2026-09-01T18:45:33.000Z',
+  info: {
+    asset: 'BTC',
+    price: 76483.45,
+    ema: 76515.76748622213,
+    blockNumber: 477152779,
+    blockTimestamp: 1788288333,
+    decimals: 18,
+    raw: {
+      price: '76483450000000000000000',
+      ema: '76515767486222133318700'
+    }
+  }
+}
+ETH spot: {
+  symbol: 'ETH',
+  price: 2388.825,
+  ema: 2389.078355606805,
+  timestamp: 1788288333000,
+  datetime: '2026-09-01T18:45:33.000Z',
+  info: {
+    asset: 'ETH',
+    price: 2388.825,
+    ema: 2389.078355606805,
+    blockNumber: 477152779,
+    blockTimestamp: 1788288333,
+    decimals: 18,
+    raw: { price: '2388825000000000000000', ema: '2389078355606804973903' }
+  }
+}
+
+PROBE DONE

@@ -1,0 +1,18 @@
+{
+  "name": "tempo-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "tempo CLI — the autonomous opening auction for DreamDEX Event Contracts",
+  "bin": { "tempo": "./src/index.ts" },
+  "dependencies": {
+    "@tempo/core": "*",
+    "@tempo/engine": "*",
+    "@somnia-chain/markets-sdk": "0.29.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "@types/node": "^20.14.0"
+  }
+}

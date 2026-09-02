@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TEMPO — Opening Auction for DreamDEX Event Contracts</title>
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="mark"></span>
+      <span class="name">TEMPO</span>
+      <span class="tagline">the autonomous opening auction · DreamDEX Event Contracts · Somnia</span>
+    </div>
+    <div class="pillrow">
+      <span class="pill" id="pill-net">—</span>
+      <span class="pill" id="pill-mode">—</span>
+      <span class="pill" id="pill-tail">●</span>
+      <span class="pill" id="pill-uptime">—</span>
+    </div>
+  </header>
+
+  <main class="grid">
+    <!-- Left: venue pulse -->
+    <section class="panel" id="panel-venues">
+      <h2>Windows <span class="sub">rolling series · seconds to expiry</span></h2>
+      <div class="body scrolly" id="window-list"><div class="empty">connecting…</div></div>
+    </section>
+
+    <!-- Center: selected window -->
+    <section class="panel" id="panel-window">
+      <h2 id="window-title">Select a window <span class="sub" id="window-sub"></span></h2>
+      <div class="body" id="window-detail">
+        <div class="facts" id="facts"></div>
+        <div class="bookwrap">
+          <div class="bookcol">
+            <h3>UP book <span class="est">chain events</span></h3>
+            <div class="book" id="book"></div>
+          </div>
+          <div class="fvcol">
+            <h3>Fair value <span class="est">AI ESTIMATE</span></h3>
+            <div class="fvbig" id="fv-p">—</div>
+            <div class="fvband" id="fv-band"></div>
+            <div class="fvmeta" id="fv-meta"></div>
+            <div class="fvnote">P(close ≥ strike) under a driftless diffusion from the oracle feed, the on-chain opening price, realized vol, and time left. An estimate — never a fact.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right top: firm -->
+    <section class="panel" id="panel-firm">
+      <h2>The Firm <span class="sub">two agents · separate keys · separate policies</span></h2>
+      <div class="body" id="firm"></div>
+    </section>
+
+    <!-- Right bottom: activity -->
+    <section class="panel" id="panel-tape">
+      <h2>Activity <span class="sub">events → decisions → real transactions</span></h2>
+      <div class="body scrolly" id="tape"><div class="empty">connecting…</div></div>
+    </section>
+
+    <section class="panel" id="panel-settlements">
+      <h2>Settlements <span class="sub">finalized facts · oracle audit</span></h2>
+      <div class="body scrolly" id="settlements"><div class="empty">connecting…</div></div>
+    </section>
+  </main>
+
+  <footer class="statusline">
+    <span id="provenance-link">every value carries provenance — hover any metric</span>
+    <span class="right" id="zero-mock">MOCKED VALUES = 0</span>
+  </footer>
+</div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

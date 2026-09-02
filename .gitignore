@@ -1,0 +1,15 @@
+# secrets — NEVER commit
+.env
+.env.*
+!.env.example
+
+# dependencies
+node_modules/
+
+# runtime state (regenerable; curated evidence lives in test/reports)
+journal/
+
+# local artifacts
+port-codex.zip
+*.log
+.DS_Store

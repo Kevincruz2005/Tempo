@@ -1,0 +1,17 @@
+{
+  "name": "@tempo/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "TEMPO core SDK — config, exchange, fair value, risk, policies, journal, ledger",
+  "main": "./src/index.ts",
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": {
+    "@somnia-chain/markets-sdk": "0.29.0",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "@types/node": "^20.14.0"
+  }
+}
