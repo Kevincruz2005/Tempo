@@ -13,11 +13,13 @@
     "web": "tsx packages/cli/src/index.ts firm simulate",
     "cli": "tsx packages/cli/src/index.ts",
     "faucet": "tsx packages/cli/src/index.ts faucet",
-    "test": "vitest run test/unit test/failure test/security test/economic test/cli",
+    "test": "vitest run test/unit test/failure test/security test/economic test/cli --exclude test/failure/live-chain-gate.test.ts",
     "test:live": "vitest run test/sdk test/integration",
+    "test:chain-gate": "vitest run test/failure/live-chain-gate.test.ts",
     "test:contract": "tsx test/scripts/contract-live.ts",
     "test:e2e": "tsx test/scripts/e2e-live.ts",
-    "test:cli-live": "tsx test/scripts/cli-live.ts"
+    "test:cli-live": "tsx test/scripts/cli-live.ts",
+    "record:demo": "tsx test/scripts/record-demo.ts"
   },
   "dependencies": {
     "@somnia-chain/markets-sdk": "0.29.0",

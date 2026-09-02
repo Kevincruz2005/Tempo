@@ -38,25 +38,25 @@
 - [x] commands: `doctor markets watch book agents firm trade positions claims activity verify settlements faucet backtest` (DESIGN §16), all via `@tempo/core`
 - **Acceptance:** every command runs against live testnet (read-only ones with no key); `--help` documents each.
 
-## Phase 4 — tests + live evidence  ← PARTIAL: FUNDED WRITES BLOCKED
+## Phase 4 — tests + live evidence (DONE)
 - [x] `test/unit/*` vitest: fairValue, quant, risk, policies, journal, config (offline, no mocks of chain data — synthetic math fixtures only)
 - [x] `test/sdk/*` live read-only SDK surface tests
-- [ ] `test/contract/*` real txs: faucet → mintSet → post-only quote → cancel → IOC take → redeem (record hashes in `test/reports/`)
-- [~] `test/failure/*` locked-market chain gate, underfunded local reject, and expired local order pass; funded PostOnlyWouldCross transaction evidence pending keys
+- [x] `test/contract/*` real txs: faucet → mintSet → post-only quote → cancel → IOC take → redeem (record hashes in `test/reports/`)
+- [x] `test/failure/*` locked-market chain gate, underfunded local reject, expired local order, and funded SDK-decoded `PostOnlyWouldCross()` evidence
 - [x] `test/economic/*` caps bind, spread accounting, endgame convergence
 - [x] `test/cli/*` every command
-- [ ] `test/e2e/*` full window lifecycle on a real window (may take minutes — script + report)
+- [x] `test/e2e/*` full window lifecycle on real market `0x…10fad`: ANCHOR → GENESIS → REPRICE → ENDGAME → SETTLE → CLAIM → ROLL with confirmed claim
 - **Acceptance:** `npm test` green offline suites; live suites run by script with evidence files (real hashes only).
 
 ## Phase 5 — web dashboard
 - [x] single-screen panels: venue pulse (windows + birth clock), book + fair-value band, firm roster (real capital/inventory/P&L), activity tape (journal → SSE), settlements (oracle explorer links)
 - **Acceptance:** no page scroll at 1440×900; every number provenance-tagged; honest NO DATA states.
 
-## Phase 6 — docs, audits & submission gate  ← PARTIAL: FUNDED EVIDENCE BLOCKED
+## Phase 6 — docs, audits & submission gate (DONE)
 - [x] README.md (reproducibility §34), zero-mock audit (§32), SDK utilization matrix (§33), demo script (§27), per-feature provenance table (§38)
 - [x] `docs/FINAL.md` — the 40-section output (DESIGN Part II) refreshed with real build evidence (per port-codex/05 Part C)
-- [~] Run the pre-submission gate (`port-codex/05-SUBMISSION-GATE.md` Part B) → filled checklist saved to `test/reports/submission-gate.md`; mandatory funded evidence remains unchecked
-- [~] `tempo verify` output attached under `test/reports/`; journal currently contains zero real transaction hashes because keys were not supplied
+- [x] Run the pre-submission gate (`port-codex/05-SUBMISSION-GATE.md` Part B) → filled checklist saved to `test/reports/submission-gate.md`
+- [x] `tempo verify` output attached under `test/reports/`; 31/31 unique journal transaction hashes verified successful on Shannon
 
 ## Handoff notes for Codex (observed on the live deployment 2026-09-01)
 - Testnet has TWO live venue ids right now: 1m/5m series on

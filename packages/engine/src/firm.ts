@@ -36,6 +36,7 @@ const ONCHAIN_TTL_MS = 2000;
 const BOOKPARAMS_TTL_MS = 60_000;
 const OPENING_TTL_FOUND_MS = 60_000;
 const OPENING_TTL_MISSING_MS = 2000;
+const LIVE_TAIL_START_TIMEOUT_MS = 15_000;
 
 /** Only windows of these cadences are actively managed (display shows all). */
 const MANAGED_CADENCES = new Set([60, 300, 900, 3600]);
@@ -110,6 +111,9 @@ export class Firm {
   private timers: NodeJS.Timeout[] = [];
   private running = false;
   private cycleQueued = false;
+  private cycleRunning = false;
+  private discoveryRunning = false;
+  private claimSweepRunning = false;
   private unsubLive?: () => void;
   private discoveryHandle?: NodeJS.Timeout;
   private priceWatchLoops: Promise<void>[] = [];
@@ -120,9 +124,11 @@ export class Firm {
   private marketViews = new Map<string, MarketView>();
   private settlements: SettlementView[] = [];
   private spots = new Map<string, { price: number; ema: number; ts: number; block?: number }>();
+  private readonly managedCadences: Set<number>;
 
-  constructor(cfg: TempoConfig) {
+  constructor(cfg: TempoConfig, opts: { managedCadences?: readonly number[] } = {}) {
     this.cfg = cfg;
+    this.managedCadences = new Set(opts.managedCadences ?? MANAGED_CADENCES);
     this.journal = new Journal(cfg.journalDir, "tempo");
     this.risk = new RiskEngine(cfg.risk);
     this.appraiser = new Appraiser(async (asset) => {
@@ -179,7 +185,7 @@ export class Firm {
         dryRun: this.cfg.dryRun,
         maker: this.agentState.GENESIS.readOnly ? "READ-ONLY" : this.agentState.GENESIS.address,
         taker: this.agentState.VECTOR.readOnly ? "READ-ONLY" : this.agentState.VECTOR.address,
-        managedCadences: [...MANAGED_CADENCES],
+        managedCadences: [...this.managedCadences],
         assets: this.cfg.assets,
       },
     });
@@ -187,8 +193,18 @@ export class Firm {
 
     // Whole-protocol tail with birth discovery — Somnia's live watches
     // materialize books locally and pick up new markets the block they deploy.
+    let liveTailTimer: ReturnType<typeof setTimeout> | undefined;
     try {
-      await this.maker.sdk.client.watchMarkets({ discover: true });
+      await Promise.race([
+        this.maker.sdk.client.watchMarkets({ discover: true }),
+        new Promise<never>((_, reject) => {
+          liveTailTimer = setTimeout(
+            () => reject(new Error(`watchMarkets startup exceeded ${LIVE_TAIL_START_TIMEOUT_MS} ms`)),
+            LIVE_TAIL_START_TIMEOUT_MS,
+          );
+        }),
+      ]);
+      clearTimeout(liveTailTimer);
       this.unsubLive = this.maker.sdk.client.subscribeLive(() => {
         if (this.cycleQueued) return;
         this.cycleQueued = true;
@@ -198,6 +214,8 @@ export class Firm {
         }, 350);
       });
     } catch (e) {
+      clearTimeout(liveTailTimer);
+      this.maker.sdk.client.stopLive();
       this.journal.append({
         type: "error",
         data: { what: "live tail unavailable — falling back to interval cycles", message: String(e) },
@@ -221,6 +239,7 @@ export class Firm {
       setInterval(() => void this.refreshAgentState(), 10_000),
     );
     this.discoveryHandle = this.timers[1];
+    void this.sweepClaims();
     void this.refreshAgentState();
     void this.refreshSettlements();
     this.timers.push(setInterval(() => void this.refreshSettlements(), 30_000));
@@ -235,7 +254,7 @@ export class Firm {
     this.unsubLive?.();
     this.maker.sdk.client.stopLive();
     this.journal.append({ type: "shutdown", data: { uptimeMs: Date.now() - this.startedAt } });
-    this.journal.close();
+    await this.journal.close();
     await Promise.allSettled([this.maker.close(), this.taker.close()]);
   }
 
@@ -264,18 +283,22 @@ export class Firm {
   // -- discovery ------------------------------------------------------------
 
   private async refreshMarkets(first: boolean): Promise<void> {
+    if (this.discoveryRunning) return;
+    this.discoveryRunning = true;
     let rows: BinaryMarketInfo[];
     try {
       rows = await this.maker.markets();
     } catch (e) {
       this.journal.append({ type: "error", data: { what: "market discovery", message: String(e) } });
       return;
+    } finally {
+      this.discoveryRunning = false;
     }
     const now = Date.now();
     const seen = new Set<string>();
     for (const row of rows) {
       seen.add(row.marketId);
-      const managed = MANAGED_CADENCES.has(row.intervalSec) && row.expiry * 1000 > now;
+      const managed = this.managedCadences.has(row.intervalSec) && row.expiry * 1000 > now;
       let m = this.markets.get(row.marketId);
       if (!m) {
         m = { ...row, managed, watchedAt: 0, lastDecisionAt: 0, lastStatus: -1, birthAnnounced: false, lifecycle: "BIRTH" };
@@ -363,18 +386,54 @@ export class Firm {
   // -- the cycle -------------------------------------------------------------
 
   private async cycle(trigger: "event" | "heartbeat"): Promise<void> {
-    if (!this.running) return;
-    const nowSec = Date.now() / 1000;
-    const jobs: Promise<void>[] = [];
-    for (const m of this.markets.values()) {
-      if (!m.managed) continue;
-      const secondsLeft = m.expiry - nowSec;
-      if (secondsLeft <= 0) continue;
-      if (nowSec * 1000 - m.lastDecisionAt < DECISION_INTERVAL_MS) continue;
-      m.lastDecisionAt = nowSec * 1000;
-      jobs.push(this.decide(m, secondsLeft, trigger));
+    if (!this.running || this.cycleRunning || this.claimSweepRunning) return;
+    this.cycleRunning = true;
+    try {
+      const nowSec = Date.now() / 1000;
+      for (const m of this.markets.values()) {
+        if (!m.managed) continue;
+        const secondsLeft = m.expiry - nowSec;
+        if (nowSec * 1000 - m.lastDecisionAt < DECISION_INTERVAL_MS) continue;
+        m.lastDecisionAt = nowSec * 1000;
+        if (secondsLeft <= 0) {
+          await this.advanceClosedMarket(m);
+          continue;
+        }
+        await this.decide(m, secondsLeft, trigger);
+      }
+    } finally {
+      this.cycleRunning = false;
     }
-    await Promise.allSettled(jobs);
+  }
+
+  private async advanceClosedMarket(m: ManagedMarket): Promise<void> {
+    if (m.lifecycle !== "LOCK" && m.lifecycle !== "SETTLE" && m.lifecycle !== "CLAIM" && m.lifecycle !== "ROLL") {
+      this.transition(m, "LOCK", { reason: "expiry boundary crossed", expiry: m.expiry });
+    }
+    try {
+      const oc = await this.onchain(m.marketId, true);
+      if (oc.status !== m.lastStatus) {
+        this.journal.append({
+          type: "market-state",
+          source: "on-chain",
+          marketId: m.marketId,
+          symbol: m.symbol,
+          data: { status: oc.status, secondsLeft: Math.round(m.expiry - Date.now() / 1000) },
+        });
+        m.lastStatus = oc.status;
+      }
+      if (oc.isResolved || oc.isVoided || oc.status === 4 || oc.status === 5) {
+        this.transition(m, "SETTLE", { status: oc.status });
+      } else {
+        this.transition(m, "LOCK", { status: oc.status });
+      }
+    } catch (error) {
+      this.journal.append({
+        type: "error",
+        marketId: m.marketId,
+        data: { what: "closed-market chain state", message: error instanceof Error ? error.message : String(error) },
+      });
+    }
   }
 
   private async decide(m: ManagedMarket, secondsLeft: number, trigger: "event" | "heartbeat"): Promise<void> {
@@ -398,6 +457,8 @@ export class Firm {
         return;
       }
       if (m.lifecycle === "BIRTH") this.transition(m, "ANCHOR", { status: oc.status });
+      const endgameAt = Math.max(20, Math.floor(m.intervalSec * 0.1));
+      if (secondsLeft <= endgameAt) this.transition(m, "ENDGAME", { secondsLeft: Math.round(secondsLeft) });
 
       const spot = this.spots.get(m.asset) ?? this.appraiser.latest(m.asset);
       if (!spot) {
@@ -439,7 +500,6 @@ export class Firm {
         bookAt: new Date().toISOString(),
       });
 
-      const endgameAt = Math.max(20, Math.floor(m.intervalSec * 0.1));
       if (secondsLeft <= endgameAt) this.transition(m, "ENDGAME", { secondsLeft: Math.round(secondsLeft) });
       else if (m.lifecycle === "ANCHOR" || m.lifecycle === "BIRTH") this.transition(m, "GENESIS");
       else this.transition(m, "REPRICE");
@@ -777,77 +837,113 @@ export class Firm {
   // -- claims -----------------------------------------------------------------
 
   private async sweepClaims(): Promise<void> {
+    if (this.claimSweepRunning || this.cycleRunning) return;
+    this.claimSweepRunning = true;
     this.lastClaimSweep = Date.now();
-    for (const [name, ex] of [["GENESIS", this.maker], ["VECTOR", this.taker]] as const) {
-      if (!ex.walletAddress) continue;
-      try {
-        const claimable = await ex.claims(25);
-        for (const c of claimable) {
-          const oc = await this.onchain(c.marketId, true);
-          if (!oc.isResolved && !oc.isVoided) continue;
-          const balances = await Promise.all([ex.outcomeBalance(oc, "UP"), ex.outcomeBalance(oc, "DOWN")]).catch(() => null);
-          if (!balances) {
-            this.journal.append({ type: "error", agent: name, marketId: c.marketId, data: { what: "claim balance read", message: "UNAVAILABLE" } });
-            continue;
-          }
-          const [heldUp, heldDown] = balances;
-          if (heldUp <= 0 && heldDown <= 0) continue;
-          const sides: Array<"UP" | "DOWN"> = oc.isVoided
-            ? ["UP", "DOWN"]
-            : oc.winningOutcome === 0
-              ? ["UP"]
-              : ["DOWN"];
-          this.journal.append({
-            type: "settlement",
-            agent: name,
-            source: "on-chain",
-            marketId: c.marketId,
-            data: {
-              voided: oc.isVoided,
-              winningOutcome: oc.winningOutcome,
-              heldUp,
-              heldDown,
-              claimSides: sides,
-              oracleQuestionId: c.oracleQuestionId,
-            },
-          });
-          const managed = this.markets.get(c.marketId);
-          if (managed) this.transition(managed, "CLAIM", { claimSides: sides });
-          for (const side of sides) {
-            const held = side === "UP" ? heldUp : heldDown;
-            if (held <= 0) continue;
-            try {
-              const out = await ex.redeem(c.marketId, oc, side);
-              this.journal.append({
-                type: "claim",
-                agent: name,
-                marketId: c.marketId,
-                tx: out.hash,
-                data: { side, amount: held },
-              });
-              const realized = this.ledgers[name].settle(
-                c.marketId,
-                oc.isVoided ? "VOID" : oc.winningOutcome === 0 ? "UP_WON" : "DOWN_WON",
-              );
-              this.agentState[name].realizedPnl += realized;
-              if (managed) this.transition(managed, "ROLL", { claimTx: out.hash ?? "UNAVAILABLE" });
-            } catch (e) {
+    try {
+      for (const [name, ex] of [["GENESIS", this.maker], ["VECTOR", this.taker]] as const) {
+        if (!ex.walletAddress) continue;
+        try {
+          const batches: Awaited<ReturnType<TempoExchange["claims"]>>[] = [];
+          const longCadences = [...this.managedCadences].filter((cadence) => cadence >= 3600).sort((a, b) => b - a);
+          for (const intervalSec of longCadences) batches.push(await ex.claims(60, { intervalSec }));
+          batches.push(await ex.claims(60));
+          const claimable = [...new Map(batches.flat().map((claim) => [claim.marketId, claim])).values()];
+          for (const c of claimable) {
+            const oc = await this.onchain(c.marketId, true);
+            if (!oc.isResolved && !oc.isVoided) continue;
+            const balances = await Promise.all([
+              ex.outcomeBalance(oc, "UP"),
+              ex.outcomeBalance(oc, "DOWN"),
+            ]).catch(() => null);
+            if (!balances) {
               this.journal.append({
                 type: "error",
                 agent: name,
                 marketId: c.marketId,
-                data: { what: `redeem ${side}`, message: e instanceof Error ? e.message : String(e) },
+                data: { what: "claim balance read", message: "UNAVAILABLE" },
+              });
+              continue;
+            }
+            const [heldUp, heldDown] = balances;
+            if (heldUp <= 0 && heldDown <= 0) continue;
+            const sides: Array<"UP" | "DOWN"> = oc.isVoided
+              ? ["UP", "DOWN"]
+              : oc.winningOutcome === 0
+                ? ["UP"]
+                : ["DOWN"];
+            this.journal.append({
+              type: "settlement",
+              agent: name,
+              source: "on-chain",
+              marketId: c.marketId,
+              data: {
+                voided: oc.isVoided,
+                winningOutcome: oc.winningOutcome,
+                heldUp,
+                heldDown,
+                claimSides: sides,
+                oracleQuestionId: c.oracleQuestionId,
+              },
+            });
+            const managed = this.markets.get(c.marketId);
+            if (managed) this.transition(managed, "CLAIM", { claimSides: sides });
+            else {
+              this.journal.append({
+                type: "market-state",
+                source: "finalized-list/on-chain",
+                marketId: c.marketId,
+                symbol: c.symbol,
+                data: { previous: "SETTLE", lifecycle: "CLAIM", claimSides: sides },
               });
             }
+            for (const side of sides) {
+              const held = side === "UP" ? heldUp : heldDown;
+              if (held <= 0) continue;
+              try {
+                const out = await ex.redeem(c.marketId, oc, side);
+                this.journal.append({
+                  type: "claim",
+                  agent: name,
+                  marketId: c.marketId,
+                  tx: out.hash,
+                  data: { side, amount: held },
+                });
+                const realized = this.ledgers[name].settle(
+                  c.marketId,
+                  oc.isVoided ? "VOID" : oc.winningOutcome === 0 ? "UP_WON" : "DOWN_WON",
+                );
+                this.agentState[name].realizedPnl += realized;
+                if (managed) this.transition(managed, "ROLL", { claimTx: out.hash ?? "UNAVAILABLE" });
+                else {
+                  this.journal.append({
+                    type: "market-state",
+                    source: "finalized-list/on-chain",
+                    marketId: c.marketId,
+                    symbol: c.symbol,
+                    data: { previous: "CLAIM", lifecycle: "ROLL", claimTx: out.hash ?? "UNAVAILABLE" },
+                  });
+                }
+              } catch (e) {
+                this.journal.append({
+                  type: "error",
+                  agent: name,
+                  marketId: c.marketId,
+                  data: { what: `redeem ${side}`, message: e instanceof Error ? e.message : String(e) },
+                });
+              }
+            }
           }
+        } catch (e) {
+          this.journal.append({
+            type: "error",
+            agent: name,
+            data: { what: "claim sweep", message: e instanceof Error ? e.message : String(e) },
+          });
         }
-      } catch (e) {
-        this.journal.append({
-          type: "error",
-          agent: name,
-          data: { what: "claim sweep", message: e instanceof Error ? e.message : String(e) },
-        });
       }
+    } finally {
+      this.claimSweepRunning = false;
     }
   }
 

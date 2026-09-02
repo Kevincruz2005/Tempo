@@ -1,7 +1,8 @@
 # TEMPO - Final Build Record
 
-> Delivered build status on 2026-09-02. Read-only/dry-run surfaces are live and
-> tested. Funded transaction evidence is explicitly blocked, not fabricated.
+> Delivered build status on 2026-09-02. Read-only, dry-run, and funded-write
+> surfaces are live and tested on Somnia Shannon; all claimed hashes were
+> replayed against chain receipts.
 
 ## 1. Project Name
 
@@ -69,7 +70,8 @@ caps define returns and risk. Evidence: `risk.ts`, ledger/economic tests.
 ## 13. Lifecycle
 
 `BIRTH -> ANCHOR -> GENESIS -> REPRICE -> ENDGAME -> LOCK -> SETTLE -> CLAIM -> ROLL`
-is explicit and journaled. Live dry-run observed ANCHOR/GENESIS/REPRICE/ENDGAME.
+is explicit and journaled. Market `0x…10fad` completed ANCHOR, GENESIS, REPRICE,
+ENDGAME, SETTLE, CLAIM, and ROLL with a confirmed winning-side redemption.
 
 ## 14. Architecture
 
@@ -91,7 +93,7 @@ matrix runs and `--help`; the final live report records 12/12 passing commands.
 
 The public surface exports config, exchange, fair value, risk, policies,
 decimal quantization, journal/replay, ledger, types, claims and backtest.
-Evidence: `packages/core/src/index.ts` and 14 core unit tests.
+Evidence: `packages/core/src/index.ts` and the offline unit suite.
 
 ## 18. Agent Coordination
 
@@ -111,15 +113,20 @@ explicit outcome. Evidence: exchange wrapper and contract runner.
 
 ## 21. Security
 
-No key means no write, keys must differ, malformed/off-grid inputs fail locally,
-and live status is re-read before every trading mutation. Evidence: 3 security
-tests plus live chain-gate test.
+There is no database or SQL query surface, so SQL injection is absent by
+architecture. The dashboard is local-only by default, GET-only, same-origin and
+Host-gated, rate/SSE bounded, path-contained, payload-redacted, and protected by
+CSP/isolation headers; dynamic browser content is HTML-encoded and audit links
+are HTTPS-only. No key means no write, keys must differ, malformed/off-grid
+inputs fail locally, and live status is re-read before every trading mutation.
+Evidence: 12 security tests, HTTP boundary probes, and the live chain-gate test.
 
 ## 22. Failure Model
 
 Unavailable feeds/history, locked markets, expired plans, risk rejection,
 post-only crossings, disconnect fallback, and void claims are named paths.
-Funded crossing/revert evidence remains pending.
+A funded live run captured the official SDK-decoded `PostOnlyWouldCross()` path
+without inventing a hash that the thrown error did not expose.
 
 ## 23. Test Strategy
 
@@ -133,24 +140,25 @@ fixtures, scripts and reports are present. Evidence: `test/`.
 
 ## 25. Test Results
 
-Offline: 27/27 pass. Live SDK/integration: 3/3 pass. Live chain gate: 1/1 pass.
-Funded contract/e2e: BLOCKED. Evidence: dated reports.
+Offline: 2,086/2,086 pass. Live SDK/integration: 3/3 pass. Live chain gate: 1/1 pass.
+Funded contract flow: PASS. Autonomous same-window E2E lifecycle: PASS, including
+settlement and claim hash `0xd9aad147…bf2ac5e`. Evidence: dated reports.
 
 ## 26. Deployment
 
 No custom contract is required; deployment is config plus two funded Shannon
-accounts. Current workspace supplied neither key, so zero sends occurred.
+accounts. GENESIS and VECTOR used distinct addresses and completed real sends.
 
 ## 27. Demo Script
 
 Show markets, start dry-run firm, inspect live estimate and lifecycle records,
-then with funded keys show quote, IOC, settlement, claim, and verify. The last
-stage is not yet recorded and must not be represented as complete.
+then show the funded quote, IOC, settlement, claim, and receipt replay. The repo
+includes a narrated 90-second live dashboard MP4 and preserves its raw capture.
 
 ## 28. Signature Moment
 
 The dashboard makes a newborn window and both agents' reactions observable in
-one viewport. A real maker/taker/claim hash sequence is pending funded keys.
+one viewport. Confirmed maker, taker, and claim hashes provide the proof path.
 
 ## 29. UI
 
@@ -172,8 +180,9 @@ and hash. `tempo verify` checks every journal hash against chain receipts.
 
 Production grep found no volatility fallback, hardcoded 6-decimal conversion,
 or failed-read-to-zero path. Missing state is labeled. Production fixtures: 0.
-Transaction hashes claimed: 0, because no transaction was sent. Evidence:
-`test/reports/zero-mock-audit.md` and `verify-20260902.md` (2,120 records).
+Transaction hashes claimed: 31 unique journal hashes; `tempo verify` found all
+31 successful receipts and zero failures. Evidence: `zero-mock-audit.md` and
+`verify-20260902.md` (15,316 records).
 
 ## 33. SDK Utilization Audit
 
@@ -194,8 +203,8 @@ history.
 
 ## 36. Ecosystem Impact
 
-TEMPO demonstrates Somnia-native live state and supplies a reusable EC SDK/CLI
-pattern for agent operators. Real liquidity impact awaits funded deployment.
+TEMPO demonstrates Somnia-native live state, placed real two-sided liquidity,
+executed an independent IOC, and supplies a reusable EC SDK/CLI pattern.
 
 ## 37. Competitive Landscape
 
@@ -210,9 +219,10 @@ README.
 
 ## 39. Judge Score Prediction
 
-Delivered read-only product: novelty 8, EC necessity 10, DreamDEX depth 8,
-Somnia fit 9, agents 7, demo 6, feasibility 8, SDK 9, startup 8, memorability 8.
-Evidence-adjusted prediction: **8.0/10**, capped by absent write proof.
+Delivered product: novelty 8, EC necessity 10, DreamDEX depth 9, Somnia fit 9,
+agents 9, demo 7, feasibility 9, SDK 9, startup 8, memorability 8.
+Evidence-adjusted prediction: **9.0/10**; the narrated live recording and chain
+proof are present, while final organizer-platform upload remains execution risk.
 
 ## 40. 30-Second Pitch
 
@@ -222,4 +232,4 @@ birth to the official feed, quotes both outcomes, lets an independent agent
 challenge the touch, then follows the window through settlement and claim.
 It runs on Somnia's live on-chain event path, ships as SDK, CLI and dashboard,
 and labels every fact, estimate and missing value. The read path is proven;
-funded transaction proof remains the final submission blocker.
+31 unique funded transaction hashes have independently verified receipts.

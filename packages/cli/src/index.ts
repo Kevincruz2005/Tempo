@@ -19,6 +19,10 @@ const hasFlag = (name: string): boolean => args.includes(`--${name}`);
 const cfg = loadConfig();
 const fmt = (n: number, d = 3) => n.toFixed(d);
 const short = (h?: string) => (h ? `${h.slice(0, 10)}…${h.slice(-6)}` : "—");
+const dashboardUrl = (host: string, port: number): string => {
+  const displayHost = host === "0.0.0.0" || host === "::" ? "localhost" : host.includes(":") ? `[${host}]` : host;
+  return `http://${displayHost}:${port}`;
+};
 
 function out(line = ""): void {
   process.stdout.write(line + "\n");
@@ -379,10 +383,10 @@ async function main(): Promise<void> {
         try {
           const receipt = await client.getTransactionReceipt({ hash: h as `0x${string}` });
           ok++;
-          out(`  ${short(h)} block=${receipt.blockNumber} status=${receipt.status}`);
+          out(`  ${h} block=${receipt.blockNumber} status=${receipt.status}`);
         } catch (e) {
           fail++;
-          out(`  ${short(h)} NOT FOUND on chain (${String(e).slice(0, 60)})`);
+          out(`  ${h} NOT FOUND on chain (${String(e).slice(0, 60)})`);
         }
       }
       out(`\nverified ${ok}/${hashes.length} transaction hashes against ${cfg.network} (failed: ${fail})`);
@@ -400,10 +404,11 @@ async function main(): Promise<void> {
         // simulate: force dry-run regardless of env
         const firmDry = new Firm(realCfg);
         const port = Number(flag("port", "7333"));
+        const host = flag("host", process.env.TEMPO_HTTP_HOST ?? "127.0.0.1")!;
         const webDir = new URL("../../web/public/", import.meta.url).pathname;
-        const server = new TempoServer(firmDry, port, webDir);
+        const server = new TempoServer(firmDry, port, webDir, { host });
         out(`TEMPO firm — SIMULATE (decisions journaled, nothing sent)`);
-        out(`dashboard: http://localhost:${port}`);
+        out(`dashboard: ${dashboardUrl(host, port)}`);
         await server.start();
         await firmDry.start();
         await new Promise<void>((resolve) => {
@@ -425,10 +430,11 @@ async function main(): Promise<void> {
         die("no agent keys configured — set TEMPO_KEY_MAKER / TEMPO_KEY_TAKER in .env (or run `tempo firm simulate`)");
       }
       const port = Number(flag("port", "7333"));
+      const host = flag("host", process.env.TEMPO_HTTP_HOST ?? "127.0.0.1")!;
       const webDir = new URL("../../web/public/", import.meta.url).pathname;
-      const server = new TempoServer(firm, port, webDir);
+      const server = new TempoServer(firm, port, webDir, { host });
       out(`TEMPO firm — ${cfg.dryRun ? "DRY-RUN" : "LIVE (real orders, real funds)"}`);
-      out(`dashboard: http://localhost:${port}`);
+      out(`dashboard: ${dashboardUrl(host, port)}`);
       await server.start();
       await firm.start();
       await new Promise<void>((resolve) => {
@@ -455,8 +461,8 @@ async function main(): Promise<void> {
       out("  watch [--asset BTC]     streaming book view (live tail)");
       out("  agents                  firm roster + balances");
       out("  positions               outcome balances per agent");
-      out("  firm simulate           run the firm, decisions journaled, nothing sent");
-      out("  firm start              run the firm for real (keys required)");
+      out("  firm simulate [--host H --port N]  run dry, local-only by default");
+      out("  firm start [--host H --port N]     run for real (keys required)");
       out("  trade <frag> <up|down> <qty> [--price p]   manual IOC order");
       out("  claims [--claim]        settled markets + redeem winnings");
       out("  settlements             recently settled windows + oracle links");

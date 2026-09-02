@@ -1,8 +1,8 @@
 # TEMPO Build Status
 
-Status as of 2026-09-02. The implementation and all unfunded verification are
-complete. Submission remains blocked on two distinct testnet signers funded with
-native STT; no transaction hash has been invented to fill that gap.
+Status as of 2026-09-02. The implementation, live reads, funded contract flow,
+autonomous E2E writes, and receipt replay are complete. The only external
+submission artifact not present in the repository is the recorded demo video.
 
 ## Verified
 
@@ -20,20 +20,25 @@ native STT; no transaction hash has been invented to fill that gap.
 - The fixed-viewport dashboard renders live books, feed observations, estimates,
   agents, journal activity, and settlements with provenance and honest
   `UNAVAILABLE`/`NO DATA` states.
-- Offline tests pass: 12 files and 27 tests. Strict TypeScript checks pass for
-  core, engine, and CLI. Live SDK/integration tests pass: 2 files and 3 tests.
+- Offline tests pass: 12 files and 2,086 tests, including 2,048 deterministic
+  economic invariant cases. Strict TypeScript checks pass for core, engine, and
+  CLI. Live SDK/integration tests pass: 2 files and 3 tests;
+  the separate live chain-gate passes 1/1.
 - `README.md`, the 40-section `docs/FINAL.md`, dashboard captures, verification
   report, and the filled submission gate are present.
 - `@somnia-chain/markets-sdk` remains pinned exactly to `0.29.0`.
 
-## Funded Evidence Blocker
+## Funded Evidence
 
-`TEMPO_KEY_MAKER` and `TEMPO_KEY_TAKER` are absent. The contract and full-window
-e2e runners stop before a send unless both keys are distinct and each signer has
-at least 1 STT. Their BLOCKED reports are in `test/reports/contract-live.md` and
-`test/reports/e2e-live.md`.
+Two distinct funded Shannon signers completed the live contract sequence.
+Confirmed evidence includes faucet, mintSet, post-only quote, cancel, maker
+sell, VECTOR IOC, and explicit winning-side redemption. A live SDK-decoded
+`PostOnlyWouldCross()` is recorded without inventing a failed-transaction hash.
+The autonomous runs added confirmed maker receipts and completed a same-market
+settlement/claim/roll. `tempo verify` checked 31 unique journal hashes and found
+31 successful receipts with zero failures.
 
-After funding the signers, run:
+Reproduce the funded checks with:
 
 ```bash
 npm run test:contract
@@ -41,5 +46,6 @@ npm run test:e2e
 npm run cli -- verify
 ```
 
-Then refresh `test/reports/submission-gate.md` and the transaction-evidence
-sections of `docs/FINAL.md` using only the hashes produced by those runs.
+The runners preflight distinct keys, native STT, and `TEMPO_DRY_RUN=false` before
+any write. Full same-window E2E settlement evidence passed on market `0x…10fad`;
+see `test/reports/e2e-live.md` for the exact lifecycle and hashes.

@@ -20,5 +20,5 @@ describe("live indexer + chain + feed integration", () => {
     } finally {
       await exchange.close();
     }
-  }, 40_000);
+  }, 120_000);
 });

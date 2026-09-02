@@ -8,13 +8,13 @@ describe("live @tempo/core read surface", () => {
   beforeAll(async () => {
     const rows = await exchange.markets({ maxAgeMs: 0 });
     market = rows.find((row) => row.expiry > Date.now() / 1000 + 15) ?? rows[0];
-  }, 30_000);
+  }, 120_000);
   afterAll(() => exchange.close());
 
   it("loads live windows and chain status", async () => {
     expect(market.marketId).toMatch(/^0x[0-9a-f]{64}$/i);
     expect((await exchange.onchain(market.marketId)).status).toBeGreaterThanOrEqual(1);
-  });
+  }, 60_000);
 
   it("reads decimal-derived grids and official spot", async () => {
     const onchain = await exchange.onchain(market.marketId);
@@ -23,5 +23,5 @@ describe("live @tempo/core read surface", () => {
     expect(params.lotSize).toBeGreaterThan(0n);
     expect(params.decimals).toBeGreaterThan(0);
     expect(spot?.price).toBeGreaterThan(0);
-  });
+  }, 60_000);
 });

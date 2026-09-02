@@ -10,6 +10,12 @@ JSONL journal.
 The default is read-only dry-run. No private key means no send, and no missing
 economic value is replaced with a demo number.
 
+**Verification:** 2,086 offline Vitest cases pass, including a 2,048-case
+deterministic economic invariant matrix across 6- and 18-decimal grids. Live
+evidence independently verifies 31/31 funded Shannon transaction receipts.
+The matrix caught and now guards an 18-decimal raw/human/raw conversion edge
+that could otherwise lose one tick through binary floating-point formatting.
+
 ## Quickstart
 
 Requirements: Node 20 or newer.
@@ -30,6 +36,38 @@ Live writes require two distinct Somnia Shannon accounts, each funded with STT
 from the official faucet. Set `TEMPO_KEY_MAKER` and `TEMPO_KEY_TAKER`, call
 `npm run faucet`, and set `TEMPO_DRY_RUN=false` only after reviewing the risk
 limits.
+
+## Security
+
+TEMPO has no database, SQL driver, or query-construction layer. SQL injection
+is therefore absent by architecture, rather than claimed as a filter over an
+SQL surface that does not exist. The real HTTP, browser, signer, and chain
+boundaries are hardened instead:
+
+- The dashboard binds to `127.0.0.1` by default. Host-header and same-origin
+  checks reject DNS rebinding and cross-site browser requests.
+- The server is GET-only and read-only, with an explicit API route allowlist,
+  8 KiB header and 2 KiB URL bounds, request timeouts, per-IP API rate limits,
+  and total/per-IP SSE connection caps with backpressure cleanup.
+- CSP, frame denial, MIME sniffing prevention, opener/resource isolation,
+  no-referrer, and restrictive browser permissions are sent on every response.
+- Static paths are decoded and containment-checked; traversal, dotfiles,
+  backslashes, malformed limits, and unknown API routes fail closed.
+- API and SSE payloads recursively redact credential-like keys. The browser
+  HTML-encodes chain/indexer/journal strings, allowlists dynamic CSS classes,
+  accepts only HTTPS oracle links, and discards malformed SSE JSON.
+- The official markets SDK remains exactly pinned at `0.29.0`; `npm audit`
+  reports zero known vulnerabilities across production and development dependencies.
+- Signer keys are never returned by the snapshot API. No key means no write;
+  keys must differ; every trade is risk-, tick/lot-, expiry-, and live-status-
+  gated before the official SDK sends it.
+
+The built-in server is an operator-local dashboard, not a public auth system.
+To expose it remotely, terminate TLS at an audited reverse proxy, require
+authentication and authorization there, restrict ingress with a firewall, and
+keep `TEMPO_HTTP_HOST=127.0.0.1` between the proxy and TEMPO. Security evidence
+is in `test/security/boundaries.test.ts` and
+`test/reports/security-20260902.md`.
 
 ## Packages
 
@@ -74,16 +112,22 @@ npm install
 cp .env.example .env
 npm test                         # offline: no RPC or API substitutes
 npm run test:live                # official indexer + RPC + price feed
+npm run test:chain-gate          # real non-trading-market write gate
 npm run test:cli-live            # full read-only CLI matrix
 npm run test:contract            # funded keys: real transaction sequence
 TEMPO_DRY_RUN=false npm run test:e2e
 npm run firm                     # dry-run dashboard, zero sends
+npm run record:demo              # 90-second recording of a running live dashboard
 ```
 
 Current evidence is under `test/reports/`. On 2026-09-02 the offline suite
-passed 27 tests, live SDK/integration passed 3 tests, and the live non-trading
-chain gate passed. Contract/e2e reports are honestly `BLOCKED` in this workspace
-because no agent keys or native STT balances were supplied.
+passed 2,086 tests, live SDK/integration passed 3 tests, and the live non-trading
+chain gate passed. The funded contract sequence recorded faucet, mint, quote,
+cancel, IOC fill, and redemption receipts; `tempo verify` independently found
+all 31 journaled transaction hashes on Shannon with successful receipts.
+A narrated 90-second 1440x900 live dashboard recording is saved as
+`test/reports/tempo-demo-90s-narrated.mp4` with codec and checksum evidence in
+`test/reports/demo-20260902.md`; the raw capture is preserved alongside it.
 
 ## Provenance
 
@@ -137,5 +181,5 @@ evaluated but are not load-bearing to deterministic market making.
 4. Keep the dashboard visible throughout; every displayed value identifies its
    fact/estimate status and source.
 
-The funded-write portion must not be presented as completed until
-`test/reports/contract-live.md` and `e2e-live.md` contain confirmed hashes.
+Funded receipt evidence is in `test/reports/contract-live.md`,
+`failure-postonly-live.md`, `e2e-live.md`, and `verify-20260902.md`.

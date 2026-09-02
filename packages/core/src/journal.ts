@@ -126,9 +126,23 @@ export class Journal {
     return out.sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
   }
 
-  close(): void {
-    this.stream?.end();
+  close(): Promise<void> {
+    const stream = this.stream;
     this.stream = null;
+    if (!stream) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const onError = (error: Error) => {
+        stream.off("finish", onFinish);
+        reject(error);
+      };
+      const onFinish = () => {
+        stream.off("error", onError);
+        resolve();
+      };
+      stream.once("error", onError);
+      stream.once("finish", onFinish);
+      stream.end();
+    });
   }
 }
 

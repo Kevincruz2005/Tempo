@@ -225,7 +225,9 @@ export class TempoExchange {
 
   /** The window's opening price (the strike) — an on-chain fact. */
   async openingPrice(marketId: string, referenceSpot?: number): Promise<number | undefined> {
-    const market = (await this.markets()).find((row) => row.marketId.toLowerCase() === marketId.toLowerCase());
+    const key = marketId.toLowerCase();
+    const cached = this.marketsCache?.rows.find((row) => row.marketId.toLowerCase() === key);
+    const market = cached ?? (await this.markets()).find((row) => row.marketId.toLowerCase() === key);
     let boundary: unknown = market?.resolutionMode === "fixed" ? market.strike : undefined;
     if (boundary === undefined) {
       const res = await this.sdk.client.getOpeningPrices([marketId as `0x${string}`]);
@@ -314,27 +316,39 @@ export class TempoExchange {
 
   private async marketForRef(ref: string): Promise<BinaryMarketInfo> {
     const lowered = ref.toLowerCase();
+    const matches = (row: BinaryMarketInfo): boolean =>
+      row.marketId.toLowerCase() === lowered ||
+      row.symbol.toLowerCase() === lowered ||
+      row.upSymbol.toLowerCase() === lowered ||
+      row.downSymbol.toLowerCase() === lowered;
+    const cached = this.marketsCache?.rows.find(matches);
+    if (cached) return cached;
     const market = (await this.markets({ maxAgeMs: 0 })).find(
       (row) =>
-        row.marketId.toLowerCase() === lowered ||
-        row.symbol.toLowerCase() === lowered ||
-        row.upSymbol.toLowerCase() === lowered ||
-        row.downSymbol.toLowerCase() === lowered,
+        matches(row),
     );
     if (!market) throw new TempoError("UNAVAILABLE", `live binary market not found for ${ref}`);
     return market;
   }
 
   private async requireTrading(ref: string): Promise<{ market: BinaryMarketInfo; onchain: OnchainMarket }> {
-    const market = await this.marketForRef(ref);
-    const onchain = await this.onchain(market.marketId);
-    if (onchain.status !== 1) {
-      throw new TempoError("MARKET_NOT_TRADING", `${market.symbol} on-chain status is ${onchain.status}, expected 1`, {
-        marketId: market.marketId,
+    const isMarketId = /^0x[0-9a-f]{64}$/i.test(ref);
+    const onchain = isMarketId ? await this.onchain(ref) : undefined;
+    if (onchain && onchain.status !== 1) {
+      throw new TempoError("MARKET_NOT_TRADING", `${ref} on-chain status is ${onchain.status}, expected 1`, {
+        marketId: ref,
         status: onchain.status,
       });
     }
-    return { market, onchain };
+    const market = await this.marketForRef(ref);
+    const checked = onchain ?? (await this.onchain(market.marketId));
+    if (checked.status !== 1) {
+      throw new TempoError("MARKET_NOT_TRADING", `${market.symbol} on-chain status is ${checked.status}, expected 1`, {
+        marketId: market.marketId,
+        status: checked.status,
+      });
+    }
+    return { market, onchain: checked };
   }
 
   /**
@@ -416,23 +430,26 @@ export class TempoExchange {
 
   async mintSet(symbol: string, size: number): Promise<{ hash?: string }> {
     if (this.readonly) throw new TempoError("NO_KEY", "mintSet() requires a signer");
-    await this.requireTrading(symbol);
-    const res = await this.sdk.mintSet(symbol, size);
+    const { market } = await this.requireTrading(symbol);
+    const res = await this.sdk.mintSet(market.symbol, size);
     return await this.assertReceipt(res, `mintSet ${size} ${symbol}`);
   }
 
   async burnSet(symbol: string, size: number): Promise<{ hash?: string }> {
     if (this.readonly) throw new TempoError("NO_KEY", "burnSet() requires a signer");
-    await this.requireTrading(symbol);
-    const res = await this.sdk.burnSet(symbol, size);
+    const { market } = await this.requireTrading(symbol);
+    const res = await this.sdk.burnSet(market.symbol, size);
     return await this.assertReceipt(res, `burnSet ${size} ${symbol}`);
   }
 
   /** Settled (Finalized) markets with claimable outcomes for this wallet. */
-  async claims(limit = 40): Promise<
+  async claims(
+    limit = 40,
+    filter: { asset?: string; intervalSec?: number; venueId?: string } = {},
+  ): Promise<
     Array<{ marketId: string; symbol?: string; resolved: boolean; voided: boolean; winningOutcome?: number; oracleQuestionId?: string; expiry?: number }>
   > {
-    const settled = await this.sdk.client.listBinaryMarkets({ status: "Finalized", limit });
+    const settled = await this.sdk.client.listBinaryMarkets({ ...filter, status: "Finalized", orderBy: "newest", limit });
     return (settled ?? [])
       .sort((a, b) => Number(b.expiry ?? 0) - Number(a.expiry ?? 0))
       .map((m) => {

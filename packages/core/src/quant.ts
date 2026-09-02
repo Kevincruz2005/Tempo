@@ -13,13 +13,13 @@ function assertGrid(grid: bigint): void {
 function rawFromNumber(value: number, decimals: number): bigint {
   assertDecimals(decimals);
   if (!Number.isFinite(value) || value < 0) throw new RangeError(`invalid non-negative value ${value}`);
-  const fixed = value.toFixed(decimals);
-  const [whole, fraction = ""] = fixed.split(".");
-  const scale = 10n ** BigInt(decimals);
-  let raw = BigInt(whole) * scale + BigInt((fraction + "0".repeat(decimals)).slice(0, decimals) || "0");
-  // toFixed rounds; venue quantization must never increase price/size.
-  if (Number(fixed) > value && raw > 0n) raw -= 1n;
-  return raw;
+  const [mantissa, exponentText = "0"] = value.toString().toLowerCase().split("e");
+  const [whole, fraction = ""] = mantissa.split(".");
+  const digits = BigInt(`${whole}${fraction}` || "0");
+  const power = Number(exponentText) - fraction.length + decimals;
+  return power >= 0
+    ? digits * 10n ** BigInt(power)
+    : digits / 10n ** BigInt(-power);
 }
 
 /** Probability to a raw price aligned down to the live tick. */

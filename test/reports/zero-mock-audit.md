@@ -3,7 +3,7 @@
 - Run date: 2026-09-02
 - Scope: production packages, current build documentation, README, and test
   code; captured upstream source documents were excluded.
-- Result: PASS for every runnable read-only/dry-run path.
+- Result: PASS for production reads, funded writes, and dry-run paths.
 
 ## Literal Audit
 
@@ -23,7 +23,8 @@ Command scope:
 ```bash
 rg -n '4e-5|fallbackSigma|catch\(\(\) => 0\)|10 \*\* 6|1e6|1000000' \
   packages docs/PROGRESS.md README.md test \
-  --glob '!test/reports/*.md' --glob '!test/reports/*.png'
+  --glob '!test/reports/*.md' --glob '!test/reports/*.png' \
+  --glob '!test/reports/*.mp4'
 ```
 
 ## Evidence Audit
@@ -35,5 +36,7 @@ rg -n '4e-5|fallbackSigma|catch\(\(\) => 0\)|10 \*\* 6|1e6|1000000' \
 - The dashboard's `MOCKED VALUES = 0` string is an audit label, not a value
   source. Birth/fill animation is journal-triggered.
 - No fixture supplies production economic state.
-- `tempo verify` inspected 2,120 journal records carrying 0 transaction hashes.
-  No hash or receipt is claimed in the absence of funded writes.
+- `tempo verify` inspected 15,316 journal records carrying 31 unique transaction
+  hashes. All 31 receipts were found on Shannon with `success`; failures: 0.
+- The live `PostOnlyWouldCross()` report records the SDK-decoded error but does
+  not invent a failed-transaction hash that the thrown error did not expose.
