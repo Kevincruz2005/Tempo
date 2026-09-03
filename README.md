@@ -116,6 +116,10 @@ ROLL      successor window appears → back to BIRTH
 
 <div align="center">
   <img src="test/reports/dashboard-390x844.png" width="270" alt="Mobile observatory view">
+
+  <br /><br />
+
+  [▶ Watch the 10-second 3D TEMPO flow animation](assets/tempo-flow-animation.mp4)
 </div>
 
 ---
