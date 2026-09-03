@@ -55,9 +55,9 @@
 | Agent decisions journaled (24 h) | **6,274** — every one with its full inputs |
 | Real orders sent (24 h) | **168** → **120 unique transaction hashes** |
 | On-chain fills / settlements claimed | **10 / 3** |
-| Transaction verification | **31/31 hashes checked on-chain, 0 failures** (`tempo verify`) |
-| Fair-value calibration | **Brier 0.0723** · 100% directional on scored markets |
-| Upstream failures absorbed | **996 indexer timeouts — firm crashes: 0** |
+| Transaction verification sample | **31/31 hashes checked on-chain, 0 failures** (`tempo verify`) |
+| Fair-value calibration snapshot | **Brier 0.0723** · 100% directional on scored markets |
+| Operational errors journaled | **996 — firm crashes: 0** |
 | Automated tests | **2,107 passing** (17 files) |
 | Security | `npm audit`: **0 vulnerabilities** · CycloneDX SBOM · SHA256 checksums |
 | Mocked economic values | **0** — audited |
@@ -72,7 +72,7 @@ Traditional exchanges solved this centuries ago with the **opening auction**. Th
 
 **TEMPO is the autonomous opening auction**: an agent firm that attends every window's birth, anchors it with derived two-sided liquidity, reacts at machine speed, manages the endgame, settles, claims, and rolls. A rolling sequence of ephemeral windows becomes **one continuously liquid market**.
 
-**No human. No keeper. No polling loop.**
+**No human market maker or external keeper is required. Market updates react to live events rather than polling.**
 
 ---
 
@@ -131,13 +131,13 @@ Every order from either agent passes the same deterministic **`RiskEngine`** bef
 
 ## 🧠 Verifiable Trading Intelligence
 
-TEMPO doesn't ask you to trust a black-box "AI trader." It leaves evidence.
+TEMPO doesn't ask you to trust a black-box trader. It leaves evidence.
 
 1. **Every estimate is journaled before action** — spot, strike, σ, time, computed probability — labeled `QUANTITATIVE ESTIMATE`. Chain reads are labeled `CHAIN FACT`.
 2. **Every settlement is an on-chain fact.**
 3. **The firm grades itself** — each resolved market scores the appraiser's last pre-expiry estimate against the actual winning outcome:
-   - **Brier score: 0.0723** (0 = perfect, 0.25 = coin-flip)
-   - **Directional accuracy: 100%** on scored markets
+   - **Brier score: 0.0723** across 3 scored markets (0 = perfect, 0.25 = coin-flip)
+   - **Directional accuracy: 100%** on that evaluation snapshot
 4. **The firm learns within hard bounds** — a deterministic calibration loop adjusts exactly two pricing parameters (σ multiplier, taker edge), clamped to **0.5×–2×** of operator defaults, one adjustment per ≥25-market epoch, every adjustment journaled with its reason.
 
 Autonomous. Bounded. Auditable.
@@ -172,7 +172,7 @@ graph TD
 
     Chain -->|events: birth · fills · settlement| Engine
     Engine --> Web[Web observatory :7333<br/>single screen · wallet · docs]
-    Core --> CLI[tempo CLI<br/>15 commands]
+    Core --> CLI[tempo CLI<br/>15 command families]
     Core --> MCP["@tempo/mcp<br/>12 tools for external AI agents"]
 ```
 
@@ -222,7 +222,7 @@ Funded lifecycle of market `0x…010fad` — 2026-09-02:
 
 ## 🧰 Developer Surface
 
-### `tempo` CLI — 15 real commands
+### `tempo` CLI — 15 command families / 16 documented subcommands
 
 ```bash
 tempo doctor            # probe chain / indexer / feed / keys (read-only)
@@ -264,7 +264,7 @@ Live windows · materialized books · fair-value band · firm roster · activity
 │   │                      #   journal, ledger, calibration, exchange (3 SDK tiers)
 │   ├── engine/            # @tempo/engine — GENESIS + VECTOR firm, SSE server,
 │   │                      #   health/readiness, wallet order preparation
-│   ├── cli/               # tempo CLI — 15 commands
+│   ├── cli/               # tempo CLI — 15 command families / 16 subcommands
 │   ├── mcp/               # @tempo/mcp — 12 MCP tools for external AI agents
 │   └── web/public/        # single-screen observatory + docs page
 ├── test/                  # 2,107 tests: unit · sdk · integration · contract ·
@@ -312,6 +312,7 @@ Dry-run is the default everywhere; the firm refuses to sign without keys, and th
 
 ## 🗺️ Next Milestones
 
+- 📡 **Fully event-driven lifecycle** — replace periodic discovery, settlement, balance, and claim refreshes with Somnia event and block subscriptions where protocol support allows; retain bounded retries and health checks for resilience.
 - 📡 **Public anchor infrastructure** — publish every genesis anchor as an auditable record via Somnia Data Streams: market-opening decisions as queryable infrastructure for other agents.
 - 🔑 **Operator-scoped browser trading** — DreamDEX's session-key model for controlled human interaction with the anchored books.
 - 🤖 **Specialized agents** — hedger and laddered endgame quoter inside the same firm-wide risk envelope.
