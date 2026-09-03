@@ -1,456 +1,339 @@
-# TEMPO
+<div align="center">
 
-TEMPO is an autonomous opening-auction firm for DreamDEX Event Contracts on
-Somnia. GENESIS supplies the first two-sided book for a newborn rolling binary
-window; VECTOR independently takes mispriced IOC liquidity. The system follows
-each market through settlement, redemption, and roll with an auditable record
-of every input, estimate, decision, safety gate, transaction, and receipt.
+  # TEMPO
 
-**Primitive:** a machine-native opening and continuous-liquidity service for
-short-lived, fully on-chain event markets.
+  <b>⚡ Every DreamDEX Event Contract is born with an empty book. TEMPO is the opening auction. ⚡</b>
 
-Current release evidence: **2,107/2,107 offline tests pass**, including 2,048
-decimal/economic invariant cases; critical pure-core statement coverage is
-87.35%; dependency audit and repository secret scan report zero findings; and
-31/31 previously recorded Shannon transaction receipts independently verify.
-The final post-change funded validation is recorded in `test/reports/`.
+  <br /><br />
 
-## Problem
+  <img src="test/reports/dashboard-1440x900.png" width="820" alt="TEMPO observatory — live windows, anchored books, agent tape">
 
-Rolling Event Contract windows are short-lived and may open without a useful
-book. Human market makers cannot reliably discover, price, quote, reprice,
-settle, claim, and roll every window at machine cadence. Empty openings reduce
-price discovery precisely when a new market needs an anchor.
+  <br /><br />
 
-## Novelty
+  <img src="https://img.shields.io/badge/TypeScript-strict-black?style=for-the-badge&logo=typescript" alt="TypeScript">
+  <img src="https://img.shields.io/badge/Somnia%20L1-100ms%20blocks-7B3FE4?style=for-the-badge" alt="Somnia">
+  <img src="https://img.shields.io/badge/DreamDEX-Event%20Contracts-FF6B35?style=for-the-badge" alt="DreamDEX">
+  <img src="https://img.shields.io/badge/Node.js-%E2%89%A520-green?style=for-the-badge&logo=node.js" alt="Node">
+  <img src="https://img.shields.io/badge/tests-2%2C107%20passing-brightgreen?style=for-the-badge" alt="Tests">
+  <img src="https://img.shields.io/badge/mocked%20values-0-brightgreen?style=for-the-badge" alt="Zero Mock">
 
-TEMPO turns each market birth into an opening auction. It combines an
-independent reference-price estimator, two economically distinct agents,
-on-chain lifecycle automation, learned calibration from resolved outcomes, and
-receipt-level verification. This is a new automated market behavior, not a UI
-over a generic trade API.
+  <br />
 
-## Why Somnia
+  <a href="https://github.com/Kevincruz2005/Tempo">🐙 Repository</a> •
+  <a href="#-on-chain-proof">📜 On-Chain Proof</a> •
+  <a href="SUBMISSION.md">📋 Submission</a> •
+  <a href="docs/DESIGN.md">📐 Design Doc</a>
 
-Somnia's live log tail, reactivity path, fast blocks, and one-round-trip
-transaction submission make continuous on-chain quoting practical. Removing
-that execution and event cadence turns TEMPO into a slow polling bot and loses
-the intended opening mechanism.
+</div>
 
-## Why DreamDEX
+---
 
-DreamDEX supplies the per-market CLOB, one-book/two-outcome model, opening
-boundary, mint/burn pair inventory, live tick/lot parameters, explicit order
-expiry, finalized registry, and redemption flow. Those mechanics define
-GENESIS and VECTOR; replacing them changes the product rather than its adapter.
+## 📑 Table of Contents
+- [Firm Statistics](#-firm-statistics)
+- [Why TEMPO Matters](#-why-tempo-matters)
+- [Why Somnia? Why DreamDEX?](#-why-somnia-why-dreamdex)
+- [The Mechanism](#-the-mechanism)
+- [The Agent Firm](#-the-agent-firm)
+- [Verifiable Machine Intelligence](#-verifiable-machine-intelligence)
+- [System Architecture](#-system-architecture)
+- [On-Chain Proof](#-on-chain-proof)
+- [Developer Surface](#-developer-surface)
+- [Repository Structure](#-repository-structure)
+- [Installation & Local Setup](#%EF%B8%8F-installation--local-setup)
+- [Next Milestones](#-next-milestones)
 
-## Why Event Contracts
+---
 
-Market birth, a binary opening boundary, expiry, oracle resolution, void
-handling, claim, and successor roll are load-bearing. Without rolling Event
-Contracts, TEMPO has no opening auction or lifecycle to operate.
+## 📊 Firm Statistics
 
-## Why AI
+*All figures journal-derived from live operation on Somnia Shannon testnet (24 h window, 2026-09-02) or independently re-run for this README — nothing simulated, nothing projected.*
 
-The appraiser produces an observable **AI ESTIMATE** from real feed history,
-spot, opening boundary, realized volatility, and time remaining. A learned
-temperature-calibration model fits Brier loss over the latest 30 resolved
-windows and materially changes the uncertainty multiplier used by subsequent
-decisions. VECTOR's edge threshold is also adjusted from its real settlement
-direction. Model name, version, configuration, input-window fingerprint, and
-before/after scores are journaled. Deterministic risk, authorization, and chain
-truth remain outside the model, so learning cannot override safety caps.
+| Metric | Value |
+|:---|:---|
+| Live venue | **DreamDEX Event Contracts** — Somnia Shannon (chain 50312) |
+| Windows observed born (24 h) | **369** (BTC 192 / ETH 177) |
+| Agent decisions journaled (24 h) | **6,274** — every one with its full inputs |
+| Real orders sent (24 h) | **168** → **120 unique transaction hashes** |
+| On-chain fills / settlements claimed | **10 / 3** |
+| Transaction verification | **31/31 hashes checked on-chain, 0 failures** (`tempo verify`) |
+| Fair-value calibration | **Brier 0.0723** · 100% directional on scored markets |
+| Upstream failures absorbed | **996 indexer timeouts — firm crashes: 0** |
+| Automated tests | **2,107 passing** (17 files) |
+| Security | `npm audit`: **0 vulnerabilities** · CycloneDX SBOM · SHA256 checksums |
+| Mocked economic values | **0** — audited |
 
-## Why MCP
+---
 
-The stdio MCP server lets an external agent discover and inspect real Tempo
-markets, books, estimates, risk, positions, settlements, activity, and receipts
-through bounded structured tools. `place_order` is not advertised unless both
-`TEMPO_MCP_WRITES=true` and a signer are present. Enabled writes use the same
-chain-gated `Executor`; MCP never accepts a private key or arbitrary target.
+## 💡 Why TEMPO Matters
 
-## Architecture
+DreamDEX creates a brand-new prediction market every minute — BTC/ETH Up/Down over windows from 60 seconds to 24 hours. Each window is born with an **empty order book**, a published **on-chain opening price**, and a hard expiry. We verified the consequence on-chain: finalized windows appear with `tradeCount: 0` — markets that lived their entire life without ever having a price.
 
-```text
-official feed / indexer / RPC / Somnia logs
-                  |
-        @tempo/core SDK
- exchange + estimate + calibration + risk + quantization
-                  |
-          @tempo/engine
- lifecycle + GENESIS + VECTOR + Executor + journal
-          /              |               \
-       CLI            MCP stdio       HTTP/SSE + web
-```
+Traditional exchanges solved this centuries ago with the **opening auction**. The venue's own bot kit quotes the mid of an *existing* book (falling back to `0.5` at birth) on a 10-second poll — nobody anchors the birth, because no human can economically staff a market that dies in 60 seconds.
 
-`@tempo/core` owns shared domain behavior. The engine, CLI, MCP adapter, and
-wallet preparation path consume it rather than duplicating economic logic.
-`@somnia-chain/markets-sdk` is pinned exactly at `0.29.0`.
+**TEMPO is the autonomous opening auction**: an agent firm that attends every window's birth, anchors it with derived two-sided liquidity, reacts at machine speed, manages the endgame, settles, claims, and rolls. A rolling sequence of ephemeral windows becomes **one continuously liquid market**.
 
-## GENESIS
+**No human. No keeper. No polling loop.**
 
-GENESIS is the maker on its own key. It creates a two-sided opening anchor,
-uses post-only orders, derives grids from the live pool, adapts spread and
-inventory skew, cancels stale quotes, and stops at the endgame boundary.
+---
 
-## VECTOR
+## 🔴 Why Somnia? Why DreamDEX?
 
-VECTOR is the taker on a distinct key. It reads the materialized live book and
-crosses only when the touch clears its calibrated estimate edge. It uses IOC,
-caps collateral and size, and never leaves a remainder resting.
+**Somnia is load-bearing, not a deployment target:**
 
-## Lifecycle
+- **~100 ms blocks, sub-second finality, negligible gas** — continuous re-quoting across all live windows is economical; on Ethereum the gas per cancel/replace would exceed the edge per quote.
+- **`somnia_watch` off-chain reactivity** — book/fill events arrive with same-block read results attached; the quoter reacts in the block era, not on a timer.
+- **One-round-trip writes** — `realtime_sendRawTransaction` confirms send + receipt in a single round trip.
+- **Keeperless settlement** — DreamDEX resolves windows by delivering oracle answers to market contracts through Somnia's **on-chain reactivity**. No keeper, no cron.
+
+**DreamDEX Event Contracts are the mechanism, not a feature:**
+
+- the **on-chain opening price** is the anchor the whole fair-value model is built on
+- the **mint-a-pair path** enables two-sided quoting with **zero inventory**
+- **mandatory order expiry** (capped at the window's own) is a built-in dead-man's switch for autonomous agents
+- the **`Finalized` lifecycle** provides the settlement/claim/roll path
+
+Remove either and TEMPO has nothing to attend.
+
+---
+
+## 🚀 The Mechanism
 
 ```text
-BIRTH -> ANCHOR -> GENESIS -> REPRICE -> ENDGAME -> LOCK
-      -> SETTLE -> CLAIM -> ROLL
+BIRTH     window deploys → discovered the block it lands (chain-log live tail)
+ANCHOR    fair value = Φ( ln(spot/strike) / (σ√t) ) from the official oracle
+          feed vs the on-chain opening price — BEFORE any book exists
+GENESIS   two-sided quote with ZERO inventory (resting Buy Up at p−δ +
+          Buy Down at (1−p)−δ — the venue mints the pair on cross)
+REPRICE   event-driven: fills, price ticks, time decay → cancel/replace
+          in the same block era; inventory skew bends the mid
+ENDGAME   spread tightens with √time; quotes skew toward certainty
+SETTLE    the chain resolves the window (on-chain reactivity — no keeper)
+CLAIM     winnings redeemed on-chain (void-aware: both sides at 0.5)
+ROLL      successor window appears → back to BIRTH
 ```
 
-State is keyed by `marketId`, never recycled pool address. Settled markets are
-found in the finalized registry rather than the live list.
+<div align="center">
+  <img src="test/reports/dashboard-390x844.png" width="270" alt="Mobile observatory view">
+</div>
 
-## Data Flow
+---
 
-Official price ticks and history plus the market opening boundary feed the
-appraiser. The live book and on-chain balances feed agent policy and risk. A
-validated plan reaches the Executor, which rechecks chain state and records the
-receipt. Journal records drive the CLI, dashboard, reports, and verification.
+## 🤖 The Agent Firm
 
-## On-Chain Flow
+Two independent agents, separate keys, separate capital, genuinely different policies over the same live inputs — so they *disagree*, and the disagreement is real trading.
 
-Every trading write requires live on-chain status `1`, current tick and lot,
-collateral decimals read from the token, valid nanosecond expiry, a signer, the
-external RiskEngine verdict, and a non-reverted receipt. `TEMPO_PAUSED=true`
-stops every write boundary immediately.
+| Agent | Role | Policy summary |
+|:---|:---|:---|
+| **GENESIS** | Liquidity-genesis maker | Anchors newborn windows with zero-inventory two-sided quotes; re-prices reactively; manages the endgame; claims and rolls |
+| **VECTOR** | Adversarial taker | Runs its own fair-value estimate; takes IOC liquidity when the touch deviates beyond its edge threshold; stands down otherwise |
 
-## Settlement
+Every order from either agent passes the same deterministic **`RiskEngine`** before signing: per-window inventory caps, per-order collateral caps, firm capital limits, tick/lot grid alignment, expiry headroom, mandatory order expiry. During the recorded 24 h window the engine rejected an order that would have breached the inventory cap — the safety boundary working, on-chain-verifiable in the journal.
 
-The claim sweep reads finalized markets and current on-chain resolution. It
-redeems only the winner, or both outcomes at 0.5 for a void. A successful call
-is recorded only after receipt validation; a losing-side call is never treated
-as a payout.
+**Intentionally no LLM in the hot path** — at ~100 ms block times, deterministic models provide the latency the mechanism requires. An optional LLM narrates reports from journal facts only, labeled `AI NARRATIVE`.
 
-## Wallet
+---
 
-The dashboard discovers EIP-6963 providers with `window.ethereum` fallback.
-Network metadata comes from the active server configuration. Preparation
-rechecks trading status and risk, reads collateral/native balances, constructs
-official SDK calls, and validates every destination against configured protocol
-addresses and live market contracts.
+## 🧠 Verifiable Machine Intelligence
 
-## Connect Wallet
+TEMPO doesn't ask you to trust a black-box "AI trader." It leaves evidence.
 
-`Review IOC` displays account, network, market, side, size, limit, expiry,
-worst-case cost, available collateral, destinations, and native value. It does
-**not** sign. The user must select `Confirm in wallet` separately. Account or
-network changes, cancellation, disconnects, insufficient funds, expired calls,
-bad destinations, malformed hashes, and reverted/malformed receipts fail
-closed. Agent keys never enter the browser.
+1. **Every estimate is journaled before action** — spot, strike, σ, time, computed probability — labeled `AI ESTIMATE`. Chain reads are labeled `CHAIN FACT`.
+2. **Every settlement is an on-chain fact.**
+3. **The firm grades itself** — each resolved market scores the appraiser's last pre-expiry estimate against the actual winning outcome:
+   - **Brier score: 0.0723** (0 = perfect, 0.25 = coin-flip)
+   - **Directional accuracy: 100%** on scored markets
+4. **The firm learns within hard bounds** — a deterministic calibration loop adjusts exactly two pricing parameters (σ multiplier, taker edge), clamped to **0.5×–2×** of operator defaults, one adjustment per ≥25-market epoch, every adjustment journaled with its reason.
 
-## Security
+Autonomous. Bounded. Auditable.
 
-TEMPO has no database or SQL layer, so SQL injection has no application surface.
-Relevant boundaries are hardened instead:
+---
 
-- Loopback bind by default, GET-only routes, Host and same-origin enforcement.
-- CSP, frame denial, MIME-sniff prevention, origin isolation, and no-referrer.
-- URL/header/request-rate and SSE client bounds; static path containment.
-- Zod MCP schemas, 16 KiB argument limit, 10-second timeout, tool allowlist.
-- Recursive credential redaction and browser HTML/URL output encoding.
-- Exact SDK pin, strict TypeScript, npm audit, and repository secret scan in CI.
-- No key in snapshots, reports, browser state, MCP arguments, or errors.
-- Emergency `TEMPO_PAUSED` kill switch and read-only/dry-run defaults.
+## 🏛️ System Architecture
 
-The project deploys no custom contracts; contract-level reentrancy and admin
-analysis are therefore `N/A`. Protocol contracts remain the official
-DreamDEX/Somnia deployment. See [Security Operations](docs/SECURITY.md).
+```mermaid
+graph TD
+    Feed[Official oracle price feed<br/>spot + EMA] -->|appraiser| Core
+    Tail[Chain logs · live tail ·<br/>somnia_watch reactivity] --> Core
 
-## Risk Controls
+    subgraph Core["@tempo/core (typed Node SDK)"]
+        FV[fair value · risk engine<br/>policies · journal · ledger<br/>calibration · verification]
+    end
 
-The shared `RiskEngine` enforces probability bounds, lot-positive size,
-per-order collateral, net/gross inventory, firm capital, open-order count,
-realized loss, time-to-expiry, and VECTOR edge. Configuration has numeric and
-cross-field bounds. Risk caps are never learned or model-controlled.
+    Core --> Engine
+    subgraph Engine["@tempo/engine"]
+        GEN[GENESIS — maker]
+        VEC[VECTOR — taker]
+        SSE[SSE server /health /ready]
+    end
 
-## Zero-Mock
+    GEN -->|placeOrder · mintSet · redeem<br/>via @somnia-chain/markets-sdk| Chain
+    VEC -->|IOC orders| Chain
 
-Production prices, books, status, balances, fills, settlements, and hashes come
-from official services or chain reads. Estimates are deterministic/learned math
-over those real inputs and are labeled. Missing state remains `UNAVAILABLE`,
-`PENDING`, or `NO DATA`. Tests use mathematical cases but production has no
-fixture or intercepted-network fallback.
+    subgraph Chain["Somnia Shannon 50312 — DreamDEX"]
+        Pools[BinaryMarketsModule · pools]
+        SET[Oracle-settled windows<br/>on-chain reactivity · no keeper]
+    end
 
-## Provenance
+    Chain -->|events: birth · fills · settlement| Engine
+    Engine --> Web[Web observatory :7333<br/>single screen · wallet · docs]
+    Core --> CLI[tempo CLI<br/>15 commands]
+    Core --> MCP["@tempo/mcp<br/>12 tools for external AI agents"]
+```
 
-| Value | Classification | Source |
-| --- | --- | --- |
-| Spot / EMA | fact | official Somnia price feed |
-| Opening / status / grid | fact | DreamDEX indexer plus on-chain read |
-| Book / fills | fact | markets SDK Somnia log tail |
-| Balances | fact | collateral ERC-20 and outcome ERC-6909 |
-| Settlement | fact | finalized registry, chain, oracle link |
-| Fair value / sigma | AI estimate | documented model over real inputs |
-| Inventory / P&L | derived | real fills and settlement |
+**One core. Three surfaces. No duplicated trading logic.**
 
-## Observability
+---
 
-Every new record receives an `eventId`; decisions receive a `decisionId` that
-correlates plans and execution. Records can include agent, source, market ID,
-contract address, model/config version, block, transaction hash, and exact
-inputs. JSONL replay is deterministic and `tempo verify` rechecks hashes by RPC.
+## ✅ On-Chain Proof
 
-## CLI
+**All transactions below are real, live on [shannon-explorer.somnia.network](https://shannon-explorer.somnia.network), and independently verifiable via `tempo verify` (31/31 checked, 0 failures).**
+
+Funded lifecycle of market `0x…010fad` — 2026-09-02:
+
+| Step | Agent | Transaction |
+|:---|:---|:---|
+| Testnet collateral minted | GENESIS | [`0x7a78a4…`](https://shannon-explorer.somnia.network/tx/0x7a78a4f4ca13cc59c94ee6d1a78c03bead20112ef71ae1adcd1f3850b4f6561a) |
+| Testnet collateral minted | VECTOR | [`0xb51c35…`](https://shannon-explorer.somnia.network/tx/0xb51c35c96f3bcd8b061c4f956b946d2177d1276f7ca1c9849ee16aeb160375b1) |
+| Complete set minted | GENESIS | [`0xe4cfac…`](https://shannon-explorer.somnia.network/tx/0xe4cfacbcccf7100a16bdec6d91b77b7a36d1137125cd6f072115b05c14c31710) |
+| Post-only anchor quote resting | GENESIS | [`0x61df88…`](https://shannon-explorer.somnia.network/tx/0x61df8841b3fe0b505415ce28f983c888f24c8bce712d32003cdce6416af9e0b7) |
+| Requote — stale order cancelled | GENESIS | [`0xec1a64…`](https://shannon-explorer.somnia.network/tx/0xec1a645007bc031ddf1ea16e5d21b1bdf6291f634dee9c03955c37f1506028ed) |
+| Post-only sell (inventory side) | GENESIS | [`0x55343b…`](https://shannon-explorer.somnia.network/tx/0x55343bb33a3683fd4077f28e724e931b7d9977b7e0d812252369a8f05268ac23) |
+| **IOC take — real fill** | **VECTOR** | [`0x3d2cc4…`](https://shannon-explorer.somnia.network/tx/0x3d2cc41de74db30eb8811609cdee105e9657a7dce2b463236b3a5618a6b26079) |
+
+…continuing through settlement observation, on-chain redemption, and the automatic roll. Full ledger with block numbers and timestamps: [`test/reports/full-onchain-mode.md`](test/reports/full-onchain-mode.md).
+
+<details>
+<summary><b>DreamDEX protocol contracts TEMPO trades through (CREATE3 — identical on testnet 50312 and mainnet 5031)</b></summary>
+<br>
+
+| Contract | Address |
+|:---|:---|
+| BinaryMarketsModule | [`0x3ecC694Cef705358864a646142ac17A90E29e388`](https://shannon-explorer.somnia.network/address/0x3ecC694Cef705358864a646142ac17A90E29e388) |
+| MarketsCore | `0x2802504314685D89bF6C992CA5a8e7cC78bc0294` |
+| BinarySettlement | `0xbF4a49e0Dfd092e5FBE8E5761064C49533e6Ed23` |
+| OutcomeToken6909 | `0xB52c5934113Af5c0Bb20eb3C72290C8215f755b9` |
+| OracleHub | `0xe40db387cC98601Dd11bd634fF2f3AD5686dE32b` |
+| CollateralRouter | `0xbC0C9834B15ACE38bB50dDaa7d7f7C7CC4DC183C` |
+| Collateral (testnet tUSDC, 6 dec) | `0x70a86D8842FB63C4Ad2b7cdddF530eBf1BB25d8E` |
+
+*Per-market contracts (market + pool) are read from the module registry at runtime — never hardcoded; pools are recycled across windows. Decimals, venue IDs, and tick/lot grids are all derived from the chain.*
+
+</details>
+
+> The firm runs with **zero mocked state**: every displayed value carries a provenance class (`price-feed` · `on-chain` · `policy` · `derived`); unavailable data renders honestly as `UNAVAILABLE` / `NO DATA` / `PENDING`. Audit: [`test/reports/zero-mock-audit.md`](test/reports/zero-mock-audit.md).
+
+---
+
+## 🧰 Developer Surface
+
+### `tempo` CLI — 15 real commands
+
+```bash
+tempo doctor            # probe chain / indexer / feed / keys (read-only)
+tempo markets           # live windows: series, seconds-left, venue
+tempo book <frag>       # one window's book + strike + spot + grid
+tempo watch             # streaming book view (live tail)
+tempo agents            # firm roster + balances
+tempo positions         # outcome balances per agent
+tempo firm simulate     # run the firm — decisions journaled, nothing sent
+tempo firm start        # run the firm for real (funded keys)
+tempo trade <frag> <up|down> <qty>   # manual IOC order
+tempo claims [--claim]  # settled markets + redeem winnings
+tempo settlements       # recently settled windows + oracle links
+tempo activity          # journal tape: events → decisions → txs
+tempo verify            # cross-check every journal tx hash on-chain
+tempo report [--llm]    # firm report from the journal (Brier + execution stats)
+tempo calibrate         # run a calibration epoch on demand
+```
+
+### `@tempo/core` — typed Node SDK (v0.2.0)
+
+Strict TypeScript, CycloneDX SBOM, SHA256 checksums, clean-environment consumer-verified. Config, exchange wrapper across **all three `@somnia-chain/markets-sdk` tiers** (unified / client / trader), fair-value engine, risk engine, policies, journal, ledger, calibration, report generation. Full API reference on the docs page (`/docs.html`).
+
+### `@tempo/mcp` — 12 MCP tools for external AI agents
+
+10 read tools (`discover_markets`, `inspect_event_contract`, `get_live_book`, `get_fair_value`, `get_settlement`, `verify_receipt`, …), an always-dry-run `simulate_trade`, and an opt-in `place_order` gated behind `TEMPO_MCP_WRITES=true` that still routes through the same `RiskEngine`. Schema-validated, journaled, zero key exposure.
+
+### Web observatory — one screen, zero page scroll
+
+Live windows · materialized books · fair-value band · firm roster · activity tape with real tx hashes · settlement feed with oracle-explorer audit links · SSE live stream · Connect Wallet (pre-sign summary, read-only address watching) · `/health` + `/ready`.
+
+---
+
+## 📂 Repository Structure
 
 ```text
-tempo doctor                         tempo markets
-tempo watch [--asset BTC]            tempo book <fragment>
-tempo agents                         tempo positions
-tempo firm simulate|start            tempo trade <ref> <up|down> <qty>
-tempo claims [--claim]               tempo settlements [--limit N]
-tempo activity [--n N]               tempo verify
-tempo backtest [--limit N]           tempo report [--since 24h] [--llm]
-tempo calibrate [--force]            tempo mcp
-tempo faucet
+├── packages/
+│   ├── core/              # @tempo/core — typed SDK: fair value, risk, policies,
+│   │                      #   journal, ledger, calibration, exchange (3 SDK tiers)
+│   ├── engine/            # @tempo/engine — GENESIS + VECTOR firm, SSE server,
+│   │                      #   health/readiness, wallet order preparation
+│   ├── cli/               # tempo CLI — 15 commands
+│   ├── mcp/               # @tempo/mcp — 12 MCP tools for external AI agents
+│   └── web/public/        # single-screen observatory + docs page
+├── test/                  # 2,107 tests: unit · sdk · integration · contract ·
+│   │                      #   e2e · failure · security · economic · cli · reports/
+├── docs/                  # DESIGN · RECONNAISSANCE · SECURITY · research corpus
+├── release/               # SDK tarballs · CycloneDX SBOMs · SHA256SUMS
+├── probe/                 # read-only live venue probes
+├── SUBMISSION.md          # hackathon submission description
+└── originality_package.md # pitch reframe · differentiation table · demo script
 ```
 
-Run with `npm run cli -- <command>`. Write commands fail without an authorized
-signer and when the pause switch is active.
+---
 
-## Node.js SDK
+## 🛠️ Installation & Local Setup
 
-`@tempo/core` is a Node 20+ ESM package with TypeScript declarations, package
-README, changelog, MIT license, checksum, and SBOM. The GitHub release is tagged
-`sdk-v0.3.0`.
-
-## SDK Install And Examples
-
-```bash
-npm install https://github.com/Kevincruz2005/Tempo/releases/download/sdk-v0.3.0/tempo-core-0.3.0.tgz
-```
-
-```ts
-import { loadConfig, TempoExchange } from "@tempo/core";
-
-const exchange = new TempoExchange({ config: loadConfig() });
-const [market] = await exchange.markets();
-if (!market) throw new Error("NO DATA");
-const state = await exchange.onchain(market.marketId);
-const opening = await exchange.openingPrice(market.marketId);
-console.log({ market, state, opening });
-await exchange.close();
-```
-
-The artifact URL becomes anonymously installable after the repository is made
-public. Full API details are in the [developer portal](packages/web/public/docs.html).
-
-## MCP
-
-```bash
-npm run cli -- mcp
-```
-
-Read tools return JSON text plus MCP `structuredContent`. All calls are bounded
-and journaled as agent `MCP` using a SHA-256 argument fingerprint. The write
-tool is absent by default.
-
-## API
-
-| Endpoint | Purpose |
-| --- | --- |
-| `GET /health` | cheap deterministic liveness |
-| `GET /ready` | live indexer/RPC/feed/tail readiness |
-| `GET /api/state` | bounded sanitized firm snapshot |
-| `GET /api/stream` | journal-backed SSE |
-| `GET /api/journal?n=N` | bounded recent records |
-| `GET /api/provenance` | data-source map |
-| `GET /api/wallet/config` | safe active-chain wallet metadata |
-| `GET /api/wallet/activity` | address-attributed live fills/orders |
-| `GET /api/wallet/prepare` | unsigned validated wallet calls |
-
-## Health
-
-`GET /health` returns only status, service, and package version. It performs no
-chain, market, or AI operation and never exposes environment state.
-
-## Readiness
-
-`GET /ready` checks the real indexer, advancing RPC head, configured price
-feeds, and SDK tail once requested. It returns `200` only when ready and `503`
-otherwise; optional narrative generation never affects readiness.
-
-## Web App
-
-`npm run firm` serves the fixed-viewport live operator dashboard and
-`/docs.html` on `http://127.0.0.1:7333`. Market activity shown in the UI is
-journal or chain backed; no decorative fake trades are generated.
-
-## Configuration
-
-Copy `.env.example`. All values are validated and official endpoints are the
-defaults. Controls include `TEMPO_NETWORK`, `TEMPO_DRY_RUN`, `TEMPO_PAUSED`,
-agent keys, `TEMPO_MCP_WRITES`, endpoint overrides, asset/journal/host settings,
-and all documented `TEMPO_*` risk limits. Never pass secrets on CLI arguments
-or commit `.env`.
-
-## Testnet
-
-Use Somnia Shannon chain `50312`. Fund both distinct agent accounts with STT,
-then use `npm run faucet` for official test collateral. Run the live probe
-before writes and treat its output as ground truth. Venue IDs are discovered,
-not silently hardcoded.
-
-## Full On-Chain Mode
-
-```bash
-npx tsx probe/live-probe.ts
-TEMPO_DRY_RUN=false npm run test:contract
-TEMPO_DRY_RUN=false npm run test:e2e
-npm run cli -- verify
-```
-
-The path is discovery -> state -> real data -> decision -> real order ->
-receipt -> fill/state change -> settlement -> claim -> independent verification.
-
-## Testing
-
-```bash
-npm test
-npm run test:coverage
-npm run test:live
-npm run test:chain-gate
-npm run test:mcp-live
-npm run test:cli-live
-npm run security:check
-```
-
-## 2,000+ Evidence
-
-The offline suite currently runs 2,107 named cases. The 2,048-case invariant
-matrix spans 6- and 18-decimal grids, boundary probabilities, and raw/human/raw
-round trips; remaining tests directly cover config, wallet, calibration, MCP,
-health, HTTP, security, failure, policy, ledger, report, and CLI behavior. The
-distribution is driven by applicable risk, not artificial per-folder quotas.
-
-## Security Evidence
-
-CI runs secret scanning, strict package type checks, offline tests, an 85%
-critical-core coverage threshold, high-severity dependency audit, and SDK
-package dry-run. The current manual/security report is
-`test/reports/security.md`.
-
-## Live Transactions
-
-Real transaction hashes and independently checked receipt statuses are listed
-in `test/reports/full-onchain-mode.md`, `test/reports/contract-live.md`, and
-`test/reports/verify-20260902.md`. Failed/reverted transactions are not counted
-as successes.
-
-## Reproducibility
+**Requires Node ≥ 20. No keys needed for read-only / dry-run.**
 
 ```bash
 git clone https://github.com/Kevincruz2005/Tempo.git
 cd Tempo
-npm ci
+npm install
 cp .env.example .env
-npm run security:check
-npm test
-npm run firm
+
+npm test                  # 2,107 tests — includes live read-only venue checks
+npm run firm              # dry-run firm + observatory → http://localhost:7333
 ```
 
-Anonymous clone works after repository visibility is changed to public. A local
-clean-clone proof is recorded separately without copying secrets.
+**Going live on Shannon testnet** (real transactions, testnet funds):
 
-## Demo
-
-The demo shows live rolling windows, estimate provenance, distinct agent
-decisions, wallet review, journal correlation, settlement, and verified funded
-hashes. Recording commands and checksums are under `test/reports/`.
-
-## Project Structure
-
-```text
-packages/core     reusable SDK and safety primitives
-packages/engine   agents, lifecycle, Executor, HTTP/SSE
-packages/cli      operator CLI
-packages/mcp      external agent tools
-packages/web      dashboard and developer documentation
-probe             known-good live connectivity probe
-test              offline/live runners, artifacts, reports
-docs              design, security, final build record
+```bash
+# 1. Generate two funded keys (faucet: t.me/+XHq0F0JXMyhmMzM0 for test STT)
+#    and put them in .env: TEMPO_KEY_MAKER / TEMPO_KEY_TAKER
+# 2. Mint testnet collateral (10k tUSDC per call)
+npm run faucet
+# 3. Arm and launch
+#    set TEMPO_DRY_RUN=false in .env
+npx tsx packages/cli/src/index.ts firm start
+# 4. Verify every transaction the firm ever made
+npx tsx packages/cli/src/index.ts verify
 ```
 
-## Development
+Dry-run is the default everywhere; the firm refuses to sign without keys, and the risk engine gates every order regardless of surface (firm, CLI, wallet, MCP).
 
-Use Node 20+, `npm ci`, `npm run typecheck`, `npm test`, and
-`npm run test:coverage`. Preserve exact SDK `0.29.0`, zero-mock behavior, and
-chain gating for every write. Do not add writes outside the core exchange and
-engine Executor boundaries.
+---
 
-## Deployment
+## 🗺️ Next Milestones
 
-The built-in service is local/operator scoped. A remote deployment must keep
-TEMPO behind authenticated TLS ingress, retain a loopback upstream bind, use
-scoped operator keys, and expose only intended dashboard routes. The public
-hosted endpoint remains blocked until repository/deployment visibility is an
-explicit operator action.
+- 📡 **Public anchor infrastructure** — publish every genesis anchor as an auditable record via Somnia Data Streams: market-opening decisions as queryable infrastructure for other agents.
+- 🔑 **Operator-scoped browser trading** — DreamDEX's session-key model for controlled human interaction with the anchored books.
+- 🤖 **Specialized agents** — hedger and laddered endgame quoter inside the same firm-wide risk envelope.
+- ⚙️ **Mainnet** — a configuration switch (`TEMPO_NETWORK=mainnet`); addresses are CREATE3-identical, decimals/venues/grids are runtime-derived.
 
-## Troubleshooting
+---
 
-- No markets: run the live probe, inspect the discovered venue ID, then check
-  indexer and RPC readiness.
-- `NO DATA`: wait for sufficient official feed history; do not set a fallback.
-- `MARKET_NOT_TRADING`: select a new live window; the chain gate is working.
-- `PostOnlyWouldCross`: the book moved; GENESIS will reprice.
-- Wallet blocked: check active chain, collateral/STT, expiry, and review state.
-- `TEMPO_PAUSED`: an operator activated the emergency write stop.
+## 📄 License
 
-## Failure Handling
+MIT — see `LICENSE` for details.
 
-Typed failures cover missing keys, unavailable dependencies, closed/expired
-markets, grid errors, risk rejection, unfilled/reverted orders, and unavailable
-receipts. Network gaps never become zero-valued market facts. Post-only crossing
-is a reprice event, while ambiguous receipts fail closed.
+---
 
-## Limitations
+<div align="center">
 
-Liquidity and collateral are testnet constrained. Indexer data may lag chain
-state. Learned calibration requires resolved real windows. Public GitHub and
-hosted documentation depend on the operator making the repository public. A
-real injected-wallet screenshot requires a human wallet session and is not
-fabricated by automation.
+**The machine does not ask to be trusted — it leaves evidence.**
 
-## Roadmap
+*Every number in this README is derived from the journal or read from the chain.*
+*Run `tempo verify` and check us.*
 
-Production work includes scoped Somnia operator/session authorization, audited
-remote ingress, deeper calibrated history, multi-asset series, and mainnet
-activation only after addresses/feed configuration are independently verified.
-
-## Competitive Differentiation
-
-Compared with a quote-only EC bot, TEMPO adds birth anchoring, a separate-key
-taker, a complete settlement/claim/roll lifecycle, learned outcome calibration,
-human wallet review, MCP interoperability, and receipt-correlated observability.
-
-## Product Potential
-
-The service can become shared opening infrastructure for short-lived event
-series: venue-sponsored liquidity, strategy SDKs, agent-operated market desks,
-and verifiable calibration analytics. Its defensibility is operational history
-and safe lifecycle automation rather than a frontend skin.
-
-## License
-
-MIT. See [LICENSE](LICENSE).
-
-## Evidence Links
-
-- [Final checklist](test/reports/final-checklist.md)
-- [Submission gate](test/reports/submission-gate.md)
-- [Full on-chain evidence](test/reports/full-onchain-mode.md)
-- [MCP live evidence](test/reports/mcp-live.md)
-- [Wallet evidence](test/reports/wallet-flow.md)
-- [Health/readiness evidence](test/reports/health-endpoint.md)
-- [Security evidence](test/reports/security.md)
-- [SDK release evidence](test/reports/release.md)
-- [40-section final record](docs/FINAL.md)
-- [Developer documentation](packages/web/public/docs.html)
+</div>
