@@ -14,7 +14,7 @@
 | Documentation page | PASS | `/docs.html` documents SDK, APIs, configuration, wallet, security, calibration, MCP, health, and testing |
 | README A-Z | PASS | features, provenance, security, limitations, reproducibility, and evidence links |
 | Security gate | PASS | secret scan, strict typecheck, audit, tests, coverage, security operations doc |
-| SDK release | PASS PENDING TAG | package version is `@tempo/core@0.3.0`; immutable tag/release is created after the final commit |
+| SDK release | PASS | `sdk-v0.3.0` tag and GitHub Release publish `@tempo/core@0.3.0` with tarball and SHA-256 asset |
 | Public repository | OWNER PENDING | user explicitly deferred visibility change until after completion |
 
 ## Final Gate Numbers

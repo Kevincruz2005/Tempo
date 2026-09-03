@@ -2,29 +2,26 @@
 
 - Date: 2026-09-03
 - Repository: `Kevincruz2005/Tempo`
-- Implementation commit: `8d03791`
-- Final release commit: `aa0f2f1fe1f763d09a312b5018f59b9024440a61`
-- Post-release readiness hardening on `main`: `9d3440b7c219e2209f945e5de13a22db3f389790`
-- SDK: `@tempo/core` `0.2.0`
-- Tag: `sdk-v0.2.0`
-- GitHub release: https://github.com/Kevincruz2005/Tempo/releases/tag/sdk-v0.2.0
+- Release commit: `63673a0`
+- SDK: `@tempo/core` `0.3.0`
+- Immutable tag: `sdk-v0.3.0`
+- GitHub Release: https://github.com/Kevincruz2005/Tempo/releases/tag/sdk-v0.3.0
 
-## Artifact verification
+## Published Assets
 
-- Tarball: `release/tempo-core-0.2.0.tgz`
-- SHA-256: `fc9b51fe3e9b5e8e0dbc87a3da05ab74fae96f05607d7de8ad4fd9d5f38c4e1c`
-- Checksum file: `release/SHA256SUMS-v020`
-- SBOM: `release/tempo-core-0.2.0-sbom.cdx.json` (CycloneDX 1.5, 16 dependency components)
-- Consumer smoke test: ESM runtime import PASS; strict TypeScript declaration compile PASS; production dependency audit PASS (0 vulnerabilities)
-- Package contents include `dist/wallet.js`, `dist/calibration.js`, declarations, README, changelog, and license.
-- GitHub API reports three release assets; authenticated API download is byte-identical to the local tarball.
+- Tarball: `tempo-core-0.3.0.tgz` (37,149 bytes)
+- SHA-256: `d1b171768f5f2669e07a4932e8fb5edc262782362f3f287c68137669cd4ded18`
+- Checksum asset: `SHA256SUMS-v030`
+- Install URL:
+  `https://github.com/Kevincruz2005/Tempo/releases/download/sdk-v0.3.0/tempo-core-0.3.0.tgz`
 
-## Repository gates
+## Release Gates
 
-- `npm test`: 2,099/2,099 PASS across 17 files
-- Strict `tsc --noEmit`: core, engine, CLI, and MCP PASS
-- `node --check packages/web/public/wallet.js`: PASS
-- `npm audit --audit-level=high`: 0 vulnerabilities
-- Live MCP stdio probe: PASS (12 tools, 14 live rows, writes disabled)
-- Health/readiness curls: PASS (`/health` 200, `/ready` 200)
-- Full Shannon evidence: 31/31 receipt hashes successful
+- `npm test`: 2,107/2,107 PASS across 17 files.
+- `npm run test:coverage`: 87.35% statements for critical pure core modules
+  (85% required threshold).
+- `npm run security:check`: secret scan, strict typecheck, and high-severity
+  dependency audit PASS.
+- `npm pack --workspace @tempo/core --pack-destination release`: PASS.
+- `node --check packages/web/public/wallet.js`: PASS.
+- `test/reports/contract-live.md`: fresh funded Shannon sequence and redemption PASS.
