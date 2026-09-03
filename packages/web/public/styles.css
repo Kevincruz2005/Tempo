@@ -10,6 +10,8 @@ button { font: inherit; color: inherit; }
 .tagline, .sub, .statusline, small { color: #8e98a5; font-size: 11px; }
 .pillrow { display: flex; gap: 6px; }
 .pill { border: 1px solid #333a43; padding: 4px 7px; font: 600 10px ui-monospace, monospace; color: #b9c2cb; }
+.navlink { border: 1px solid #3a4545; padding: 4px 8px; color: #33d69f; font: 700 10px ui-monospace, monospace; text-decoration: none; }
+.navlink:hover { background: #17211f; border-color: #33d69f; }
 .grid { min-height: 0; display: grid; grid-template-columns: minmax(220px, 0.75fr) minmax(420px, 1.65fr) minmax(280px, 1fr); grid-template-rows: 0.8fr 1.1fr 0.8fr; }
 .panel { min-width: 0; min-height: 0; border-right: 1px solid #252a31; border-bottom: 1px solid #252a31; display: flex; flex-direction: column; }
 .panel h2 { height: 38px; flex: 0 0 38px; margin: 0; padding: 11px 12px; border-bottom: 1px solid #252a31; font-size: 12px; text-transform: uppercase; }
@@ -67,6 +69,7 @@ dt, dd { margin: 0; }
   .brand { gap: 7px; }
   .pillrow { gap: 4px; }
   .pill { padding: 4px; }
+  .navlink { padding: 4px 5px; }
   .grid { grid-template-columns: 145px minmax(0, 1fr); grid-template-rows: 1fr; }
   #panel-firm, #panel-tape, #panel-settlements { display: none; }
   .window { padding-inline: 7px; }

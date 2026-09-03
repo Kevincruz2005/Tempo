@@ -8,4 +8,5 @@ export * from "./policies.js";
 export * from "./exchange.js";
 export * from "./ledger.js";
 export * from "./provenance.js";
+export * from "./report.js";
 export * from "./types.js";

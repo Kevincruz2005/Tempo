@@ -52,13 +52,13 @@
 ## Developer Product
 
 - [x] CLI implemented and documented
-- [x] Reusable typed `@tempo/core` implemented and documented
+- [x] Reusable typed `@tempo/core` implemented, documented, compiled, and published as GitHub Release `sdk-v0.1.0`
 - [x] CLI and web share core/engine paths
 - [x] SDK quickstart and provenance matrix in README
 
 ## Testing
 
-- [x] Offline unit/failure/security/economic/CLI: 2,086 passed, including 2,048 invariant cases and 12 security-boundary cases
+- [x] Offline unit/failure/security/economic/CLI: 2,089 passed, including 2,048 invariant cases, 12 security-boundary cases, and report aggregation coverage
 - [x] Live SDK/integration: 3 passed
 - [x] Live non-trading chain gate: 1 passed
 - [x] Security runtime probes passed; dependency audit reports 0 vulnerabilities
@@ -110,5 +110,6 @@ All required answers are **NO**.
 - Receipt replay: `test/reports/verify-20260902.md`
 - Demo: `test/reports/demo-20260902.md`
 - Security: `test/reports/security-20260902.md`
-- Offline/live tests: `test/reports/offline-20260902.md`,
+- Node SDK release: `test/reports/sdk-release-20260903.md`
+- Offline/live tests: `test/reports/offline-20260903.md`,
   `test/reports/live-read-20260902.md`, and `test/reports/cli-live.md`

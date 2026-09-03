@@ -25,6 +25,8 @@ describe("security boundaries", () => {
   it("contains static paths and rejects traversal, dotfiles, and backslashes", () => {
     expect(resolveStaticFile("/srv/tempo", "/")).toBe("/srv/tempo/index.html");
     expect(resolveStaticFile("/srv/tempo", "/app.js")).toBe("/srv/tempo/app.js");
+    expect(resolveStaticFile("/srv/tempo", "/docs.html")).toBe("/srv/tempo/docs.html");
+    expect(resolveStaticFile("/srv/tempo", "/assets/dashboard.png")).toBe("/srv/tempo/assets/dashboard.png");
     expect(resolveStaticFile("/srv/tempo", "/%2e%2e/secret")).toBeUndefined();
     expect(resolveStaticFile("/srv/tempo", "/../secret")).toBeUndefined();
     expect(resolveStaticFile("/srv/tempo", "/.env")).toBeUndefined();

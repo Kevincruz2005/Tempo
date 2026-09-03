@@ -452,6 +452,68 @@ async function main(): Promise<void> {
       return;
     }
 
+    case "report": {
+      const { buildReport, aggregate, renderMarkdown, Journal } = await import("@tempo/core");
+      const j = new Journal(cfg.journalDir, "tempo");
+      const sinceArg = flag("since", "24h") ?? "24h";
+      const hours = /^(\d+)h$/.test(sinceArg) ? Number(sinceArg.slice(0, -1)) : 24;
+      const sinceMs = Date.now() - hours * 3600_000;
+      const records = j.readFiles(sinceMs);
+      const stats = aggregate(records, new Date(sinceMs).toISOString(), new Date().toISOString());
+      let md = renderMarkdown(stats);
+
+      // Optional AI narrative: stats-only prompt, clearly labeled in the output.
+      // Without a key the report stays fully deterministic (and says so).
+      const apiKey = process.env.TEMPO_LLM_API_KEY ?? process.env.OPENAI_API_KEY;
+      const wantsLlm = hasFlag("llm");
+      if (wantsLlm && !apiKey) {
+        md += "\n> AI narrative requested but no TEMPO_LLM_API_KEY/OPENAI_API_KEY configured — omitted. The report above is complete without it.\n";
+      } else if (wantsLlm && apiKey) {
+        try {
+          const url = process.env.TEMPO_LLM_URL ?? "https://api.openai.com/v1/chat/completions";
+          const model = process.env.TEMPO_LLM_MODEL ?? "gpt-4o-mini";
+          const res = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+            body: JSON.stringify({
+              model,
+              temperature: 0.2,
+              messages: [
+                {
+                  role: "system",
+                  content:
+                    "You write executive summaries of an autonomous trading firm's operations report. " +
+                    "STRICT RULES: use ONLY the numbers in the provided stats — never invent or extrapolate a value. " +
+                    "If a metric is zero or absent, say so plainly. Be concise: 6-10 sentences, no headers, no markdown lists.",
+                },
+                { role: "user", content: JSON.stringify(stats) },
+              ],
+            }),
+          });
+          if (!res.ok) throw new Error(`LLM API ${res.status}: ${(await res.text()).slice(0, 120)}`);
+          const body = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+          const text = body.choices?.[0]?.message?.content ?? "";
+          if (!text) throw new Error("empty completion");
+          md = renderMarkdown(stats, { model, text });
+        } catch (e) {
+          md += `\n> AI narrative failed (${String(e).slice(0, 120)}) — deterministic report stands.\n`;
+        }
+      }
+
+      const outPath = flag("out");
+      if (outPath) {
+        const { writeFileSync, mkdirSync } = await import("node:fs");
+        const { dirname } = await import("node:path");
+        mkdirSync(dirname(outPath), { recursive: true });
+        writeFileSync(outPath, md);
+        out(`report written to ${outPath} (${md.split("\n").length} lines)`);
+      } else {
+        out(md);
+      }
+      process.exit(0);
+      break;
+    }
+
     default: {
       out("TEMPO — the autonomous opening auction for DreamDEX Event Contracts");
       out("");
@@ -469,6 +531,7 @@ async function main(): Promise<void> {
       out("  backtest [--limit N]    real-feed fair-value replay on finalized windows");
       out("  activity [--n 50]       journal tape: events → decisions → txs");
       out("  verify                  cross-check journal tx hashes on-chain");
+      out("  report [--since 24h] [--llm] [--out f]   firm report from the journal (optional AI narrative)");
       out("  faucet                  mint testnet collateral (testnet, keys required)");
       process.exit(0);
     }

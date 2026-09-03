@@ -9,6 +9,8 @@
   "description": "TEMPO — the autonomous opening auction for DreamDEX Event Contracts on Somnia",
   "license": "MIT",
   "scripts": {
+    "prepare": "npm run build:sdk",
+    "pretest": "npm run build:sdk",
     "firm": "tsx packages/cli/src/index.ts firm simulate",
     "web": "tsx packages/cli/src/index.ts firm simulate",
     "cli": "tsx packages/cli/src/index.ts",
@@ -19,7 +21,8 @@
     "test:contract": "tsx test/scripts/contract-live.ts",
     "test:e2e": "tsx test/scripts/e2e-live.ts",
     "test:cli-live": "tsx test/scripts/cli-live.ts",
-    "record:demo": "tsx test/scripts/record-demo.ts"
+    "record:demo": "tsx test/scripts/record-demo.ts",
+    "build:sdk": "npm run build --workspace @tempo/core"
   },
   "dependencies": {
     "@somnia-chain/markets-sdk": "0.29.0",

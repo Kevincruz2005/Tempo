@@ -12,7 +12,7 @@ describe("CLI offline behavior", () => {
   it("documents every command", () => {
     const result = run("--help");
     expect(result.status).toBe(0);
-    for (const command of ["doctor", "markets", "watch", "book", "agents", "firm", "trade", "positions", "claims", "activity", "verify", "settlements", "faucet", "backtest"]) {
+    for (const command of ["doctor", "markets", "watch", "book", "agents", "firm", "trade", "positions", "claims", "activity", "verify", "report", "settlements", "faucet", "backtest"]) {
       expect(result.stdout).toContain(command);
     }
   });

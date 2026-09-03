@@ -86,14 +86,17 @@ watch, reactivity, feed, chain and ABI surfaces. Evidence: lockfile and matrix.
 ## 16. CLI
 
 Doctor, markets, watch, book, agents, positions, firm, trade, claims, activity,
-verify, settlements, backtest and faucet execute through core. Evidence: CLI
+verify, report, settlements, backtest and faucet execute through core. Evidence: CLI
 matrix runs and `--help`; the final live report records 12/12 passing commands.
 
 ## 17. Reusable SDK
 
 The public surface exports config, exchange, fair value, risk, policies,
-decimal quantization, journal/replay, ledger, types, claims and backtest.
-Evidence: `packages/core/src/index.ts` and the offline unit suite.
+decimal quantization, journal/replay, deterministic report aggregation, ledger,
+types, claims and backtest.
+The Node 20+ ESM build ships compiled JavaScript and TypeScript declarations as
+GitHub Release `sdk-v0.1.0`, with checksum and CycloneDX SBOM assets. Evidence:
+`packages/core/src/index.ts`, package metadata, and `sdk-release-20260903.md`.
 
 ## 18. Agent Coordination
 
@@ -140,7 +143,7 @@ fixtures, scripts and reports are present. Evidence: `test/`.
 
 ## 25. Test Results
 
-Offline: 2,086/2,086 pass. Live SDK/integration: 3/3 pass. Live chain gate: 1/1 pass.
+Offline: 2,089/2,089 pass. Live SDK/integration: 3/3 pass. Live chain gate: 1/1 pass.
 Funded contract flow: PASS. Autonomous same-window E2E lifecycle: PASS, including
 settlement and claim hash `0xd9aad147…bf2ac5e`. Evidence: dated reports.
 

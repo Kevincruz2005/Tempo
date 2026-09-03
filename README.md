@@ -10,7 +10,7 @@ JSONL journal.
 The default is read-only dry-run. No private key means no send, and no missing
 economic value is replaced with a demo number.
 
-**Verification:** 2,086 offline Vitest cases pass, including a 2,048-case
+**Verification:** 2,089 offline Vitest cases pass, including a 2,048-case
 deterministic economic invariant matrix across 6- and 18-decimal grids. Live
 evidence independently verifies 31/31 funded Shannon transaction receipts.
 The matrix caught and now guards an 18-decimal raw/human/raw conversion edge
@@ -30,7 +30,9 @@ npm run firm
 
 Open `http://localhost:7333`. The dashboard is a fixed single-screen view of
 live windows, materialized books, estimates, agents, journal activity, and
-finalized settlements.
+finalized settlements. Open `http://localhost:7333/docs.html` for the complete
+feature catalog, architecture, SDK/API reference, CLI, security, provenance,
+testing, and deployment documentation.
 
 Live writes require two distinct Somnia Shannon accounts, each funded with STT
 from the official faucet. Set `TEMPO_KEY_MAKER` and `TEMPO_KEY_TAKER`, call
@@ -97,6 +99,7 @@ tempo activity [--n 50]
 tempo verify
 tempo settlements [--limit N]
 tempo backtest [--limit N]
+tempo report [--since 24h] [--llm] [--out file]
 tempo faucet
 ```
 
@@ -104,6 +107,12 @@ Run via `npm run cli -- <command>`. `trade`, `--claim`, `faucet`, and live firm
 writes fail explicitly without a signer. Every order is chain-gated on status
 `1`, tick/lot aligned from the live pool, given a nanosecond dead-man expiry,
 and receipt-checked.
+
+`tempo report` deterministically aggregates the typed journal into Markdown,
+including execution counts, transaction hashes, risk failures, closest-to-expiry
+Brier scores, and directional accuracy. `--llm` is optional, sends only computed
+statistics, requires `TEMPO_LLM_API_KEY` or `OPENAI_API_KEY`, and labels its output
+`AI NARRATIVE`; the factual report remains complete if that request is unavailable.
 
 ## Reproducibility
 
@@ -120,9 +129,9 @@ npm run firm                     # dry-run dashboard, zero sends
 npm run record:demo              # 90-second recording of a running live dashboard
 ```
 
-Current evidence is under `test/reports/`. On 2026-09-02 the offline suite
-passed 2,086 tests, live SDK/integration passed 3 tests, and the live non-trading
-chain gate passed. The funded contract sequence recorded faucet, mint, quote,
+Current evidence is under `test/reports/`. On 2026-09-03 the offline suite
+passed 2,089 tests. The 2026-09-02 live SDK/integration suite passed 3 tests and
+the live non-trading chain gate passed. The funded contract sequence recorded faucet, mint, quote,
 cancel, IOC fill, and redemption receipts; `tempo verify` independently found
 all 31 journaled transaction hashes on Shannon with successful receipts.
 A narrated 90-second 1440x900 live dashboard recording is saved as
@@ -145,6 +154,15 @@ A narrated 90-second 1440x900 live dashboard recording is saved as
 | CLI/web | `@tempo/core` | Identical methods; web state delivered by engine SSE/API |
 
 ## SDK Utilization
+
+The compiled Node SDK is released from GitHub as `@tempo/core` `0.1.0`:
+
+```bash
+npm install https://github.com/Kevincruz2005/Tempo/releases/download/sdk-v0.1.0/tempo-core-0.1.0.tgz
+```
+
+The artifact contains ESM JavaScript, TypeScript declarations, the package
+README, changelog, and MIT license. Release assets include a SHA-256 checksum.
 
 | Surface | Used for |
 | --- | --- |

@@ -20,7 +20,7 @@ submission artifact not present in the repository is the recorded demo video.
 - The fixed-viewport dashboard renders live books, feed observations, estimates,
   agents, journal activity, and settlements with provenance and honest
   `UNAVAILABLE`/`NO DATA` states.
-- Offline tests pass: 12 files and 2,086 tests, including 2,048 deterministic
+- Offline tests pass: 13 files and 2,089 tests, including 2,048 deterministic
   economic invariant cases. Strict TypeScript checks pass for core, engine, and
   CLI. Live SDK/integration tests pass: 2 files and 3 tests;
   the separate live chain-gate passes 1/1.

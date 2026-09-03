@@ -11,5 +11,7 @@ journal/
 
 # local artifacts
 port-codex.zip
+release/
+packages/core/dist/
 *.log
 .DS_Store

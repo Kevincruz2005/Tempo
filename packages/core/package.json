@@ -1,11 +1,53 @@
 {
   "name": "@tempo/core",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
-  "description": "TEMPO core SDK — config, exchange, fair value, risk, policies, journal, ledger",
-  "main": "./src/index.ts",
-  "exports": { ".": "./src/index.ts" },
+  "description": "Typed Node SDK for DreamDEX Event Contracts and autonomous opening auctions on Somnia",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "sideEffects": false,
+  "keywords": [
+    "somnia",
+    "dreamdex",
+    "event-contracts",
+    "prediction-markets",
+    "trading-sdk",
+    "typescript"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kevincruz2005/Tempo.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/Kevincruz2005/Tempo#readme",
+  "bugs": {
+    "url": "https://github.com/Kevincruz2005/Tempo/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "npm run build"
+  },
   "dependencies": {
     "@somnia-chain/markets-sdk": "0.29.0",
     "viem": "^2.21.0"

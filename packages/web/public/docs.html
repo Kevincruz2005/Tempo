@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="description" content="TEMPO SDK, CLI, agent runtime, security, and operations documentation." />
+<title>TEMPO DOCS - SDK and Operator Reference</title>
+<link rel="stylesheet" href="/docs.css" />
+</head>
+<body>
+<div class="docs-shell">
+  <header class="docs-header">
+    <button class="menu-button" id="menu-button" type="button" aria-label="Open documentation navigation" title="Navigation"></button>
+    <a class="docs-brand" href="/">
+      <span class="brand-mark"></span>
+      <strong>TEMPO</strong>
+      <span>DOCS</span>
+    </a>
+    <div class="search-wrap">
+      <label class="sr-only" for="docs-search">Search documentation</label>
+      <input id="docs-search" type="search" autocomplete="off" placeholder="Search SDK, CLI, agents, security..." />
+      <div class="search-results" id="search-results" hidden></div>
+    </div>
+    <nav class="header-links" aria-label="Product links">
+      <span class="version">CORE 0.1.0</span>
+      <a href="/">Dashboard</a>
+      <a href="https://github.com/Kevincruz2005/Tempo" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </nav>
+  </header>
+
+  <aside class="docs-sidebar" id="docs-sidebar">
+    <nav aria-label="Documentation sections">
+      <p class="nav-group">Start</p>
+      <a href="#overview" class="active">Overview</a>
+      <a href="#quickstart">Quickstart</a>
+      <a href="#feature-catalog">Feature catalog</a>
+
+      <p class="nav-group">Product</p>
+      <a href="#architecture">Architecture</a>
+      <a href="#agents">Autonomous firm</a>
+      <a href="#lifecycle">Market lifecycle</a>
+      <a href="#appraiser">Appraiser and estimates</a>
+      <a href="#dashboard">Dashboard and HTTP API</a>
+
+      <p class="nav-group">Developers</p>
+      <a href="#sdk">Core SDK</a>
+      <a href="#exchange-api">Exchange API</a>
+      <a href="#risk-quant">Risk and quantization</a>
+      <a href="#journal">Journal and replay</a>
+      <a href="#reporting">Firm reporting</a>
+      <a href="#cli">CLI reference</a>
+
+      <p class="nav-group">Operations</p>
+      <a href="#security">Security model</a>
+      <a href="#testing">Testing and evidence</a>
+      <a href="#provenance">Data provenance</a>
+      <a href="#deployment">Deployment and failures</a>
+    </nav>
+  </aside>
+
+  <main class="docs-content" id="docs-content">
+    <article class="doc-inner">
+      <section class="doc-section overview" id="overview" data-title="Overview">
+        <div class="eyebrow">AUTONOMOUS OPENING AUCTION / SOMNIA SHANNON</div>
+        <h1>TEMPO Documentation</h1>
+        <p class="lede">The operator and developer reference for TEMPO: a two-agent opening-auction firm for DreamDEX Event Contracts, built on the pinned Somnia markets SDK.</p>
+        <div class="status-strip" aria-label="Verified project status">
+          <div><b>2,089</b><span>offline tests passing</span></div>
+          <div><b>31 / 31</b><span>live receipts verified</span></div>
+          <div><b>0.29.0</b><span>markets SDK pinned</span></div>
+          <div><b>0</b><span>mocked economic values</span></div>
+        </div>
+        <div class="callout fact">
+          <strong>FACT AND ESTIMATE SEPARATION</strong>
+          <p>Chain status, opening prices, fills, balances, and settlements are facts with provenance. Fair value, volatility, and agent decisions are explicitly labeled estimates.</p>
+        </div>
+        <figure class="product-figure">
+          <img src="/assets/dashboard.png" width="1440" height="900" alt="TEMPO live operator dashboard showing rolling windows, an order book, agent state, activity, and settlements" />
+          <figcaption>Live operator surface: rolling windows, market facts, estimate state, the two-agent firm, journal tape, and finalized settlements.</figcaption>
+        </figure>
+      </section>
+
+      <section class="doc-section" id="quickstart" data-title="Quickstart">
+        <div class="eyebrow">START HERE</div>
+        <h2>Quickstart</h2>
+        <p>TEMPO runs on Node 20 or newer as an npm workspace. Dry-run is the default and does not send transactions.</p>
+        <pre><code>npm install
+cp .env.example .env
+npm test
+npm run cli -- doctor
+npm run firm</code></pre>
+        <p>Open <a href="/">http://127.0.0.1:7333</a>. The dashboard and this documentation are served by the same local-only hardened server.</p>
+
+        <h3>Operating modes</h3>
+        <table>
+          <thead><tr><th>Mode</th><th>Command</th><th>Behavior</th></tr></thead>
+          <tbody>
+            <tr><td><code>Read-only</code></td><td><code>tempo doctor</code></td><td>Official feed, indexer, RPC, markets, and balances when an address exists. No signer required.</td></tr>
+            <tr><td><code>Dry-run firm</code></td><td><code>tempo firm simulate</code></td><td>Live discovery and policy decisions are journaled. Nothing is sent.</td></tr>
+            <tr><td><code>Live firm</code></td><td><code>tempo firm start</code></td><td>Requires two distinct funded keys and <code>TEMPO_DRY_RUN=false</code>.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Configuration</h3>
+        <div class="config-grid">
+          <div><code>TEMPO_NETWORK</code><span><code>testnet</code> or <code>mainnet</code></span></div>
+          <div><code>TEMPO_DRY_RUN</code><span>Defaults to <code>true</code></span></div>
+          <div><code>TEMPO_KEY_MAKER</code><span>Optional GENESIS signer</span></div>
+          <div><code>TEMPO_KEY_TAKER</code><span>Optional VECTOR signer</span></div>
+          <div><code>TEMPO_ASSETS</code><span>Default <code>BTC,ETH</code></span></div>
+          <div><code>TEMPO_VENUE_ID</code><span>Optional discovered venue filter</span></div>
+          <div><code>TEMPO_JOURNAL_DIR</code><span>JSONL evidence directory</span></div>
+          <div><code>TEMPO_HTTP_HOST</code><span>Default <code>127.0.0.1</code></span></div>
+          <div><code>TEMPO_RPC_URL</code><span>Optional official RPC override</span></div>
+          <div><code>TEMPO_WS_RPC_URL</code><span>Optional official WS override</span></div>
+          <div><code>TEMPO_INDEXER_URL</code><span>Optional indexer override</span></div>
+          <div><code>TEMPO_EXPLORER_URL</code><span>Optional explorer override</span></div>
+          <div><code>TEMPO_LLM_API_KEY</code><span>Optional report narrative credential</span></div>
+          <div><code>TEMPO_LLM_URL</code><span>Optional chat-completions endpoint</span></div>
+          <div><code>TEMPO_LLM_MODEL</code><span>Optional narrative model name</span></div>
+        </div>
+        <p class="note">Risk parameters are also environment-configurable: quote size, net/gross inventory, firm capital, per-order collateral, open-order count, per-window loss, maker/taker time gates, taker edge, and spread bounds.</p>
+      </section>
+
+      <section class="doc-section" id="feature-catalog" data-title="Feature catalog">
+        <div class="eyebrow">COMPLETE CAPABILITY MAP</div>
+        <h2>Feature catalog</h2>
+        <table class="feature-table">
+          <thead><tr><th>Capability</th><th>Implementation</th><th>Truth source</th></tr></thead>
+          <tbody>
+            <tr><td>Rolling window discovery</td><td>Markets registry load, cache, birth detection, cadence management</td><td>DreamDEX indexer and markets SDK</td></tr>
+            <tr><td>Live order books</td><td>Protocol tail plus per-market watches with polling fallback</td><td>Somnia pool events</td></tr>
+            <tr><td>Opening boundary</td><td>Normalized opening price for moving or fixed windows</td><td>Binary Markets module / indexer</td></tr>
+            <tr><td>Spot and EMA</td><td>Current price, EMA, timestamp, block, and real history</td><td>Official Somnia price feed</td></tr>
+            <tr><td>Fair-value estimate</td><td>Driftless diffusion over spot, strike, realized volatility, and time</td><td>Deterministic policy estimate</td></tr>
+            <tr><td>GENESIS maker</td><td>Two-sided birth anchor, inventory skew, adaptive spread, post-only replacement</td><td>Live inputs and pure policy</td></tr>
+            <tr><td>VECTOR taker</td><td>Independent edge detector with capped IOC execution</td><td>Live book and independent estimate</td></tr>
+            <tr><td>Risk engine</td><td>Price, size, capital, inventory, order-count, loss, edge, and time gates</td><td>Configured policy plus live state</td></tr>
+            <tr><td>Decimal quantization</td><td>Tick/lot conversion for 6- and 18-decimal collateral</td><td>Live pool parameters and token decimals</td></tr>
+            <tr><td>Order execution</td><td>Post-only maker, IOC taker, explicit nanosecond expiry, receipt validation</td><td>Official SDK trader tier</td></tr>
+            <tr><td>Positions and P&amp;L</td><td>Per-agent ledgers and ERC-6909 outcome balances</td><td>Real fills, balances, settlements</td></tr>
+            <tr><td>Settlement and claims</td><td>Finalized-market sweep, winner-only redeem, both sides on void</td><td>On-chain resolution and oracle audit</td></tr>
+            <tr><td>Historical evaluation</td><td>Brier-scored replay over finalized windows and feed history</td><td>Real historical records only</td></tr>
+            <tr><td>Firm reporting</td><td>Journal aggregation, closest-to-settlement Brier scoring, Markdown, optional AI narrative</td><td>Real journal records; narrative labeled separately</td></tr>
+            <tr><td>Observability</td><td>Typed JSONL journal, subscriptions, replay, CLI activity, SSE tape</td><td>Runtime events and receipts</td></tr>
+            <tr><td>Receipt verification</td><td>Journal transaction hashes rechecked independently through RPC</td><td>Somnia Shannon receipts</td></tr>
+            <tr><td>Operator interfaces</td><td>SDK, 15-command CLI, fixed-viewport dashboard, read-only HTTP/SSE API</td><td>Shared <code>@tempo/core</code></td></tr>
+            <tr><td>Security boundary</td><td>Loopback bind, Host/Origin checks, CSP, rate/SSE limits, redaction, output encoding</td><td>Engine and browser controls</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="doc-section" id="architecture" data-title="Architecture">
+        <div class="eyebrow">SYSTEM DESIGN</div>
+        <h2>Architecture</h2>
+        <div class="architecture-flow" aria-label="TEMPO data and execution flow">
+          <div><span>OFFICIAL INPUTS</span><b>Indexer / RPC / live logs / price feed</b></div>
+          <i>TO</i>
+          <div><span>CORE</span><b>Exchange / appraiser / policies / risk / quant</b></div>
+          <i>TO</i>
+          <div><span>ENGINE</span><b>GENESIS / VECTOR / executor / lifecycle</b></div>
+          <i>TO</i>
+          <div><span>OUTPUTS</span><b>Receipts / journal / CLI / dashboard</b></div>
+        </div>
+        <h3>Workspace packages</h3>
+        <table>
+          <thead><tr><th>Package</th><th>Responsibility</th><th>Network boundary</th></tr></thead>
+          <tbody>
+            <tr><td><code>@tempo/core</code></td><td>Config, exchange wrapper, appraiser math, policies, risk, quantization, ledger, journal, provenance, typed errors.</td><td>Pure modules have no network imports; <code>TempoExchange</code> owns SDK/RPC access.</td></tr>
+            <tr><td><code>@tempo/engine</code></td><td>Reactive firm, per-agent executors, lifecycle state, settlement sweeps, HTTP/SSE server.</td><td>Consumes live SDK reads and delegates writes through core.</td></tr>
+            <tr><td><code>tempo-cli</code></td><td>Thin operator shell over shared core and engine behavior.</td><td>No duplicated economic logic.</td></tr>
+            <tr><td><code>packages/web</code></td><td>Read-only dashboard and documentation.</td><td>Consumes sanitized engine state and SSE journal records.</td></tr>
+          </tbody>
+        </table>
+        <div class="callout rule"><strong>IDENTITY RULE</strong><p>State is keyed by <code>marketId</code> or symbol, never pool address, because DreamDEX pools are recycled across rolling windows.</p></div>
+      </section>
+
+      <section class="doc-section" id="agents" data-title="Autonomous firm">
+        <div class="eyebrow">TWO KEYS / TWO POLICIES</div>
+        <h2>Autonomous firm</h2>
+        <div class="agent-grid">
+          <article>
+            <div class="agent-head"><span>01</span><h3>GENESIS</h3><b>MAKER</b></div>
+            <p>Anchors newborn windows with a two-sided probability quote. It buys UP plus DOWN to cold-start empty inventory, then sells held UP inventory when appropriate.</p>
+            <ul>
+              <li>Post-only orders</li>
+              <li>Adaptive half-spread as time decays</li>
+              <li>Inventory-skewed quote center</li>
+              <li>Cancel-and-replace with churn avoidance</li>
+              <li>Stops before the configured endgame gate</li>
+            </ul>
+          </article>
+          <article>
+            <div class="agent-head"><span>02</span><h3>VECTOR</h3><b>TAKER</b></div>
+            <p>Independently evaluates the same window and only crosses when the displayed touch diverges from its estimate by more than its edge threshold.</p>
+            <ul>
+              <li>IOC orders; remainders never rest</li>
+              <li>Independent volatility horizon</li>
+              <li>Book-size and collateral caps</li>
+              <li>UP and complementary DOWN opportunities</li>
+              <li>Explicit stand-down decisions</li>
+            </ul>
+          </article>
+        </div>
+        <h3>Coordination contract</h3>
+        <p>Each agent has a distinct signer, ledger, policy, and executor. They share discovery and a <code>RiskEngine</code>, but cannot self-match because keys are required to differ. All actions and stand-down decisions are journaled.</p>
+      </section>
+
+      <section class="doc-section" id="lifecycle" data-title="Market lifecycle">
+        <div class="eyebrow">WINDOW STATE MACHINE</div>
+        <h2>Market lifecycle</h2>
+        <ol class="lifecycle">
+          <li><b>BIRTH</b><span>A new market ID appears in the rolling series.</span></li>
+          <li><b>ANCHOR</b><span>Opening boundary, spot, book parameters, and balances are acquired.</span></li>
+          <li><b>GENESIS</b><span>The maker prepares the initial two-sided anchor.</span></li>
+          <li><b>REPRICE</b><span>Live feed and book events trigger new estimates and quote maintenance.</span></li>
+          <li><b>ENDGAME</b><span>Risk gates tighten as expiry approaches.</span></li>
+          <li><b>LOCK</b><span>Trading closes; no further mutations are allowed.</span></li>
+          <li><b>SETTLE</b><span>The resolved or voided outcome is read from chain/indexer truth.</span></li>
+          <li><b>CLAIM</b><span>The paying side is redeemed; both sides are redeemed for voided markets.</span></li>
+          <li><b>ROLL</b><span>The finalized window leaves the live list and its successor takes over.</span></li>
+        </ol>
+      </section>
+
+      <section class="doc-section" id="appraiser" data-title="Appraiser and estimates">
+        <div class="eyebrow">DETERMINISTIC ESTIMATION</div>
+        <h2>Appraiser and estimates</h2>
+        <p>The appraiser computes <code>P(close &gt;= strike)</code> under a driftless diffusion. Inputs are the official live spot, the on-chain opening boundary, realized volatility from timestamped feed observations, and seconds remaining.</p>
+        <pre><code>import { fairValue, realizedVolPerSqrtSec } from "@tempo/core";
+
+const sigma = realizedVolPerSqrtSec(feedTicks);
+const estimate = fairValue({
+  spot: liveSpot,
+  strike: onchainOpeningPrice,
+  sigmaPerSqrtSec: sigma,
+  secondsLeft,
+});
+
+// estimate.p and estimate.band are AI ESTIMATES, never chain facts.</code></pre>
+        <table>
+          <thead><tr><th>Output</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><code>p</code></td><td>Estimated probability of the UP outcome.</td></tr>
+            <tr><td><code>d</code></td><td>Log-distance from strike in remaining-window volatility units.</td></tr>
+            <tr><td><code>band</code></td><td>One-sigma probability range around the estimate.</td></tr>
+            <tr><td><code>expectedMove</code></td><td>One-sigma underlying move over the remaining time.</td></tr>
+          </tbody>
+        </table>
+        <div class="callout warning"><strong>NO FALLBACK VOLATILITY</strong><p>If sufficient real feed history is unavailable, the estimate is <code>NO DATA</code>. TEMPO never substitutes a demo volatility.</p></div>
+      </section>
+
+      <section class="doc-section" id="sdk" data-title="Core SDK">
+        <div class="eyebrow">@TEMPO/CORE 0.1.0</div>
+        <h2>Core SDK</h2>
+        <p><code>@tempo/core</code> is the reusable Node 20+ ESM SDK, distributed as a compiled GitHub Release artifact with TypeScript declarations. It consumes <code>@somnia-chain/markets-sdk</code> exactly at version <code>0.29.0</code>.</p>
+        <pre><code>npm install https://github.com/Kevincruz2005/Tempo/releases/download/sdk-v0.1.0/tempo-core-0.1.0.tgz</code></pre>
+        <h3>Read-only market client</h3>
+        <pre><code>import { loadConfig, TempoExchange } from "@tempo/core";
+
+const config = loadConfig();
+const exchange = new TempoExchange({ config });
+
+try {
+  const markets = await exchange.markets();
+  const market = markets[0];
+  if (!market) throw new Error("NO DATA");
+
+  const chain = await exchange.onchain(market.marketId);
+  const [params, book, spot, opening] = await Promise.all([
+    exchange.bookParams(chain.pool),
+    exchange.book(market.upSymbol, 5),
+    exchange.spot(market.asset),
+    exchange.opening(market.marketId),
+  ]);
+} finally {
+  await exchange.close();
+}</code></pre>
+
+        <h3>Signed execution</h3>
+        <pre><code>const exchange = new TempoExchange({
+  config,
+  privateKey: config.keys.maker,
+});
+
+// quote() re-reads live status, quantizes from live grid parameters,
+// applies post-only behavior, sets expiry, and checks the receipt.
+const receipt = await exchange.quote(
+  market.marketId,
+  "UP",
+  25,
+  0.48,
+  BigInt(Date.now() + 8_000) * 1_000_000n,
+);</code></pre>
+        <div class="callout rule"><strong>WRITE CONTRACT</strong><p>Every firm plan passes <code>RiskEngine</code>. Each write requires a signer; trading writes re-read on-chain status <code>1</code>, use live collateral decimals and tick/lot parameters, carry explicit expiry where applicable, and validate the returned receipt.</p></div>
+
+        <h3>Public modules</h3>
+        <div class="module-list">
+          <div><code>config</code><span>Environment loading, official endpoints, addresses, and risk configuration</span></div>
+          <div><code>exchange</code><span>Normalized DreamDEX reads, writes, settlement, claims, history, and backtest</span></div>
+          <div><code>fairValue</code><span>Probability estimate and realized volatility</span></div>
+          <div><code>policies</code><span>Pure GENESIS and VECTOR plan construction</span></div>
+          <div><code>risk</code><span>Typed plan acceptance and rejection</span></div>
+          <div><code>quant</code><span>Decimal-aware raw/human tick and lot conversion</span></div>
+          <div><code>journal</code><span>Typed JSONL append, subscribe, tail, since, read, and replay</span></div>
+          <div><code>report</code><span>Journal aggregation, Brier scoring, deterministic Markdown, and labeled AI narrative</span></div>
+          <div><code>ledger</code><span>Fill application, positions, cash flow, and settlement</span></div>
+          <div><code>provenance</code><span>Source, transport, timestamp, block, and tagged values</span></div>
+          <div><code>errors</code><span>Named operational error codes and type guard</span></div>
+        </div>
+      </section>
+
+      <section class="doc-section" id="exchange-api" data-title="Exchange API">
+        <div class="eyebrow">TEMPOEXCHANGE REFERENCE</div>
+        <h2>Exchange API</h2>
+        <h3>Market and data reads</h3>
+        <table class="api-table">
+          <thead><tr><th>Method</th><th>Returns / behavior</th></tr></thead>
+          <tbody>
+            <tr><td><code>markets({ maxAgeMs? })</code></td><td>Normalized live binary markets, symbols, assets, cadence, expiry, venue, and outcome symbols.</td></tr>
+            <tr><td><code>onchain(marketId)</code></td><td>Live chain state including status, pool, market, outcome token IDs, resolution, and void state.</td></tr>
+            <tr><td><code>bookParams(pool)</code></td><td>Tick size, lot size, minimum quantity, and collateral decimals.</td></tr>
+            <tr><td><code>book(upSymbol, depth)</code></td><td>Human-unit bids and asks from the SDK live store.</td></tr>
+            <tr><td><code>openingPrice(marketId)</code></td><td>Normalized opening boundary or <code>undefined</code>.</td></tr>
+            <tr><td><code>spot(asset)</code></td><td>Official price, EMA, timestamp, block, and raw feed value; <code>null</code> if unavailable.</td></tr>
+            <tr><td><code>spotHistory(asset, opts)</code></td><td>Real timestamped feed observations.</td></tr>
+            <tr><td><code>collateralDecimals()</code></td><td>ERC-20 decimals read from the configured collateral contract.</td></tr>
+            <tr><td><code>collateralBalance(address?)</code></td><td>Raw and human collateral balance.</td></tr>
+            <tr><td><code>outcomeBalance(onchain, outcome, address?)</code></td><td>Human ERC-6909 UP or DOWN balance.</td></tr>
+            <tr><td><code>positions(address?)</code></td><td>Per-market UP/DOWN outcome balances and status.</td></tr>
+            <tr><td><code>openOrders(symbol)</code></td><td>Normalized signer working orders.</td></tr>
+            <tr><td><code>myTrades(symbol, since?)</code></td><td>Normalized signer fill history.</td></tr>
+            <tr><td><code>candles(pool, bucket, opts)</code></td><td>Market candles for 60, 300, 900, or 3,600 second buckets.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Writes and lifecycle</h3>
+        <table class="api-table">
+          <thead><tr><th>Method</th><th>Safety and semantics</th></tr></thead>
+          <tbody>
+            <tr><td><code>place(symbol, side, size, price, opts)</code></td><td>Unified grid-aware order placement; supports post-only, IOC, and explicit expiry.</td></tr>
+            <tr><td><code>quote(ref, outcome, size, price, expiry?)</code></td><td>Post-only maker convenience method.</td></tr>
+            <tr><td><code>trade(ref, outcome, size, price)</code></td><td>IOC taker convenience method; remainder never rests.</td></tr>
+            <tr><td><code>cancel(orderId, symbol)</code></td><td>Chain-gated cancellation with receipt validation.</td></tr>
+            <tr><td><code>cancelAll(ref)</code></td><td>Cancels both outcome books for one market.</td></tr>
+            <tr><td><code>mintSet(symbol, size)</code></td><td>Mints matched UP/DOWN inventory while the market is trading.</td></tr>
+            <tr><td><code>burnSet(symbol, size)</code></td><td>Burns matched inventory while the market is trading.</td></tr>
+            <tr><td><code>claims(limit, filter)</code></td><td>Lists finalized resolved/voided markets and oracle identifiers.</td></tr>
+            <tr><td><code>claim(marketId)</code></td><td>Redeems only the winner, or both sides when voided.</td></tr>
+            <tr><td><code>redeem(marketId, onchain, outcome)</code></td><td>Explicit outcome-index redemption through the trader tier.</td></tr>
+            <tr><td><code>faucet()</code></td><td>Testnet-only collateral faucet; signer required.</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Historical evaluation</h3>
+        <table class="api-table">
+          <thead><tr><th>Method</th><th>Returns / behavior</th></tr></thead>
+          <tbody>
+            <tr><td><code>resolution(marketId)</code></td><td>Full market resolution record.</td></tr>
+            <tr><td><code>pastMarkets({ asset?, limit? })</code></td><td>Newest finalized binary markets.</td></tr>
+            <tr><td><code>backtest(limit)</code></td><td>Real-feed midpoint estimates with binary outcome and Brier score; emits <code>NO DATA</code> for missing inputs.</td></tr>
+            <tr><td><code>close()</code></td><td>Closes SDK live resources.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="doc-section" id="risk-quant" data-title="Risk and quantization">
+        <div class="eyebrow">PRE-TRADE BOUNDARIES</div>
+        <h2>Risk and quantization</h2>
+        <h3>RiskEngine gates</h3>
+        <div class="gate-grid">
+          <div><b>Price</b><span>Strictly inside the binary <code>(0,1)</code> range</span></div>
+          <div><b>Size</b><span>Positive and at least one live lot</span></div>
+          <div><b>Order collateral</b><span>Per-order committed collateral cap</span></div>
+          <div><b>Inventory</b><span>Per-window net and gross caps</span></div>
+          <div><b>Firm capital</b><span>Agent-wide committed collateral cap</span></div>
+          <div><b>Working orders</b><span>Per-window count cap</span></div>
+          <div><b>Realized loss</b><span>Stops after configured window loss</span></div>
+          <div><b>Time</b><span>Cadence-aware maker and taker cutoffs</span></div>
+          <div><b>Edge</b><span>VECTOR requires fair-value deviation above threshold</span></div>
+        </div>
+        <h3>Decimal-safe grid conversion</h3>
+        <pre><code>import {
+  probToTicks,
+  sizeToLots,
+  ticksToProb,
+  lotsToSize,
+} from "@tempo/core";
+
+const rawPrice = probToTicks(probability, live.tickSize, live.decimals);
+const rawSize = sizeToLots(size, live.lotSize, live.decimals);</code></pre>
+        <p>Grid sizes and collateral decimals are read live. The same functions support 6-decimal testnet collateral and 18-decimal mainnet collateral without hardcoded scaling.</p>
+      </section>
+
+      <section class="doc-section" id="journal" data-title="Journal and replay">
+        <div class="eyebrow">OBSERVABILITY SPINE</div>
+        <h2>Journal and replay</h2>
+        <p>The append-only JSONL journal is the shared evidence plane for the engine, CLI, dashboard, replay, and receipt verification.</p>
+        <pre><code>import { Journal } from "@tempo/core";
+
+const journal = new Journal("journal", "tempo");
+journal.open();
+
+journal.append({
+  type: "decision",
+  agent: "GENESIS",
+  marketId,
+  source: "genesisQuotePlan",
+  data: { outcome: "QUOTE", inputs },
+});
+
+const recent = journal.tail(100);
+const replayed = journal.replay(recent, initialState, reduceRecord);
+await journal.close();</code></pre>
+        <h3>Record types</h3>
+        <div class="token-list" aria-label="Journal record types">
+          <code>startup</code><code>market-birth</code><code>market-state</code><code>price</code><code>decision</code><code>order-sent</code><code>order-receipt</code><code>order-cancelled</code><code>fill</code><code>risk-reject</code><code>settlement</code><code>claim</code><code>error</code><code>shutdown</code>
+        </div>
+        <p>Records can carry source, market ID, symbol, agent, free-form data, transaction hash, and block number. Subscriber failures do not break the runtime.</p>
+      </section>
+
+      <section class="doc-section" id="reporting" data-title="Firm reporting">
+        <div class="eyebrow">DETERMINISTIC OPERATIONS REVIEW</div>
+        <h2>Firm reporting</h2>
+        <p><code>tempo report</code> reads the typed journal and produces a reproducible Markdown report. It does not query a market API, invent missing observations, or replace unavailable values.</p>
+        <pre><code>npm run cli -- report --since 24h --out test/reports/firm-report.md
+npm run cli -- report --since 7d --llm --out test/reports/weekly-report.md</code></pre>
+        <h3>Computed facts</h3>
+        <div class="gate-grid">
+          <div><b>Runtime</b><span>Starts, shutdowns, market births, and observed assets</span></div>
+          <div><b>Decisions</b><span>Agent counts, estimate counts, and fair-value observations</span></div>
+          <div><b>Execution</b><span>Real and dry-run sends, receipts, cancels, fills, and claims</span></div>
+          <div><b>Receipts</b><span>Unique transaction hashes retained from journal records</span></div>
+          <div><b>Forecasts</b><span>Closest valid pre-expiry estimate, Brier score, and directional accuracy</span></div>
+          <div><b>Failures</b><span>Risk rejections and runtime errors, preserved as recorded</span></div>
+        </div>
+        <h3>Optional narrative</h3>
+        <p>The <code>--llm</code> flag sends only the already-computed statistics to the configured chat-completions endpoint. It requires <code>TEMPO_LLM_API_KEY</code> or <code>OPENAI_API_KEY</code>; <code>TEMPO_LLM_URL</code> and <code>TEMPO_LLM_MODEL</code> override the defaults. Generated prose is isolated under <code>AI NARRATIVE</code>. If the endpoint or credential is unavailable, the deterministic report remains intact and records that the narrative was omitted.</p>
+      </section>
+
+      <section class="doc-section" id="cli" data-title="CLI reference">
+        <div class="eyebrow">OPERATOR SURFACE</div>
+        <h2>CLI reference</h2>
+        <p>Run commands through <code>npm run cli -- &lt;command&gt;</code>. The CLI delegates to the same <code>@tempo/core</code> methods used by the engine.</p>
+        <table class="api-table">
+          <thead><tr><th>Command</th><th>Purpose</th></tr></thead>
+          <tbody>
+            <tr><td><code>doctor</code></td><td>Probe network, indexer, feed, SDK markets, keys, decimals, and balance.</td></tr>
+            <tr><td><code>markets</code></td><td>List live rolling windows, cadence, seconds left, venue, and market ID.</td></tr>
+            <tr><td><code>book &lt;fragment&gt;</code></td><td>Show live book, opening boundary, spot, status, tick, and lot.</td></tr>
+            <tr><td><code>watch [--asset BTC]</code></td><td>Stream live materialized books from the SDK tail.</td></tr>
+            <tr><td><code>agents</code></td><td>Show signer roster and on-chain collateral.</td></tr>
+            <tr><td><code>positions</code></td><td>Show per-window on-chain outcome balances.</td></tr>
+            <tr><td><code>firm simulate [--host H --port N]</code></td><td>Run live decisions in forced dry-run mode and serve the dashboard.</td></tr>
+            <tr><td><code>firm start [--host H --port N]</code></td><td>Start the signed firm; keys required.</td></tr>
+            <tr><td><code>trade &lt;ref&gt; &lt;up|down&gt; &lt;qty&gt; [--price p]</code></td><td>Submit a manual chain-gated IOC order.</td></tr>
+            <tr><td><code>claims [--claim]</code></td><td>List finalized claims or explicitly redeem payable outcomes.</td></tr>
+            <tr><td><code>settlements [--limit N]</code></td><td>List finalized windows with resolution and oracle audit link.</td></tr>
+            <tr><td><code>activity [--n N]</code></td><td>Read the typed local journal tape.</td></tr>
+            <tr><td><code>backtest [--limit N]</code></td><td>Evaluate the appraiser on real finalized windows and feed history.</td></tr>
+            <tr><td><code>verify</code></td><td>Cross-check every journaled transaction hash against chain receipts.</td></tr>
+            <tr><td><code>report [--since 24h] [--llm] [--out file]</code></td><td>Aggregate journal facts, score estimates against settlements, and optionally add a clearly labeled stats-only AI narrative.</td></tr>
+            <tr><td><code>faucet</code></td><td>Mint testnet collateral for configured signer accounts.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="doc-section" id="dashboard" data-title="Dashboard and HTTP API">
+        <div class="eyebrow">READ-ONLY OPERATOR UI</div>
+        <h2>Dashboard and HTTP API</h2>
+        <p>The dashboard is a fixed-viewport live work surface. Windows and selected market state occupy the primary area; firm health, activity, and settlements remain visible without changing pages.</p>
+        <div class="dashboard-features">
+          <div><b>Windows</b><span>Rolling series, cadence, lifecycle, and seconds to expiry</span></div>
+          <div><b>Market facts</b><span>Opening boundary, spot, status, venue, and book provenance</span></div>
+          <div><b>Estimate</b><span>Probability, uncertainty band, sigma, and sample count</span></div>
+          <div><b>Firm</b><span>Agent mode, capital, P&amp;L, inventory, and working orders</span></div>
+          <div><b>Activity</b><span>Streaming typed journal records and transaction hashes</span></div>
+          <div><b>Settlements</b><span>Final outcome, trade count, last price, and oracle audit</span></div>
+        </div>
+        <h3>Read-only routes</h3>
+        <table>
+          <thead><tr><th>Route</th><th>Response</th></tr></thead>
+          <tbody>
+            <tr><td><code>GET /api/state</code></td><td>Sanitized live snapshot: markets, views, agents, risk, tail health, and settlements.</td></tr>
+            <tr><td><code>GET /api/stream</code></td><td>Bounded server-sent event stream of sanitized journal records.</td></tr>
+            <tr><td><code>GET /api/journal?n=60</code></td><td>Recent records; canonical integer limit from 1 through 300.</td></tr>
+            <tr><td><code>GET /api/provenance</code></td><td>Source map for every displayed value class.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="doc-section" id="security" data-title="Security model">
+        <div class="eyebrow">DEFENSE IN DEPTH</div>
+        <h2>Security model</h2>
+        <p>TEMPO has no SQL database or query-construction layer, so SQL injection is absent by architecture. Controls focus on the actual signer, chain, HTTP, browser, and dependency boundaries.</p>
+        <div class="security-list">
+          <article><b>Signer boundary</b><p>Keys remain server-side, are optional, must differ by agent, and are never returned by the state API.</p></article>
+          <article><b>Chain boundary</b><p>Firm plans are risk-gated. Trading mutations re-read live status and enforce tick/lot, expiry, and receipt checks.</p></article>
+          <article><b>Network boundary</b><p>Loopback bind by default, Host and same-origin checks, GET-only routes, URL/header/time bounds, and per-IP rate limits.</p></article>
+          <article><b>Streaming boundary</b><p>Total and per-IP SSE caps, heartbeat, backpressure cleanup, and defensive browser parsing.</p></article>
+          <article><b>Browser boundary</b><p>CSP, frame denial, MIME sniff prevention, isolation headers, output encoding, fixed classes, and HTTPS-only audit links.</p></article>
+          <article><b>Transport boundary</b><p>Recursive credential-key redaction, depth/cycle limits, generic server errors, and no-store API responses.</p></article>
+          <article><b>File boundary</b><p>Decoded path containment rejects traversal, dotfiles, backslashes, and malformed encodings.</p></article>
+          <article><b>Supply chain</b><p>The markets SDK is exactly pinned at <code>0.29.0</code>; the recorded npm audit reports zero known vulnerabilities.</p></article>
+        </div>
+        <div class="callout warning"><strong>REMOTE DEPLOYMENT</strong><p>The built-in server is an operator-local surface, not a public identity system. Remote access requires TLS, authentication, authorization, and ingress restriction at an audited proxy.</p></div>
+      </section>
+
+      <section class="doc-section" id="testing" data-title="Testing and evidence">
+        <div class="eyebrow">VERIFIED DELIVERY</div>
+        <h2>Testing and evidence</h2>
+        <div class="evidence-grid">
+          <div><b>2,089 / 2,089</b><span>Offline unit, failure, security, economic, and CLI tests</span></div>
+          <div><b>2,048</b><span>Deterministic 6- and 18-decimal invariant cases</span></div>
+          <div><b>12 / 12</b><span>Security-boundary cases</span></div>
+          <div><b>3 / 3</b><span>Live SDK and integration tests</span></div>
+          <div><b>1 / 1</b><span>Real non-trading chain gate</span></div>
+          <div><b>31 / 31</b><span>Journal transaction receipts independently verified</span></div>
+        </div>
+        <h3>Test layers</h3>
+        <table>
+          <thead><tr><th>Layer</th><th>Scope</th><th>Data policy</th></tr></thead>
+          <tbody>
+            <tr><td>Unit</td><td>Config, quant, fair value, policies, risk, journal, ledger</td><td>Labeled mathematical inputs; no intercepted APIs</td></tr>
+            <tr><td>Economic</td><td>Payoff bounds, quote consistency, decimal invariants</td><td>Deterministic generated cases</td></tr>
+            <tr><td>Security</td><td>Input rejection, traversal, origins, Host, redaction, rate limits, CSP, XSS, URL schemes</td><td>Pure boundary tests</td></tr>
+            <tr><td>SDK / integration</td><td>Official market, RPC, indexer, price-feed cross-service reads</td><td>Live testnet</td></tr>
+            <tr><td>Contract / E2E</td><td>Faucet, mint, quote, cancel, IOC fill, settlement, claim, roll</td><td>Funded testnet transactions</td></tr>
+            <tr><td>Failure</td><td>Locked-market gate and decoded post-only crossing</td><td>Real chain state where required</td></tr>
+          </tbody>
+        </table>
+        <pre><code>npm test
+npm run test:live
+npm run test:chain-gate
+npm run test:cli-live
+npm run test:contract
+TEMPO_DRY_RUN=false npm run test:e2e</code></pre>
+      </section>
+
+      <section class="doc-section" id="provenance" data-title="Data provenance">
+        <div class="eyebrow">TRUTH MAP</div>
+        <h2>Data provenance</h2>
+        <table>
+          <thead><tr><th>Displayed value</th><th>Classification</th><th>Source path</th></tr></thead>
+          <tbody>
+            <tr><td>Spot / EMA</td><td><span class="badge fact-badge">FACT</span></td><td>Official Somnia price feed via markets SDK</td></tr>
+            <tr><td>Opening boundary</td><td><span class="badge fact-badge">FACT</span></td><td>Binary Markets module / indexed market record</td></tr>
+            <tr><td>Book</td><td><span class="badge fact-badge">FACT</span></td><td>Somnia pool logs materialized by SDK live tail</td></tr>
+            <tr><td>Status</td><td><span class="badge fact-badge">FACT</span></td><td>Live <code>getMarketOnchain(marketId)</code></td></tr>
+            <tr><td>Balances</td><td><span class="badge fact-badge">FACT</span></td><td>Collateral ERC-20 and outcome ERC-6909</td></tr>
+            <tr><td>Fills / receipts</td><td><span class="badge fact-badge">FACT</span></td><td>Chain logs and <code>realtime_sendRawTransaction</code> receipts</td></tr>
+            <tr><td>Settlement</td><td><span class="badge fact-badge">FACT</span></td><td>Finalized market state plus oracle explorer</td></tr>
+            <tr><td>Fair value / sigma</td><td><span class="badge estimate-badge">ESTIMATE</span></td><td>TEMPO appraiser over documented real inputs</td></tr>
+            <tr><td>Agent decision</td><td><span class="badge estimate-badge">ESTIMATE</span></td><td>Pure policy plan plus RiskEngine verdict</td></tr>
+            <tr><td>P&amp;L / inventory</td><td><span class="badge derived-badge">DERIVED</span></td><td>Agent ledger over real fills and settlements</td></tr>
+          </tbody>
+        </table>
+        <p>Missing upstream state stays missing. User surfaces render <code>UNAVAILABLE</code>, <code>PENDING</code>, or <code>NO DATA</code> rather than substituting an economic value.</p>
+      </section>
+
+      <section class="doc-section" id="deployment" data-title="Deployment and failures">
+        <div class="eyebrow">OPERATIONS</div>
+        <h2>Deployment and failures</h2>
+        <p>No custom contract deployment is required. TEMPO uses the official Somnia/DreamDEX deployment through configuration, two distinct funded accounts for live operation, and local JSONL storage for evidence.</p>
+        <h3>Live-operation checklist</h3>
+        <ol class="checklist">
+          <li>Run <code>npx tsx probe/live-probe.ts</code> and treat its output as connectivity truth.</li>
+          <li>Set two distinct private keys and fund both with native STT for gas.</li>
+          <li>Run <code>npm run faucet</code> for testnet collateral.</li>
+          <li>Review risk limits and keep <code>TEMPO_DRY_RUN=true</code> for the first firm run.</li>
+          <li>Inspect journal decisions, balances, live status, tick/lot, and venue ID.</li>
+          <li>Set <code>TEMPO_DRY_RUN=false</code> only for intentional signed operation.</li>
+          <li>Run <code>tempo verify</code> to independently check recorded receipts.</li>
+        </ol>
+
+        <h3>Typed failure codes</h3>
+        <div class="token-list error-codes">
+          <code>NO_KEY</code><code>CONFIG_INVALID</code><code>CHAIN_UNAVAILABLE</code><code>INDEXER_UNAVAILABLE</code><code>FEED_UNAVAILABLE</code><code>MARKET_NOT_TRADING</code><code>MARKET_EXPIRED</code><code>NO_OPENING_PRICE</code><code>BELOW_ONE_LOT</code><code>PRICE_OFF_GRID</code><code>RISK_REJECTED</code><code>ORDER_UNFILLED</code><code>REVERTED</code><code>UNAVAILABLE</code>
+        </div>
+        <p>Expected operational paths include feed or history gaps, indexer lag, locked markets, expired plans, risk rejection, <code>PostOnlyWouldCross</code>, stream fallback, insufficient gas, and voided outcomes. Each path is explicit and journaled where it reaches the runtime.</p>
+
+        <div class="doc-footer">
+          <div><b>TEMPO</b><span>Autonomous opening auction for DreamDEX Event Contracts on Somnia.</span></div>
+          <a href="/">Return to dashboard</a>
+        </div>
+      </section>
+    </article>
+  </main>
+
+  <aside class="page-toc">
+    <p>ON THIS PAGE</p>
+    <a href="#overview" class="active">Overview</a>
+    <a href="#quickstart">Quickstart</a>
+    <a href="#feature-catalog">Features</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#agents">Agents</a>
+    <a href="#sdk">SDK</a>
+    <a href="#exchange-api">Exchange API</a>
+    <a href="#cli">CLI</a>
+    <a href="#security">Security</a>
+    <a href="#testing">Testing</a>
+    <a href="#provenance">Provenance</a>
+  </aside>
+
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+</div>
+<script type="module" src="/docs.js"></script>
+</body>
+</html>
