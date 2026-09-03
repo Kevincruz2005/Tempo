@@ -95,8 +95,8 @@ The public surface exports config, exchange, fair value, risk, policies,
 decimal quantization, journal/replay, deterministic report aggregation, ledger,
 types, claims and backtest.
 The Node 20+ ESM build ships compiled JavaScript and TypeScript declarations as
-GitHub Release `sdk-v0.1.0`, with checksum and CycloneDX SBOM assets. Evidence:
-`packages/core/src/index.ts`, package metadata, and `sdk-release-20260903.md`.
+GitHub Release `sdk-v0.2.0`, with checksum and CycloneDX SBOM assets. Evidence:
+`packages/core/src/index.ts`, package metadata, and `sdk-release-20260903-v020.md`.
 
 ## 18. Agent Coordination
 
@@ -143,7 +143,7 @@ fixtures, scripts and reports are present. Evidence: `test/`.
 
 ## 25. Test Results
 
-Offline: 2,089/2,089 pass. Live SDK/integration: 3/3 pass. Live chain gate: 1/1 pass.
+Offline: 2,099/2,099 pass. Live SDK/integration: 3/3 pass. Live chain gate: 1/1 pass.
 Funded contract flow: PASS. Autonomous same-window E2E lifecycle: PASS, including
 settlement and claim hash `0xd9aad147…bf2ac5e`. Evidence: dated reports.
 

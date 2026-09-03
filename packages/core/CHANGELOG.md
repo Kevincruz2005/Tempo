@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.0 - 2026-09-03
+
+- Add EIP-1193/EIP-6963 wallet helpers and unsigned SDK order construction.
+- Add deterministic settlement calibration with bounded persistence.
+- Add receipt verification and explicit RiskEngine-backed trade preparation.
+
 ## 0.1.0 - 2026-09-03
 
 Initial public GitHub Release of the TEMPO Node SDK.

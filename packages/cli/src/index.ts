@@ -3,7 +3,7 @@
  * tempo — the CLI over @tempo/core (same logic the web uses).
  *
  *   tempo doctor | markets | book | watch | agents | firm | trade | positions
- *   tempo claims | activity | verify | settlements | faucet | backtest
+ *   tempo claims | activity | verify | settlements | faucet | backtest | calibrate | mcp
  */
 import { loadConfig, TempoExchange, oracleQuestionUrl, quantizeSize, type BinaryMarketInfo } from "@tempo/core";
 import { createPublicClient, formatUnits } from "viem";
@@ -456,8 +456,8 @@ async function main(): Promise<void> {
       const { buildReport, aggregate, renderMarkdown, Journal } = await import("@tempo/core");
       const j = new Journal(cfg.journalDir, "tempo");
       const sinceArg = flag("since", "24h") ?? "24h";
-      const hours = /^(\d+)h$/.test(sinceArg) ? Number(sinceArg.slice(0, -1)) : 24;
-      const sinceMs = Date.now() - hours * 3600_000;
+      const duration = sinceArg.match(/^(\d+)([mhd])$/);
+      const sinceMs = Date.now() - (duration ? Number(duration[1]) * ({ m: 60_000, h: 3_600_000, d: 86_400_000 }[duration[2] as "m" | "h" | "d"]) : 86_400_000);
       const records = j.readFiles(sinceMs);
       const stats = aggregate(records, new Date(sinceMs).toISOString(), new Date().toISOString());
       let md = renderMarkdown(stats);
@@ -514,6 +514,31 @@ async function main(): Promise<void> {
       break;
     }
 
+    case "calibrate": {
+      const { CalibrationEngine, Journal } = await import("@tempo/core");
+      const journal = new Journal(cfg.journalDir, "tempo");
+      journal.open();
+      const engine = new CalibrationEngine(`${cfg.journalDir}/calibration.json`, { sigmaMultiplier: 1, takerEdge: cfg.risk.takerEdge }, (message) => {
+        journal.append({ type: "error", source: "calibration", data: { what: "calibration state corrupt", message: message.slice(0, 160) } });
+      });
+      const result = engine.run(journal.readFiles(Date.now() - 30 * 24 * 3600_000), hasFlag("force"));
+      if (result.status === "APPLIED" && result.epoch) {
+        journal.append({ type: "calibration", source: "deterministic-journal-calibration", data: { ...result.epoch, brierAfter: result.epoch.brierAfter ?? "PENDING" } });
+      }
+      await journal.close();
+      out(JSON.stringify(result, (_key, value) => typeof value === "bigint" ? value.toString() : value, 2));
+      break;
+    }
+
+    case "mcp": {
+      const { createMcpServer } = await import("@tempo/mcp");
+      const { StdioServerTransport } = await import("@modelcontextprotocol/sdk/server/stdio.js");
+      const { server } = createMcpServer();
+      await server.connect(new StdioServerTransport());
+      await new Promise<void>(() => {});
+      break;
+    }
+
     default: {
       out("TEMPO — the autonomous opening auction for DreamDEX Event Contracts");
       out("");
@@ -532,6 +557,8 @@ async function main(): Promise<void> {
       out("  activity [--n 50]       journal tape: events → decisions → txs");
       out("  verify                  cross-check journal tx hashes on-chain");
       out("  report [--since 24h] [--llm] [--out f]   firm report from the journal (optional AI narrative)");
+      out("  calibrate [--force]     bounded pricing calibration from settlement facts");
+      out("  mcp                    start the stdio MCP server (read tools; writes opt in)");
       out("  faucet                  mint testnet collateral (testnet, keys required)");
       process.exit(0);
     }

@@ -24,7 +24,9 @@ import {
   type TempoConfig,
   type MarketLifecycle,
   oracleQuestionUrl,
-} from "@tempo/core";
+  CalibrationEngine,
+  CalibrationStore,
+  } from "@tempo/core";
 import { Appraiser } from "./appraiser.js";
 import { Executor, type ExecutionResult } from "./executor.js";
 import { genesisQuotePlan, takerPlan, type Book, type MakerInputs, type TakerInputs } from "@tempo/core";
@@ -125,12 +127,21 @@ export class Firm {
   private settlements: SettlementView[] = [];
   private spots = new Map<string, { price: number; ema: number; ts: number; block?: number }>();
   private readonly managedCadences: Set<number>;
+  private readonly calibration: CalibrationEngine;
+  private calibratedTakerEdge: number;
+  private liveTailRequested = false;
 
   constructor(cfg: TempoConfig, opts: { managedCadences?: readonly number[] } = {}) {
     this.cfg = cfg;
     this.managedCadences = new Set(opts.managedCadences ?? MANAGED_CADENCES);
     this.journal = new Journal(cfg.journalDir, "tempo");
     this.risk = new RiskEngine(cfg.risk);
+    this.calibratedTakerEdge = cfg.risk.takerEdge;
+    const calibrationPath = `${cfg.journalDir}/calibration.json`;
+    const initialCalibration = new CalibrationStore(calibrationPath, { sigmaMultiplier: 1, takerEdge: cfg.risk.takerEdge }).load((message) => {
+      this.journal?.append({ type: "error", data: { what: "calibration state corrupt", message: message.slice(0, 160) } });
+    });
+    this.calibratedTakerEdge = initialCalibration.params.takerEdge;
     this.appraiser = new Appraiser(async (asset) => {
       const probe = new TempoExchange({ config: cfg });
       try {
@@ -138,6 +149,10 @@ export class Firm {
       } finally {
         await probe.close();
       }
+    });
+    this.appraiser.setSigmaMultiplier(initialCalibration.params.sigmaMultiplier);
+    this.calibration = new CalibrationEngine(calibrationPath, { sigmaMultiplier: 1, takerEdge: cfg.risk.takerEdge }, (message) => {
+      this.journal?.append({ type: "error", data: { what: "calibration state corrupt", message: message.slice(0, 160) } });
     });
     this.maker = new TempoExchange({ config: cfg, privateKey: cfg.keys.maker });
     this.taker = new TempoExchange({ config: cfg, privateKey: cfg.keys.taker });
@@ -195,6 +210,7 @@ export class Firm {
     // materialize books locally and pick up new markets the block they deploy.
     let liveTailTimer: ReturnType<typeof setTimeout> | undefined;
     try {
+      this.liveTailRequested = true;
       await Promise.race([
         this.maker.sdk.client.watchMarkets({ discover: true }),
         new Promise<never>((_, reject) => {
@@ -732,7 +748,7 @@ export class Firm {
       now: Date.now() / 1000,
       tick: params.tick,
       lot: params.lot,
-      edge: this.cfg.risk.takerEdge,
+      edge: this.calibratedTakerEdge,
       size: this.cfg.risk.quoteSize,
       minLeftSec: this.risk.minLeftTaker(),
       maxCollateral: this.cfg.risk.maxOrderCollateral,
@@ -749,7 +765,7 @@ export class Firm {
         secondsLeft,
         intervalSec: m.intervalSec,
         fairValue: fv.p,
-        edge: this.cfg.risk.takerEdge,
+        edge: this.calibratedTakerEdge,
       },
       { netInventory: upBal - downBal, grossInventory: upBal + downBal, capitalCommitted: 0 },
     );
@@ -945,6 +961,40 @@ export class Firm {
     } finally {
       this.claimSweepRunning = false;
     }
+    await this.runCalibration();
+  }
+
+  /** Run one bounded calibration epoch from the journal; never changes risk caps. */
+  async calibrate(force = false): Promise<ReturnType<CalibrationEngine["run"]>> {
+    const result = this.calibration.run(this.journal.since(Date.now() - 30 * 24 * 3600_000), force);
+    if (result.status === "APPLIED" && result.epoch) {
+      this.calibratedTakerEdge = result.state.params.takerEdge;
+      this.appraiser.setSigmaMultiplier(result.state.params.sigmaMultiplier);
+      this.journal.append({
+        type: "calibration",
+        source: "deterministic-journal-calibration",
+        data: {
+          epochId: result.epoch.id,
+          scoredCount: result.epoch.scoredCount,
+          brierBefore: result.epoch.brierBefore,
+          brierAfter: result.epoch.brierAfter ?? "PENDING",
+          directionalAccuracy: result.epoch.directionalAccuracy,
+          oldParams: result.epoch.oldParams,
+          newParams: result.epoch.newParams,
+          clamped: result.epoch.clamped,
+          reason: result.epoch.reason,
+        },
+      });
+    }
+    return result;
+  }
+
+  private async runCalibration(): Promise<void> {
+    try {
+      await this.calibrate(false);
+    } catch (error) {
+      this.journal.append({ type: "error", data: { what: "calibration", message: error instanceof Error ? error.message : String(error) } });
+    }
   }
 
   // -- agent state for the UI/CLI ----------------------------------------------
@@ -1028,5 +1078,79 @@ export class Firm {
       risk: this.cfg.risk,
       settlements: this.settlements,
     };
+  }
+
+  /** Readiness probe composed only from live dependency checks and safe status. */
+  async readiness(): Promise<{
+    ok: boolean;
+    checkedAt: string;
+    checks: {
+      indexer: { ok: boolean };
+      rpc: { ok: boolean; block?: string };
+      prices: Record<string, { ok: boolean }>;
+      liveTail?: { ok: boolean };
+    };
+  }> {
+    const indexer = { ok: false };
+    const rpc: { ok: boolean; block?: string } = { ok: false };
+    const prices: Record<string, { ok: boolean }> = {};
+    try {
+      await this.maker.markets({ maxAgeMs: 0 });
+      indexer.ok = true;
+    } catch {
+      indexer.ok = false;
+    }
+    try {
+      rpc.block = (await this.maker.rpcHead()).toString();
+      rpc.ok = true;
+    } catch {
+      rpc.ok = false;
+    }
+    for (const asset of this.cfg.assets) {
+      try {
+        prices[asset] = { ok: Boolean(await this.maker.spot(asset)) };
+      } catch {
+        prices[asset] = { ok: false };
+      }
+    }
+    const liveTail = this.liveTailRequested
+      ? { ok: (() => { try { return this.maker.sdk.client.isTailing(); } catch { return false; } })() }
+      : undefined;
+    const ok = indexer.ok && rpc.ok && Object.values(prices).every((check) => check.ok) && (liveTail?.ok ?? true);
+    return { ok, checkedAt: new Date().toISOString(), checks: { indexer, rpc, prices, ...(liveTail ? { liveTail } : {}) } };
+  }
+
+  /** Read-only wallet attribution from the SDK live store; no signer state is returned. */
+  walletActivity(address: string): { fills: unknown[]; orders: unknown[] } {
+    if (!/^0x[0-9a-f]{40}$/i.test(address)) throw new Error("invalid wallet address");
+    const fills = this.maker.sdk.client.getLiveUserFills(null, address, { limit: 50 }).map((fill) => ({
+      id: fill.id,
+      marketId: fill.market_id,
+      tx: fill.txHash,
+      block: fill.blockNumber,
+      price: fill.fillPrice,
+      quantity: fill.quantity,
+      side: fill.taker?.toLowerCase() === address.toLowerCase() ? fill.takerSide : fill.makerSide,
+    }));
+    const orders = [...this.markets.values()].slice(0, 20).flatMap((market) => {
+      if (!market.pool) return [];
+      return this.maker.sdk.client.getLiveUserOrders(market.pool, address, { limit: 20 }).map((order) => ({
+        id: order.orderId,
+        marketId: order.market_id,
+        status: order.status,
+        side: order.side,
+        price: order.price,
+        quantityRemaining: order.quantityRemaining,
+      }));
+    });
+    return { fills, orders };
+  }
+
+  async prepareWalletTrade(marketRef: string, outcome: "UP" | "DOWN", size: number, price: number) {
+    return this.maker.prepareTrade(marketRef, outcome, size, price);
+  }
+
+  async buildWalletOrder(address: string, marketRef: string, outcome: "UP" | "DOWN", size: number, price: number) {
+    return this.maker.buildWalletOrder(address, marketRef, outcome, size, price);
   }
 }

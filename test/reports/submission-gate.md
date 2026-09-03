@@ -52,13 +52,13 @@
 ## Developer Product
 
 - [x] CLI implemented and documented
-- [x] Reusable typed `@tempo/core` implemented, documented, compiled, and published as GitHub Release `sdk-v0.1.0`
+- [x] Reusable typed `@tempo/core` implemented, documented, compiled, and published as GitHub Release `sdk-v0.2.0`
 - [x] CLI and web share core/engine paths
 - [x] SDK quickstart and provenance matrix in README
 
 ## Testing
 
-- [x] Offline unit/failure/security/economic/CLI: 2,089 passed, including 2,048 invariant cases, 12 security-boundary cases, and report aggregation coverage
+- [x] Offline unit/failure/security/economic/CLI: 2,099 passed, including 2,048 invariant cases, 12 security-boundary cases, and report aggregation coverage
 - [x] Live SDK/integration: 3 passed
 - [x] Live non-trading chain gate: 1 passed
 - [x] Security runtime probes passed; dependency audit reports 0 vulnerabilities

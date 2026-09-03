@@ -32,7 +32,7 @@ Tarball SHA-256:
 - ESM runtime import and pure-function execution: PASS
 - TypeScript declaration consumption with `skipLibCheck=false`: PASS
 - Consumer production dependency audit: 0 vulnerabilities
-- Repository offline suite after packaging: 2,089/2,089 PASS
+- Repository offline suite after packaging: 2,089/2,089 PASS (historical v0.1.0 release)
 
 ## Install
 

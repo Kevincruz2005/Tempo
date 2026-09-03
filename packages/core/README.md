@@ -16,7 +16,7 @@ claim helpers, deterministic policies, risk controls, provenance, and replay.
 ## Install from GitHub Releases
 
 ```bash
-npm install https://github.com/Kevincruz2005/Tempo/releases/download/sdk-v0.1.0/tempo-core-0.1.0.tgz
+npm install https://github.com/Kevincruz2005/Tempo/releases/download/sdk-v0.2.0/tempo-core-0.2.0.tgz
 ```
 
 ## Read-only example
@@ -69,6 +69,19 @@ the official SDK receipt. Firm plans additionally pass `RiskEngine` before
 execution. Omitting the key produces typed `NO_KEY` failures rather than fake
 execution.
 
+## External wallet and calibration
+
+Browser integrations pass a viem `WalletClient` backed by an EIP-1193 provider;
+no private key is required. Call `buildWalletOrder(address, market, outcome,
+size, price)` to obtain SDK unsigned approval/order calls after the same live
+status and `RiskEngine` checks used by `place`. Show the returned call
+descriptions to the user before sending them through the wallet.
+
+`CalibrationEngine` scores journaled fair-value estimates against finalized
+settlements and adjusts only bounded `sigmaMultiplier` and `takerEdge` values.
+It never changes risk caps, never rewrites history, and returns `GATED` honestly
+until 25 scored markets exist unless `force` is explicitly requested.
+
 ## Public surface
 
 | Module | Capability |
@@ -82,6 +95,8 @@ execution.
 | `Journal` | Typed JSONL append, subscribe, tail, since, disk read, and replay |
 | `AgentLedger` | Fill-derived positions, cash flow, and settlement |
 | Firm reporting | Journal aggregation, Brier scoring, deterministic Markdown, and optional labeled AI narrative |
+| Wallet helpers | EIP-6963/EIP-1193 parsing, chain checks, and frozen pre-sign summaries |
+| CalibrationEngine | Bounded, journal-scored pricing adjustment with corrupt-state recovery |
 | Provenance | Typed source, endpoint/contract, timestamp, and block tags |
 | Errors | Named `TempoErrorCode` failures and `isTempoError` guard |
 
@@ -93,7 +108,7 @@ are estimates and must not be represented as on-chain facts.
 
 ## Verification
 
-The release is built from the same source covered by 2,089 offline tests,
+The release is built from the same source covered by 2,099 offline tests,
 including 2,048 decimal/economic invariant cases and 12 security-boundary
 cases, plus direct report aggregation tests. Repository evidence independently
 verifies 31/31 recorded Somnia Shannon transaction receipts.

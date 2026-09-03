@@ -15,6 +15,7 @@ export interface AppraisedWindow {
 export class Appraiser {
   private history: Record<string, Array<{ price: number; ts: number }>> = {};
   private seeded = new Set<string>();
+  private sigmaMultiplier = 1;
 
   constructor(
     private readonly fetchHistory: (asset: string) => Promise<Array<{ price: number; ts: number }>>,
@@ -50,6 +51,10 @@ export class Appraiser {
     return this.history[asset]?.[this.history[asset].length - 1];
   }
 
+  setSigmaMultiplier(multiplier: number): void {
+    if (Number.isFinite(multiplier) && multiplier > 0) this.sigmaMultiplier = multiplier;
+  }
+
   /** Realized vol over the trailing window; NaN until enough samples. */
   sigma(asset: string): { sigma: number; samples: number } {
     const arr = this.history[asset] ?? [];
@@ -61,7 +66,7 @@ export class Appraiser {
   /** Fair value for one window; unavailable until enough real feed samples exist. */
   appraise(asset: string, spot: number, strike: number, secondsLeft: number): AppraisedWindow {
     const { sigma, samples } = this.sigma(asset);
-    const use = Number.isFinite(sigma) && samples >= this.minSamples ? sigma : NaN;
+    const use = Number.isFinite(sigma) && samples >= this.minSamples ? sigma * this.sigmaMultiplier : NaN;
     const fv = fairValue({ spot, strike, sigmaPerSqrtSec: use, secondsLeft });
     return { fv, sigma: use, samples };
   }

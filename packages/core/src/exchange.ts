@@ -12,12 +12,13 @@ import {
   type UnifiedMarket,
   type PlaceOrderResult,
 } from "@somnia-chain/markets-sdk";
-import { erc20Abi, createPublicClient, http, type PublicClient } from "viem";
+import { erc20Abi, createPublicClient, createWalletClient, http, type Address, type PublicClient, type WalletClient } from "viem";
 import { somniaMainnet, somniaShannon, defineChain } from "@somnia-chain/markets-sdk/chains";
 import type { TempoConfig } from "./config.js";
 import { TempoError } from "./errors.js";
 import { lotsToSize, probToTicks, sizeToLots } from "./quant.js";
 import { fairValue, realizedVolPerSqrtSec } from "./fairValue.js";
+import { RiskEngine, type RiskVerdict } from "./risk.js";
 
 export interface BinaryMarketInfo {
   marketId: string;
@@ -83,6 +84,21 @@ export interface TempoExchangeOptions {
   config: TempoConfig;
   /** Signer for writes; omit for read-only. */
   privateKey?: `0x${string}`;
+  /** Browser wallet client; never exposes a private key to TEMPO. */
+  walletClient?: WalletClient;
+}
+
+export interface PreparedTrade {
+  market: BinaryMarketInfo;
+  onchain: OnchainMarket;
+  outcome: "UP" | "DOWN";
+  side: "buy" | "sell";
+  size: number;
+  price: number;
+  expireTimestampNs: bigint;
+  secondsLeft: number;
+  worstCaseCost: number;
+  verdict: RiskVerdict;
 }
 
 export class TempoExchange {
@@ -95,7 +111,7 @@ export class TempoExchange {
 
   constructor(opts: TempoExchangeOptions) {
     this.cfg = opts.config;
-    this.readonly = !opts.privateKey;
+    this.readonly = !opts.privateKey && !opts.walletClient;
     const base = opts.config.network === "testnet" ? somniaShannon : somniaMainnet;
     const chain =
       opts.config.endpoints.rpcUrl === base.rpcUrls.default.http[0]
@@ -111,12 +127,51 @@ export class TempoExchange {
       addresses: opts.config.addresses,
       priceFeed: opts.config.endpoints.priceFeed,
       privateKey: opts.privateKey,
+      walletClient: opts.walletClient,
     });
     this.publicClient = createPublicClient({ chain, transport: http(opts.config.endpoints.rpcUrl) });
   }
 
   get walletAddress(): string | undefined {
     return this.sdk.walletAddress;
+  }
+
+  /** Current RPC head used by readiness checks; no signer is required. */
+  async rpcHead(): Promise<bigint> {
+    return this.publicClient.getBlockNumber();
+  }
+
+  async verifyReceipt(hash: string): Promise<{ hash: string; status: "success" | "reverted"; block: string }> {
+    if (!/^0x[0-9a-f]{64}$/i.test(hash)) throw new TempoError("UNAVAILABLE", "transaction hash is malformed");
+    const receipt = await this.publicClient.getTransactionReceipt({ hash: hash as `0x${string}` });
+    return { hash, status: receipt.status === "success" ? "success" : "reverted", block: receipt.blockNumber.toString() };
+  }
+
+  /** Build unsigned approval/order calls for an external browser wallet. */
+  async buildWalletOrder(address: string, marketRef: string, outcome: "UP" | "DOWN", size: number, price: number) {
+    if (!/^0x[0-9a-f]{40}$/i.test(address)) throw new TempoError("UNAVAILABLE", "wallet address is malformed");
+    const chain = this.publicClient.chain;
+    if (!chain) throw new TempoError("CHAIN_UNAVAILABLE", "configured chain is unavailable");
+    const walletClient = createWalletClient({ account: address as Address, chain, transport: http(this.cfg.endpoints.rpcUrl) });
+    const browserExchange = new TempoExchange({ config: this.cfg, walletClient });
+    try {
+      const prepared = await browserExchange.prepareTrade(marketRef, outcome, size, price);
+      const params = await browserExchange.bookParams(prepared.onchain.pool);
+      const rawPrice = probToTicks(outcome === "DOWN" ? 1 - prepared.price : prepared.price, params.tickSize, params.decimals);
+      const rawSize = sizeToLots(prepared.size, params.lotSize, params.decimals);
+      const unsigned = await browserExchange.sdk.trader.buildPlaceOrder({
+        pool: prepared.onchain.pool as `0x${string}`,
+        side: outcome === "DOWN" ? "BUY_NO" : "BUY_YES",
+        price: rawPrice,
+        quantity: rawSize,
+        expireTimestampNs: prepared.expireTimestampNs,
+        orderType: ORDER_TYPE.MARKET,
+        autoApprove: false,
+      });
+      return { prepared, approval: unsigned.approval, order: unsigned.order };
+    } finally {
+      await browserExchange.close();
+    }
   }
 
   /** Collateral decimals — derived from the token itself, never hardcoded. */
@@ -352,6 +407,65 @@ export class TempoExchange {
   }
 
   /**
+   * Build and risk-check a manual IOC order without signing or sending it.
+   * Browser wallets and MCP simulation use this exact preparation path before
+   * the caller is allowed to request a signature.
+   */
+  async prepareTrade(
+    marketRef: string,
+    outcome: "UP" | "DOWN",
+    size: number,
+    price: number,
+    opts: { expireTimestampNs?: bigint; secondsLeft?: number } = {},
+  ): Promise<PreparedTrade> {
+    const { market, onchain } = await this.requireTrading(marketRef);
+    const params = await this.bookParams(onchain.pool);
+    const nowMs = Date.now();
+    const secondsLeft = opts.secondsLeft ?? market.expiry - nowMs / 1000;
+    const nowSec = BigInt(Math.floor(nowMs / 1000));
+    const marketExpirySec = BigInt(Math.floor(market.expiry));
+    const requested = opts.expireTimestampNs ?? (nowSec + 8n) * 1_000_000_000n;
+    const expireTimestampNs = requested < marketExpirySec * 1_000_000_000n
+      ? requested
+      : marketExpirySec * 1_000_000_000n;
+    if (expireTimestampNs <= BigInt(nowMs) * 1_000_000n) {
+      throw new TempoError("MARKET_EXPIRED", `${market.symbol} has no valid order lifetime`);
+    }
+    const humanYesPrice = outcome === "DOWN" ? 1 - price : price;
+    const rawPrice = probToTicks(humanYesPrice, params.tickSize, params.decimals);
+    const quantizedPrice = Number(rawPrice) / 10 ** params.decimals;
+    const rawSize = sizeToLots(size, params.lotSize, params.decimals);
+    const quantizedSize = lotsToSize(rawSize, params.decimals);
+    const engine = new RiskEngine(this.cfg.risk);
+    const verdict = engine.check(
+      {
+        outcome,
+        price: outcome === "DOWN" ? 1 - quantizedPrice : quantizedPrice,
+        size: quantizedSize,
+        collateral: quantizedPrice * quantizedSize,
+        secondsLeft,
+        intervalSec: market.intervalSec,
+      },
+      { netInventory: 0, grossInventory: 0, capitalCommitted: 0, openOrders: 0, realizedPnl: 0 },
+    );
+    if (!verdict.ok) {
+      throw new TempoError("RISK_REJECTED", verdict.reason, { code: verdict.code });
+    }
+    return {
+      market,
+      onchain,
+      outcome,
+      side: "buy",
+      size: quantizedSize,
+      price: outcome === "DOWN" ? 1 - quantizedPrice : quantizedPrice,
+      expireTimestampNs,
+      secondsLeft,
+      worstCaseCost: quantizedPrice * quantizedSize,
+      verdict,
+    };
+  }
+
+  /**
    * Place an order through the unified tier. `postOnly` for maker quotes,
    * `timeInForce: "IOC"` for taker orders. Size must already be lot-quantized;
    * price must already be tick-snapped (policies guarantee both).
@@ -364,19 +478,20 @@ export class TempoExchange {
     opts: { postOnly?: boolean; ioc?: boolean; expireTimestampNs?: bigint } = {},
   ): Promise<{ hash?: string; status?: string; filled?: number; orderId?: string }> {
     if (this.readonly) throw new TempoError("NO_KEY", `place() on ${symbol} requires a signer`);
-    const { market, onchain } = await this.requireTrading(symbol);
+    const market = await this.marketForRef(symbol);
+    const outcome = symbol.toLowerCase() === market.downSymbol.toLowerCase() ? "DOWN" : "UP";
+    const prepared = await this.prepareTrade(market.marketId, outcome, size, price, {
+      expireTimestampNs: opts.expireTimestampNs,
+    });
+    const onchain = prepared.onchain;
     const params = await this.bookParams(onchain.pool);
     const isDown = symbol.toLowerCase() === market.downSymbol.toLowerCase();
-    const nowSec = BigInt(Math.floor(Date.now() / 1000));
-    const marketExpirySec = BigInt(Math.floor(market.expiry));
-    const requested = opts.expireTimestampNs ?? (nowSec + 8n) * 1_000_000_000n;
-    const expiry = requested < marketExpirySec * 1_000_000_000n ? requested : marketExpirySec * 1_000_000_000n;
-    if (expiry <= nowSec * 1_000_000_000n) throw new TempoError("MARKET_EXPIRED", `${market.symbol} has no valid order lifetime`);
+    const expiry = prepared.expireTimestampNs;
     const humanYesPrice = isDown ? 1 - price : price;
     const rawPrice = probToTicks(humanYesPrice, params.tickSize, params.decimals);
     const one = 10n ** BigInt(params.decimals);
     if (rawPrice <= 0n || rawPrice >= one) throw new TempoError("PRICE_OFF_GRID", `price ${price} is outside the valid tick grid`);
-    const rawSize = sizeToLots(size, params.lotSize, params.decimals);
+    const rawSize = sizeToLots(prepared.size, params.lotSize, params.decimals);
     if (rawSize < (params.minQuantity ?? params.lotSize)) throw new TempoError("BELOW_ONE_LOT", `size ${size} is below market minimum`);
     const binarySide = `${side === "buy" ? "BUY" : "SELL"}_${isDown ? "NO" : "YES"}` as
       | "BUY_YES"

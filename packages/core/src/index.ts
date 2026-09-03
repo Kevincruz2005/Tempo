@@ -9,4 +9,6 @@ export * from "./exchange.js";
 export * from "./ledger.js";
 export * from "./provenance.js";
 export * from "./report.js";
+export * from "./wallet.js";
+export * from "./calibration.js";
 export * from "./types.js";

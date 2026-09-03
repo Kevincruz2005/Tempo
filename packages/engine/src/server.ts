@@ -4,6 +4,7 @@
  */
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { extname, resolve, sep } from "node:path";
 import type { JournalRecord } from "@tempo/core";
 import type { Firm } from "./firm.js";
@@ -17,6 +18,27 @@ const MIME: Record<string, string> = {
   ".png": "image/png",
   ".svg": "image/svg+xml",
 };
+
+const ROOT_VERSION = (() => {
+  try {
+    const packagePath = new URL("../../../package.json", import.meta.url);
+    const parsed = JSON.parse(readFileSync(packagePath, "utf8")) as { version?: unknown };
+    return typeof parsed.version === "string" ? parsed.version : "UNAVAILABLE";
+  } catch {
+    return "UNAVAILABLE";
+  }
+})();
+
+export interface ReadinessResult {
+  ok: boolean;
+  checkedAt: string;
+  checks: {
+    indexer: { ok: boolean };
+    rpc: { ok: boolean; block?: string };
+    prices: Record<string, { ok: boolean }>;
+    liveTail?: { ok: boolean };
+  };
+}
 
 const SENSITIVE_KEY = /(?:private.?keys?|secret|password|authorization|cookie|mnemonic|token|api.?key|session|__proto__|prototype|constructor)/i;
 
@@ -36,6 +58,8 @@ export interface TempoServerOptions {
   maxSseClients?: number;
   maxSseClientsPerIp?: number;
   apiRequestsPerMinute?: number;
+  /** Injectable for deterministic boundary tests; production uses Firm.readiness. */
+  readinessProbe?: () => Promise<ReadinessResult>;
 }
 
 export function isSameOriginRequest(origin?: string, host?: string, fetchSite?: string): boolean {
@@ -152,6 +176,8 @@ export class TempoServer {
   private readonly rateLimiter: FixedWindowRateLimiter;
   private heartbeat?: ReturnType<typeof setInterval>;
   private unsubscribe?: () => void;
+  private readonly readinessProbe: () => Promise<ReadinessResult>;
+  private readinessCache?: { at: number; result: ReadinessResult };
 
   constructor(
     private readonly firm: Firm,
@@ -163,6 +189,7 @@ export class TempoServer {
     this.maxSseClients = options.maxSseClients ?? 32;
     this.maxSseClientsPerIp = options.maxSseClientsPerIp ?? 4;
     this.rateLimiter = new FixedWindowRateLimiter(options.apiRequestsPerMinute ?? 240);
+    this.readinessProbe = options.readinessProbe ?? (() => this.firm.readiness());
     if (!Number.isInteger(port) || port < 0 || port > 65_535) throw new Error("invalid HTTP port");
     if (!this.host.trim()) throw new Error("invalid HTTP host");
   }
@@ -230,6 +257,12 @@ export class TempoServer {
     });
   }
 
+  /** Bound port, useful for smoke tests and embedding the server. */
+  listeningPort(): number | undefined {
+    const address = this.server?.address();
+    return address && typeof address === "object" ? address.port : undefined;
+  }
+
   private cleanup(): void {
     if (this.heartbeat) clearInterval(this.heartbeat);
     this.heartbeat = undefined;
@@ -284,6 +317,28 @@ export class TempoServer {
     }
 
     try {
+      if (url.pathname === "/health") {
+        return this.json(response, 200, { status: "ok", service: "tempo", version: ROOT_VERSION });
+      }
+      if (url.pathname === "/ready") return this.ready(response);
+      if (url.pathname === "/api/wallet/activity") {
+        const address = url.searchParams.get("address") ?? "";
+        if (!/^0x[0-9a-f]{40}$/i.test(address)) return this.json(response, 400, { error: "address must be a 20-byte hex address" });
+        return this.json(response, 200, this.firm.walletActivity(address));
+      }
+      if (url.pathname === "/api/wallet/prepare") {
+        const market = url.searchParams.get("market") ?? "";
+        const address = url.searchParams.get("address") ?? "";
+        const outcome = (url.searchParams.get("outcome") ?? "").toUpperCase();
+        const size = Number(url.searchParams.get("size"));
+        const price = Number(url.searchParams.get("price"));
+        if (!market || (outcome !== "UP" && outcome !== "DOWN") || !Number.isFinite(size) || !Number.isFinite(price) || size <= 0 || price <= 0 || price >= 1) {
+          return this.json(response, 400, { error: "market, outcome, positive size, and price in (0,1) are required" });
+        }
+        if (!/^0x[0-9a-f]{40}$/i.test(address)) return this.json(response, 400, { error: "address must be a 20-byte hex address" });
+        const prepared = await this.firm.buildWalletOrder(address, market, outcome, size, price);
+        return this.json(response, 200, prepared);
+      }
       if (url.pathname === "/api/state") return this.json(response, 200, await this.firm.snapshot());
       if (url.pathname === "/api/journal") {
         const limit = parseJournalLimit(url.searchParams.get("n"));
@@ -308,6 +363,36 @@ export class TempoServer {
       this.firm.journal.append({ type: "error", data: { what: "dashboard request failed", path: url.pathname } });
       this.json(response, 500, { error: "internal server error" });
     }
+  }
+
+  private async ready(response: ServerResponse): Promise<void> {
+    const now = Date.now();
+    if (!this.readinessCache || now - this.readinessCache.at >= 5_000) {
+      let result: ReadinessResult;
+      try {
+        result = await this.readinessProbe();
+      } catch {
+        result = {
+          ok: false,
+          checkedAt: new Date(now).toISOString(),
+          checks: { indexer: { ok: false }, rpc: { ok: false }, prices: {} },
+        };
+      }
+      this.readinessCache = { at: now, result };
+    }
+    const result = this.readinessCache.result;
+    const body = {
+      status: result.ok ? "ready" : "not_ready",
+      service: "tempo",
+      checkedAt: result.checkedAt,
+      checks: {
+        indexer: result.checks.indexer.ok,
+        rpc: result.checks.rpc.ok,
+        prices: Object.fromEntries(Object.entries(result.checks.prices).map(([asset, check]) => [asset, check.ok])),
+        ...(result.checks.liveTail ? { liveTail: result.checks.liveTail.ok } : {}),
+      },
+    };
+    this.json(response, result.ok ? 200 : 503, body);
   }
 
   private openStream(request: IncomingMessage, response: ServerResponse, ip: string): void {

@@ -7,6 +7,8 @@
   "bin": { "tempo": "./src/index.ts" },
   "dependencies": {
     "@tempo/core": "*",
+    "@tempo/mcp": "*",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@tempo/engine": "*",
     "@somnia-chain/markets-sdk": "0.29.0",
     "viem": "^2.21.0"

@@ -118,6 +118,7 @@ function renderSettlements(settlements = []) {
 function render(state) {
   if (!state) return;
   lastState = state;
+  window.dispatchEvent(new CustomEvent("tempo:state", { detail: state }));
   $("pill-net").textContent = state.live.network.toUpperCase();
   $("pill-mode").textContent = state.live.dryRun ? "DRY RUN" : "LIVE";
   $("pill-tail").textContent = state.live.tailing ? "TAIL LIVE" : "POLL FALLBACK";

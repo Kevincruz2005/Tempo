@@ -16,6 +16,7 @@
     </div>
     <div class="pillrow">
       <a class="navlink" href="/docs.html">DOCS</a>
+      <button class="wallet-button" id="wallet-connect" type="button" title="Connect an EIP-1193 wallet">Connect wallet</button>
       <span class="pill" id="pill-net">—</span>
       <span class="pill" id="pill-mode">—</span>
       <span class="pill" id="pill-tail">●</span>
@@ -54,6 +55,20 @@
     <!-- Right top: firm -->
     <section class="panel" id="panel-firm">
       <h2>The Firm <span class="sub">two agents · separate keys · separate policies</span></h2>
+      <div class="wallet-panel" id="wallet-panel">
+        <div class="wallet-head"><b>Human wallet</b><span id="wallet-state">DISCONNECTED</span></div>
+        <div class="wallet-meta" id="wallet-meta">Connect an EIP-6963 wallet to inspect your own activity.</div>
+        <div class="wallet-warning" id="wallet-warning" hidden></div>
+        <div class="wallet-trade" id="wallet-trade" hidden>
+          <label>Window <select id="wallet-market"></select></label>
+          <label>Side <select id="wallet-side"><option value="UP">UP</option><option value="DOWN">DOWN</option></select></label>
+          <label>Size <input id="wallet-size" type="number" min="0.001" step="0.001" value="1" /></label>
+          <label>Limit <input id="wallet-price" type="number" min="0.001" max="0.999" step="0.001" value="0.5" /></label>
+          <button id="wallet-prepare" type="button">Review IOC</button>
+          <pre id="wallet-summary" hidden></pre>
+        </div>
+        <div class="wallet-activity" id="wallet-activity"></div>
+      </div>
       <div class="body" id="firm"></div>
     </section>
 
@@ -75,5 +90,6 @@
   </footer>
 </div>
 <script type="module" src="/app.js"></script>
+<script type="module" src="/wallet.js"></script>
 </body>
 </html>

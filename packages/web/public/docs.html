@@ -22,7 +22,7 @@
       <div class="search-results" id="search-results" hidden></div>
     </div>
     <nav class="header-links" aria-label="Product links">
-      <span class="version">CORE 0.1.0</span>
+      <span class="version">CORE 0.2.0</span>
       <a href="/">Dashboard</a>
       <a href="https://github.com/Kevincruz2005/Tempo" target="_blank" rel="noopener noreferrer">GitHub</a>
     </nav>
@@ -41,6 +41,7 @@
       <a href="#lifecycle">Market lifecycle</a>
       <a href="#appraiser">Appraiser and estimates</a>
       <a href="#dashboard">Dashboard and HTTP API</a>
+      <a href="#wallet">Connect wallet</a>
 
       <p class="nav-group">Developers</p>
       <a href="#sdk">Core SDK</a>
@@ -48,6 +49,8 @@
       <a href="#risk-quant">Risk and quantization</a>
       <a href="#journal">Journal and replay</a>
       <a href="#reporting">Firm reporting</a>
+      <a href="#calibration">Calibration loop</a>
+      <a href="#mcp">MCP server</a>
       <a href="#cli">CLI reference</a>
 
       <p class="nav-group">Operations</p>
@@ -65,7 +68,7 @@
         <h1>TEMPO Documentation</h1>
         <p class="lede">The operator and developer reference for TEMPO: a two-agent opening-auction firm for DreamDEX Event Contracts, built on the pinned Somnia markets SDK.</p>
         <div class="status-strip" aria-label="Verified project status">
-          <div><b>2,089</b><span>offline tests passing</span></div>
+          <div><b>2,099</b><span>offline tests passing</span></div>
           <div><b>31 / 31</b><span>live receipts verified</span></div>
           <div><b>0.29.0</b><span>markets SDK pinned</span></div>
           <div><b>0</b><span>mocked economic values</span></div>
@@ -118,6 +121,7 @@ npm run firm</code></pre>
           <div><code>TEMPO_LLM_API_KEY</code><span>Optional report narrative credential</span></div>
           <div><code>TEMPO_LLM_URL</code><span>Optional chat-completions endpoint</span></div>
           <div><code>TEMPO_LLM_MODEL</code><span>Optional narrative model name</span></div>
+          <div><code>TEMPO_MCP_WRITES</code><span>Default <code>false</code>; explicit MCP write opt-in</span></div>
         </div>
         <p class="note">Risk parameters are also environment-configurable: quote size, net/gross inventory, firm capital, per-order collateral, open-order count, per-window loss, maker/taker time gates, taker edge, and spread bounds.</p>
       </section>
@@ -250,10 +254,10 @@ const estimate = fairValue({
       </section>
 
       <section class="doc-section" id="sdk" data-title="Core SDK">
-        <div class="eyebrow">@TEMPO/CORE 0.1.0</div>
+        <div class="eyebrow">@TEMPO/CORE 0.2.0</div>
         <h2>Core SDK</h2>
         <p><code>@tempo/core</code> is the reusable Node 20+ ESM SDK, distributed as a compiled GitHub Release artifact with TypeScript declarations. It consumes <code>@somnia-chain/markets-sdk</code> exactly at version <code>0.29.0</code>.</p>
-        <pre><code>npm install https://github.com/Kevincruz2005/Tempo/releases/download/sdk-v0.1.0/tempo-core-0.1.0.tgz</code></pre>
+        <pre><code>npm install https://github.com/Kevincruz2005/Tempo/releases/download/sdk-v0.2.0/tempo-core-0.2.0.tgz</code></pre>
         <h3>Read-only market client</h3>
         <pre><code>import { loadConfig, TempoExchange } from "@tempo/core";
 
@@ -306,6 +310,8 @@ const receipt = await exchange.quote(
           <div><code>ledger</code><span>Fill application, positions, cash flow, and settlement</span></div>
           <div><code>provenance</code><span>Source, transport, timestamp, block, and tagged values</span></div>
           <div><code>errors</code><span>Named operational error codes and type guard</span></div>
+          <div><code>wallet</code><span>EIP-1193/EIP-6963 parsing, chain checks, and pre-sign summaries</span></div>
+          <div><code>calibration</code><span>Bounded journal-scored pricing adjustment with fail-safe persistence</span></div>
         </div>
       </section>
 
@@ -330,6 +336,9 @@ const receipt = await exchange.quote(
             <tr><td><code>openOrders(symbol)</code></td><td>Normalized signer working orders.</td></tr>
             <tr><td><code>myTrades(symbol, since?)</code></td><td>Normalized signer fill history.</td></tr>
             <tr><td><code>candles(pool, bucket, opts)</code></td><td>Market candles for 60, 300, 900, or 3,600 second buckets.</td></tr>
+            <tr><td><code>prepareTrade(ref, outcome, size, price)</code></td><td>Chain-gated, lot/tick-quantized, RiskEngine-checked manual order preview.</td></tr>
+            <tr><td><code>buildWalletOrder(address, ref, outcome, size, price)</code></td><td>Unsigned SDK approval/order calls for an external EIP-1193 wallet.</td></tr>
+            <tr><td><code>verifyReceipt(hash)</code></td><td>Reads a real configured-chain receipt and returns status/block.</td></tr>
           </tbody>
         </table>
 
@@ -437,6 +446,32 @@ npm run cli -- report --since 7d --llm --out test/reports/weekly-report.md</code
         <p>The <code>--llm</code> flag sends only the already-computed statistics to the configured chat-completions endpoint. It requires <code>TEMPO_LLM_API_KEY</code> or <code>OPENAI_API_KEY</code>; <code>TEMPO_LLM_URL</code> and <code>TEMPO_LLM_MODEL</code> override the defaults. Generated prose is isolated under <code>AI NARRATIVE</code>. If the endpoint or credential is unavailable, the deterministic report remains intact and records that the narrative was omitted.</p>
       </section>
 
+      <section class="doc-section" id="calibration" data-title="Calibration loop">
+        <div class="eyebrow">COLD-PATH LEARNING FROM FACTS</div>
+        <h2>Calibration loop</h2>
+        <p>After claim sweeps, TEMPO scores the last pre-expiry fair-value estimate for each resolved, non-voided market. A rolling 30-day journal window is used; one epoch adjusts at most once and requires 25 scored markets unless explicitly forced.</p>
+        <pre><code>npm run cli -- calibrate
+npm run cli -- calibrate --force</code></pre>
+        <p>Only <code>sigmaMultiplier</code> and <code>takerEdge</code> move, each clamped to 0.5x–2x its environment default. Risk caps never change. Every adjustment is recorded as a <code>calibration</code> journal record with old/new parameters, Brier score, directional accuracy, clamp status, and reason. Corrupt <code>journal/calibration.json</code> recovers defaults and records an error.</p>
+        <div class="callout fact"><strong>AI ESTIMATE / CHAIN FACT</strong><p>The appraiser's probability is an estimate. The settlement outcome is an on-chain fact. Calibration is deterministic math over those two recorded values and never puts an LLM in the 100 ms decision path.</p></div>
+      </section>
+
+      <section class="doc-section" id="mcp" data-title="MCP server">
+        <div class="eyebrow">MODEL CONTEXT PROTOCOL</div>
+        <h2>MCP server</h2>
+        <p><code>@tempo/mcp</code> exposes bounded stdio tools to an MCP client. Every call is schema-validated, timeout-limited to 10 seconds, journaled with an argument hash, and redacted before transport.</p>
+        <pre><code>npm run cli -- mcp</code></pre>
+        <pre><code>{
+  "mcpServers": {
+    "tempo": {
+      "command": "npx",
+      "args": ["tsx", "packages/mcp/src/index.ts"]
+    }
+  }
+}</code></pre>
+        <p>Read tools cover discovery, contract state, live books, fair value, risk, positions, settlements, activity, and receipt verification. <code>simulate_trade</code> is always dry-run and runs the same chain gate and RiskEngine. <code>place_order</code> is refused unless <code>TEMPO_MCP_WRITES=true</code> and a configured agent key exists; it uses the same IOC exchange path and never accepts a raw key.</p>
+      </section>
+
       <section class="doc-section" id="cli" data-title="CLI reference">
         <div class="eyebrow">OPERATOR SURFACE</div>
         <h2>CLI reference</h2>
@@ -459,6 +494,8 @@ npm run cli -- report --since 7d --llm --out test/reports/weekly-report.md</code
             <tr><td><code>backtest [--limit N]</code></td><td>Evaluate the appraiser on real finalized windows and feed history.</td></tr>
             <tr><td><code>verify</code></td><td>Cross-check every journaled transaction hash against chain receipts.</td></tr>
             <tr><td><code>report [--since 24h] [--llm] [--out file]</code></td><td>Aggregate journal facts, score estimates against settlements, and optionally add a clearly labeled stats-only AI narrative.</td></tr>
+            <tr><td><code>calibrate [--force]</code></td><td>Run one bounded deterministic pricing calibration epoch from journal settlements.</td></tr>
+            <tr><td><code>mcp</code></td><td>Start the stdio MCP server with read tools and explicitly guarded writes.</td></tr>
             <tr><td><code>faucet</code></td><td>Mint testnet collateral for configured signer accounts.</td></tr>
           </tbody>
         </table>
@@ -484,8 +521,23 @@ npm run cli -- report --since 7d --llm --out test/reports/weekly-report.md</code
             <tr><td><code>GET /api/stream</code></td><td>Bounded server-sent event stream of sanitized journal records.</td></tr>
             <tr><td><code>GET /api/journal?n=60</code></td><td>Recent records; canonical integer limit from 1 through 300.</td></tr>
             <tr><td><code>GET /api/provenance</code></td><td>Source map for every displayed value class.</td></tr>
+            <tr><td><code>GET /health</code></td><td>Deterministic service/version liveness response; no dependency or secret data.</td></tr>
+            <tr><td><code>GET /ready</code></td><td>Cached 5-second indexer, RPC, feed, and requested live-tail readiness checks; returns 200 or 503.</td></tr>
+            <tr><td><code>GET /api/wallet/activity?address=…</code></td><td>Read-only live-store fills/orders for a validated wallet address.</td></tr>
+            <tr><td><code>GET /api/wallet/prepare?…</code></td><td>Returns SDK unsigned approval/order calls after a full pre-sign chain and risk check.</td></tr>
           </tbody>
         </table>
+      </section>
+
+      <section class="doc-section" id="wallet" data-title="Connect wallet">
+        <div class="eyebrow">HUMAN SIGNER / EIP-6963</div>
+        <h2>Connect wallet</h2>
+        <p>The dashboard connects an EIP-6963 provider, falling back to <code>window.ethereum</code>. It displays only the connected address (truncated), real chain id, and native STT balance. TEMPO never receives a seed phrase, private key, or agent key.</p>
+        <h3>Network and activity</h3>
+        <p>Somnia Shannon testnet is chain <code>50312</code>; mainnet is <code>5031</code>. A wrong-network banner offers a wallet chain switch. Account, chain, and provider disconnect events clear local state. Fills and orders are attributed read-only through the markets SDK live store.</p>
+        <h3>One guarded action</h3>
+        <p>The IOC review first calls the core SDK's <code>buildWalletOrder</code>. The UI shows market symbol, side, size, limit, nanosecond expiry, seconds left, worst-case cost, RiskEngine verdict, and live status <code>1</code> before requesting approval. The wallet then signs only the returned SDK unsigned calls; receipt status and hashes are shown after confirmation.</p>
+        <div class="callout warning"><strong>NO BLIND SIGNING</strong><p>Expired, malformed, wrong-network, rejected, or cancelled requests stop before a signature. No browser path can access GENESIS or VECTOR keys.</p></div>
       </section>
 
       <section class="doc-section" id="security" data-title="Security model">
@@ -509,7 +561,7 @@ npm run cli -- report --since 7d --llm --out test/reports/weekly-report.md</code
         <div class="eyebrow">VERIFIED DELIVERY</div>
         <h2>Testing and evidence</h2>
         <div class="evidence-grid">
-          <div><b>2,089 / 2,089</b><span>Offline unit, failure, security, economic, and CLI tests</span></div>
+          <div><b>2,099 / 2,099</b><span>Offline unit, failure, security, economic, and CLI tests</span></div>
           <div><b>2,048</b><span>Deterministic 6- and 18-decimal invariant cases</span></div>
           <div><b>12 / 12</b><span>Security-boundary cases</span></div>
           <div><b>3 / 3</b><span>Live SDK and integration tests</span></div>
@@ -593,9 +645,13 @@ TEMPO_DRY_RUN=false npm run test:e2e</code></pre>
     <a href="#feature-catalog">Features</a>
     <a href="#architecture">Architecture</a>
     <a href="#agents">Agents</a>
+    <a href="#wallet">Wallet</a>
     <a href="#sdk">SDK</a>
     <a href="#exchange-api">Exchange API</a>
     <a href="#cli">CLI</a>
+    <a href="#reporting">Reporting</a>
+    <a href="#calibration">Calibration</a>
+    <a href="#mcp">MCP</a>
     <a href="#security">Security</a>
     <a href="#testing">Testing</a>
     <a href="#provenance">Provenance</a>

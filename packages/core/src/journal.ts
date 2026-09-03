@@ -24,6 +24,8 @@ export type JournalType =
   | "error"
   | "settlement"
   | "claim"
+  | "calibration"
+  | "mcp"
   | "shutdown";
 
 export interface JournalRecord {

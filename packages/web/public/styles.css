@@ -12,11 +12,24 @@ button { font: inherit; color: inherit; }
 .pill { border: 1px solid #333a43; padding: 4px 7px; font: 600 10px ui-monospace, monospace; color: #b9c2cb; }
 .navlink { border: 1px solid #3a4545; padding: 4px 8px; color: #33d69f; font: 700 10px ui-monospace, monospace; text-decoration: none; }
 .navlink:hover { background: #17211f; border-color: #33d69f; }
+.wallet-button { border: 1px solid #3a4545; padding: 4px 8px; color: #d6e4df; background: #121a19; font: 700 10px ui-monospace, monospace; cursor: pointer; }
+.wallet-button:hover { border-color: #33d69f; color: #33d69f; }
 .grid { min-height: 0; display: grid; grid-template-columns: minmax(220px, 0.75fr) minmax(420px, 1.65fr) minmax(280px, 1fr); grid-template-rows: 0.8fr 1.1fr 0.8fr; }
 .panel { min-width: 0; min-height: 0; border-right: 1px solid #252a31; border-bottom: 1px solid #252a31; display: flex; flex-direction: column; }
 .panel h2 { height: 38px; flex: 0 0 38px; margin: 0; padding: 11px 12px; border-bottom: 1px solid #252a31; font-size: 12px; text-transform: uppercase; }
 .body { min-height: 0; padding: 10px 12px; }
 #panel-firm .body { overflow: auto; }
+.wallet-panel { margin: 10px 12px 0; padding: 9px; border: 1px solid #27352f; background: #0f1715; }
+.wallet-head { display: flex; justify-content: space-between; font-size: 11px; }
+.wallet-head span { color: #33d69f; font: 9px ui-monospace, monospace; }
+.wallet-meta, .wallet-warning, .wallet-activity { margin-top: 6px; color: #8e98a5; font-size: 10px; line-height: 1.4; }
+.wallet-warning { color: #ffca63; }
+.wallet-warning button { margin-left: 5px; border: 1px solid #ffca63; background: transparent; color: #ffca63; font-size: 9px; cursor: pointer; }
+.wallet-trade { display: grid; grid-template-columns: 1.5fr .8fr .7fr .7fr auto; gap: 5px; align-items: end; margin-top: 8px; }
+.wallet-trade label { color: #788390; font-size: 9px; text-transform: uppercase; }
+.wallet-trade input, .wallet-trade select { width: 100%; margin-top: 3px; padding: 4px; border: 1px solid #333a43; background: #090b0e; color: #edf1f3; font-size: 10px; }
+.wallet-trade button { padding: 5px 7px; border: 1px solid #33d69f; background: #13231e; color: #33d69f; font-size: 10px; cursor: pointer; white-space: nowrap; }
+.wallet-summary { margin: 8px 0 0; padding: 7px; border-left: 2px solid #33d69f; color: #d6e4df; background: #0a100e; font: 10px ui-monospace, monospace; white-space: pre-wrap; }
 .scrolly { overflow: auto; }
 #panel-venues { grid-row: 1 / 4; }
 #panel-window { grid-row: 1 / 4; }
@@ -70,6 +83,7 @@ dt, dd { margin: 0; }
   .pillrow { gap: 4px; }
   .pill { padding: 4px; }
   .navlink { padding: 4px 5px; }
+  .wallet-button { padding: 4px 5px; }
   .grid { grid-template-columns: 145px minmax(0, 1fr); grid-template-rows: 1fr; }
   #panel-firm, #panel-tape, #panel-settlements { display: none; }
   .window { padding-inline: 7px; }

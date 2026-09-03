@@ -10,7 +10,7 @@ JSONL journal.
 The default is read-only dry-run. No private key means no send, and no missing
 economic value is replaced with a demo number.
 
-**Verification:** 2,089 offline Vitest cases pass, including a 2,048-case
+**Verification:** 2,099 offline Vitest cases pass, including a 2,048-case
 deterministic economic invariant matrix across 6- and 18-decimal grids. Live
 evidence independently verifies 31/31 funded Shannon transaction receipts.
 The matrix caught and now guards an 18-decimal raw/human/raw conversion edge
@@ -38,6 +38,53 @@ Live writes require two distinct Somnia Shannon accounts, each funded with STT
 from the official faucet. Set `TEMPO_KEY_MAKER` and `TEMPO_KEY_TAKER`, call
 `npm run faucet`, and set `TEMPO_DRY_RUN=false` only after reviewing the risk
 limits.
+
+## What is TEMPO?
+
+Every DreamDEX Event Contract window is born with an empty book. TEMPO is the
+market-making primitive that fills that opening gap: GENESIS anchors the first
+two-sided quote and VECTOR independently takes only risk-approved IOC liquidity.
+The firm follows each window from birth to settlement, redemption, and roll.
+
+## Novelty and agents
+
+GENESIS is a post-only opening-auction maker. It anchors to the on-chain opening
+boundary, uses mint-a-pair inventory, reprices from the official feed, and sheds
+risk in endgame. VECTOR is a separate-key taker with its own fair-value estimate;
+it trades only when the live touch clears its edge threshold. A shared
+`RiskEngine` gates both agents, while separate ledgers and signers prevent
+self-matching and make disagreement observable.
+
+## Wallet flow
+
+The dashboard supports EIP-6963 discovery with a `window.ethereum` fallback. A
+connected human wallet gets real chain id, STT balance, and live-store fills/orders.
+The single IOC action first asks the core SDK for an unsigned approval/order pair;
+the screen shows market, side, size, limit, expiry, seconds left, worst-case cost,
+RiskEngine verdict, and trading status before either wallet confirmation. Agent
+keys never enter the browser. See `/docs.html#wallet` for the state model.
+
+## Health and readiness
+
+`GET /health` is a deterministic liveness response containing only service and
+root package version. `GET /ready` is cached for five seconds and checks the live
+indexer, RPC head, configured price feeds, and the SDK tail after a watch is
+requested. It returns `200` when all required checks pass and `503` otherwise;
+optional narrative AI is never a readiness dependency.
+
+## Calibration and MCP
+
+`tempo calibrate` scores the last pre-expiry estimate against resolved on-chain
+outcomes and, once 25 markets are available, makes one bounded epoch adjustment
+to `sigmaMultiplier` and `takerEdge`. Parameters are clamped to 0.5x–2x defaults,
+persisted under `journal/`, and journaled; risk caps are immutable. The loop is
+deterministic and cold-path, so no LLM is placed in the 100 ms decision path.
+
+`@tempo/mcp` provides a stdio MCP server with 10 live read tools plus
+`simulate_trade` and opt-in `place_order`. Inputs are zod-validated, list sizes
+are bounded, calls time out after 10 seconds, and each call is journaled by an
+argument hash. `place_order` requires `TEMPO_MCP_WRITES=true` and an existing
+agent key, then uses the same chain-gated `TempoExchange`/`RiskEngine` path.
 
 ## Security
 
@@ -77,6 +124,7 @@ is in `test/security/boundaries.test.ts` and
   value, risk, policies, journal, ledger, settlement and backtest reads.
 - `@tempo/engine`: live-watch firm runtime, lifecycle state machine, HTTP/SSE.
 - `tempo-cli`: every operator and audit command over `@tempo/core`.
+- `@tempo/mcp`: stdio MCP adapter with bounded live reads and guarded writes.
 - `packages/web`: fixed-viewport dashboard over the engine API and SSE journal.
 
 `@somnia-chain/markets-sdk` is pinned at `0.29.0` and is used at all three
@@ -100,6 +148,8 @@ tempo verify
 tempo settlements [--limit N]
 tempo backtest [--limit N]
 tempo report [--since 24h] [--llm] [--out file]
+tempo calibrate [--force]
+tempo mcp
 tempo faucet
 ```
 
@@ -130,7 +180,7 @@ npm run record:demo              # 90-second recording of a running live dashboa
 ```
 
 Current evidence is under `test/reports/`. On 2026-09-03 the offline suite
-passed 2,089 tests. The 2026-09-02 live SDK/integration suite passed 3 tests and
+passed 2,099 tests. The 2026-09-02 live SDK/integration suite passed 3 tests and
 the live non-trading chain gate passed. The funded contract sequence recorded faucet, mint, quote,
 cancel, IOC fill, and redemption receipts; `tempo verify` independently found
 all 31 journaled transaction hashes on Shannon with successful receipts.
@@ -155,10 +205,10 @@ A narrated 90-second 1440x900 live dashboard recording is saved as
 
 ## SDK Utilization
 
-The compiled Node SDK is released from GitHub as `@tempo/core` `0.1.0`:
+The compiled Node SDK is released from GitHub as `@tempo/core` `0.2.0`:
 
 ```bash
-npm install https://github.com/Kevincruz2005/Tempo/releases/download/sdk-v0.1.0/tempo-core-0.1.0.tgz
+npm install https://github.com/Kevincruz2005/Tempo/releases/download/sdk-v0.2.0/tempo-core-0.2.0.tgz
 ```
 
 The artifact contains ESM JavaScript, TypeScript declarations, the package
@@ -201,3 +251,49 @@ evaluated but are not load-bearing to deterministic market making.
 
 Funded receipt evidence is in `test/reports/contract-live.md`,
 `failure-postonly-live.md`, `e2e-live.md`, and `verify-20260902.md`.
+
+## Full on-chain mode
+
+The funded Shannon run exercised discovery, live status gating, GENESIS faucet
+and mint, post-only quote and cancel, VECTOR IOC fill, finalized settlement,
+redemption, and independent receipt verification. The complete action table and
+real hashes are recorded in [`test/reports/full-onchain-mode.md`](test/reports/full-onchain-mode.md).
+No hash in that report is synthetic; a reverted transaction is recorded as
+reverted rather than counted as success.
+
+## Limitations
+
+The current deployment targets Somnia Shannon testnet liquidity and collateral.
+Indexer rows can lag chain state, so the runtime re-reads on-chain status before
+every write and may show `PENDING` or `NO DATA`. Settlement depends on the
+official oracle and finalized market state. The browser wallet is intentionally
+operator-scoped and read-only until the user explicitly reviews each SDK call.
+
+## Roadmap
+
+Mainnet rollout follows verified feed and address configuration, not a code-only
+flag. Future work includes operator-scoped browser permissions, richer
+soft-information markets, and broader historical calibration once enough real
+settlements exist.
+
+## Competitive differentiation
+
+| Dimension | TEMPO | bot-kit ec-maker |
+| --- | --- | --- |
+| Opening mechanism | Genesis anchoring fills the newborn book | Follows the current midpoint |
+| Reactivity | Somnia live tail/reactivity with poll fallback | Ten-second polling |
+| Lifecycle | Birth, quote, reprice, lock, settle, claim, roll | Quote-only loop |
+| Evidence | Typed journal, receipts, oracle links, SDK release | Bot runtime output |
+
+## Evidence Links
+
+- [`test/reports/live-read-20260902.md`](test/reports/live-read-20260902.md) — live SDK/indexer/feed reads
+- [`test/reports/full-onchain-mode.md`](test/reports/full-onchain-mode.md) — funded lifecycle and transaction hashes
+- [`test/reports/verify-20260902.md`](test/reports/verify-20260902.md) — receipt verification
+- [`test/reports/health-endpoint.md`](test/reports/health-endpoint.md) — liveness/readiness curls
+- [`test/reports/wallet-flow.md`](test/reports/wallet-flow.md) — wallet boundary evidence
+- [`test/reports/calibration.md`](test/reports/calibration.md) — calibration epoch evidence
+- [`test/reports/mcp-live.md`](test/reports/mcp-live.md) — live MCP stdio read evidence
+- [`test/reports/sdk-release-20260903.md`](test/reports/sdk-release-20260903.md) — Node SDK artifact verification
+- [`test/reports/submission-gate.md`](test/reports/submission-gate.md) — pre-submission matrix
+- [`docs/FINAL.md`](docs/FINAL.md) — 40-section final submission
