@@ -125,7 +125,7 @@ Two independent agents, separate keys, separate capital, genuinely different pol
 
 Every order from either agent passes the same deterministic **`RiskEngine`** before signing: per-window inventory caps, per-order collateral caps, firm capital limits, tick/lot grid alignment, expiry headroom, mandatory order expiry. During the recorded 24 h window the engine rejected an order that would have breached the inventory cap — the safety boundary working, on-chain-verifiable in the journal.
 
-**Intentionally no LLM in the hot path** — at ~100 ms block times, deterministic models provide the latency the mechanism requires. An optional LLM narrates reports from journal facts only, labeled `AI NARRATIVE`.
+**Intentionally no LLM in the hot path** — these markets move on Somnia's ~100 ms blocks, so sending each pricing or execution decision through a remote LLM would introduce significant network latency, variable response times, rate limits, and performance loss. The hot path therefore uses a deterministic quantitative model for consistent machine-speed execution. An optional LLM narrates reports from journal facts only, labeled `AI NARRATIVE`.
 
 ---
 
