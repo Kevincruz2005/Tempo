@@ -159,7 +159,13 @@ async function refreshNarrative() {
   const model = $("ai-narrative-model");
   const text = $("ai-narrative-text");
   const meta = $("ai-narrative-meta");
-  if (!model || !text || !meta) return;
+  const button = $("ai-summary");
+  if (!model || !text || !meta || !button) return;
+  button.disabled = true;
+  button.textContent = "Generating…";
+  model.textContent = "REQUESTING";
+  text.textContent = "Sending the current journal metrics to Gemini…";
+  meta.textContent = "AI commentary · one request started by you";
   try {
     const response = await fetch("/api/narrative");
     const body = await response.json();
@@ -176,6 +182,9 @@ async function refreshNarrative() {
     model.textContent = "UNAVAILABLE";
     text.textContent = "Gemini briefing unavailable.";
     meta.textContent = "AI commentary · journal metrics remain authoritative";
+  } finally {
+    button.disabled = false;
+    button.textContent = "Generate AI summary";
   }
 }
 
@@ -185,12 +194,11 @@ async function bootstrap() {
     records = journal.records ?? [];
     renderTape();
     await refresh();
-    void refreshNarrative();
   } catch {
     $("pill-tail").textContent = "UNAVAILABLE";
   }
   setInterval(() => void refresh().catch(() => ($("pill-tail").textContent = "UNAVAILABLE")), 2000);
-  setInterval(() => void refreshNarrative(), 60_000);
+  $("ai-summary")?.addEventListener("click", () => void refreshNarrative());
   const stream = new EventSource("/api/stream");
   stream.onmessage = (event) => {
     let record;

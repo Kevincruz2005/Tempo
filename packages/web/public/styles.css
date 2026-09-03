@@ -43,6 +43,9 @@ button { font: inherit; color: inherit; }
 .wallet-summary { margin: 8px 0 0; padding: 7px; border-left: 2px solid #33d69f; color: #d6e4df; background: #0a100e; font: 10px ui-monospace, monospace; white-space: pre-wrap; }
 .ai-narrative { margin: 10px 12px 0; padding: 9px; border: 1px solid #35415b; background: #101521; }
 .ai-narrative-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: #dfe7ff; font-size: 11px; }
+.ai-narrative-head button { margin-left: auto; padding: 4px 7px; border: 1px solid #6573a0; background: #151d32; color: #dfe7ff; font: 700 9px ui-monospace, monospace; cursor: pointer; }
+.ai-narrative-head button:hover:not(:disabled) { border-color: #9eacd1; color: #fff; }
+.ai-narrative-head button:disabled { cursor: wait; opacity: .65; }
 .ai-narrative-head span { color: #9eacd1; font: 9px ui-monospace, monospace; }
 .ai-narrative blockquote { margin: 8px 0 6px; color: #c7d0e8; font-size: 10px; line-height: 1.5; }
 .ai-narrative-meta { color: #788390; font-size: 9px; }
