@@ -1,6 +1,6 @@
 # TEMPO Pre-Submission Gate
 
-- Run date: 2026-09-02
+- Run date: 2026-09-03
 - Source checklist: `port-codex/05-SUBMISSION-GATE.md` Part B
 - Overall result: **PASS - READY FOR ORGANIZER-PLATFORM UPLOAD**
 - Chain evidence: 31/31 unique journal transaction hashes verified successful
@@ -110,6 +110,11 @@ All required answers are **NO**.
 - Receipt replay: `test/reports/verify-20260902.md`
 - Demo: `test/reports/demo-20260902.md`
 - Security: `test/reports/security-20260902.md`
-- Node SDK release: `test/reports/sdk-release-20260903.md`
+- Node SDK release: `test/reports/release.md` (v0.2.0); historical v0.1.0 artifact: `test/reports/sdk-release-20260903.md`
+- Final-touch checklist: `test/reports/final-checklist.md`
+- Health/readiness: `test/reports/health-endpoint.md`
+- Wallet: `test/reports/wallet-flow.md`
+- Calibration: `test/reports/calibration.md`
+- MCP: `test/reports/mcp-live.md`
 - Offline/live tests: `test/reports/offline-20260903.md`,
   `test/reports/live-read-20260902.md`, and `test/reports/cli-live.md`
