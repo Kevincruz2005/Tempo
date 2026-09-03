@@ -1,5 +1,7 @@
 <div align="center">
 
+  <img src="assets/tempo-logo.png" width="180" alt="TEMPO logo">
+
   # TEMPO
 
   <b>⚡ Every DreamDEX Event Contract is born with an empty book. TEMPO is the opening auction. ⚡</b>
