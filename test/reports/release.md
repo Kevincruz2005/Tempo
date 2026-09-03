@@ -6,7 +6,7 @@
 - Final release commit: `aa0f2f1fe1f763d09a312b5018f59b9024440a61`
 - SDK: `@tempo/core` `0.2.0`
 - Tag: `sdk-v0.2.0`
-- GitHub release: pending publication after the final commit
+- GitHub release: https://github.com/Kevincruz2005/Tempo/releases/tag/sdk-v0.2.0
 
 ## Artifact verification
 
@@ -16,6 +16,7 @@
 - SBOM: `release/tempo-core-0.2.0-sbom.cdx.json` (CycloneDX 1.5, 16 dependency components)
 - Consumer smoke test: ESM runtime import PASS; strict TypeScript declaration compile PASS; production dependency audit PASS (0 vulnerabilities)
 - Package contents include `dist/wallet.js`, `dist/calibration.js`, declarations, README, changelog, and license.
+- GitHub API reports three release assets; authenticated API download is byte-identical to the local tarball.
 
 ## Repository gates
 
