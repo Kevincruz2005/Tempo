@@ -58,8 +58,8 @@ Most "AI trading" claims cannot be checked. Ours can:
 1. **Every estimate is journaled before action** — spot, strike, σ, time, and the computed probability, with an explicit `QUANTITATIVE ESTIMATE` label (chain reads are labeled `CHAIN FACT`).
 2. **Every settlement is an on-chain fact.**
 3. **The system grades itself:** each resolved market scores the appraiser's last pre-expiry estimate against the actual winning outcome.
-   - **Brier score: 0.0723** (0 = perfect, 0.25 = coin-flip confidence)
-   - **Directional accuracy: 100%** on scored markets
+   - **Brier score: 0.0723 across 3 scored markets** (0 = perfect, 0.25 = coin-flip confidence)
+   - **Directional accuracy: 100%** on that evaluation snapshot
 4. **The firm learns within bounds:** a calibration loop consumes scored outcomes, adjusts exactly two pricing parameters (σ multiplier, taker edge) clamped to [0.5×, 2×] of operator-set defaults, one adjustment per ≥25-market epoch — every adjustment journaled with its reason. Deterministic, auditable self-improvement. **No LLM in the hot path** — at 100 ms blocks there is no room for one, and an LLM pricing "BTC above its open in 8 minutes" adds latency, not accuracy.
 
 ---
