@@ -1,120 +1,72 @@
 # TEMPO Pre-Submission Gate
 
 - Run date: 2026-09-03
-- Source checklist: `port-codex/05-SUBMISSION-GATE.md` Part B
-- Overall result: **PASS - READY FOR ORGANIZER-PLATFORM UPLOAD**
-- Chain evidence: 31/31 unique journal transaction hashes verified successful
-  on Somnia Shannon; failures: 0.
-- E2E evidence: market `0x0000000000000000000000000000000000000000000000000000000000010fad`
-  completed opening, endgame, settlement, winning-side claim, and roll.
-- Demo evidence: narrated 90-second live capture in
-  `test/reports/tempo-demo-90s-narrated.mp4`.
+- Source: `port-codex/05-SUBMISSION-GATE.md` Part B
+- Result: **CONDITIONAL PASS** - all code, test, security, and testnet-evidence
+  checks below pass. Public repository visibility remains an owner action, as
+  explicitly deferred by the user.
 
-## Product
+## Product, Ecosystem, And Core
 
-- [x] Original primitive: liquidity genesis/opening-auction firm
-- [x] Clear economic value: spread, maker yield, venue liquidity
-- [x] Useful SDK, CLI, engine, and dashboard
-- [x] Professional fixed-viewport UI; desktop/mobile captures recorded
-- [x] Strong 90-second funded/live dashboard demo recorded with narration
-- [x] Target user: DreamDEX market makers and agent operators
-- [x] Differentiation from polling mid-book bot-kit maker
+- [x] Original liquidity-genesis/opening-auction primitive with clear maker
+  spread, yield, and venue-liquidity value.
+- [x] SDK, CLI, engine, dashboard, documentation page, wallet review path, and
+  MCP server are functional and share the core implementation.
+- [x] Somnia/DreamDEX/Event Contracts are load-bearing: live windows, official
+  feed boundaries, on-chain order book, explicit expiry, and finalized claims.
+- [x] Official `@somnia-chain/markets-sdk` is pinned at `0.29.0` and its use is
+  documented with provenance in the README and reconnaissance matrix.
 
-## Hackathon
+## Agents, Data, And Security
 
-- [x] Every mandatory Part A requirement evidenced
-- [x] Repo plus recorded live demo ready for submission
-- [x] Somnia and DreamDEX integrations visible in demo and receipt evidence
+- [x] GENESIS and VECTOR have separate keys, capital, policies, and journaled
+  decisions. Every estimate is labeled separately from chain facts.
+- [x] Production data is live or deterministic from live inputs; unavailable
+  data is rendered as `UNAVAILABLE` / `NO DATA`, never substituted.
+- [x] Journal records include event IDs, decision IDs, model/source context,
+  market/pool context, timestamps, transaction hashes, and receipt evidence.
+- [x] Security release gate passes: secret scan (164 files), strict typecheck,
+  dependency audit, 2,107 offline tests, and 87.35% critical-core coverage.
+- [x] Emergency pause, wallet call allowlisting, strict MCP boundaries, and
+  HTTP boundary controls are documented in `docs/SECURITY.md`.
 
-## Ecosystem And Core
+## Testnet Evidence
 
-- [x] Somnia reactivity/finality/cost thesis is load-bearing
-- [x] Event Contracts are load-bearing
-- [x] Official infrastructure evaluated and documented
-- [x] Writes are chain-gated with explicit expiry and receipt checks
-- [x] Real TEMPO transactions recorded in `test/reports/`
+- [x] Live probe confirmed the configured Shannon endpoint and market data.
+- [x] Live SDK/integration and the non-trading chain-gate suites pass.
+- [x] MCP stdio validation: 11/11 real read/simulate tools pass; `place_order`
+  is absent without explicit write opt-in.
+- [x] Funded contract sequence PASSed on Shannon: faucet, mintSet, post-only
+  quote/cancel/sell, independent IOC fill, and winning-side redemption. The
+  current redemption is
+  `0x424adc8bbdd46b7f06bf1ef42cc23fc72bdfba20575c735a93be4ba2c27a5134`.
+- [x] `tempo verify` read 45,352 recent journal records carrying 261 hashes and
+  independently verified its bounded 50-hash replay: 50 successful, 0 failed.
 
-## Agents
+## Reproducibility And Presentation
 
-- [x] GENESIS and VECTOR policies operate over live inputs at machine cadence
-- [x] Decisions are observable as inputs -> estimate/decision -> action
-- [x] Two distinct funded agent states, fills, and capitals recorded
-- [x] Policies are deterministic pure functions, not scripted output
-- [x] Estimate/fact labels are separated in CLI, journal, and web
-
-## Data
-
-- [x] Production/demo mocked economic values: 0
-- [x] Live chain/indexer/feed values carry source labels
-- [x] `UNAVAILABLE`, `NO DATA`, and `PENDING` states exercised
-- [x] No fabricated hashes or blockchain evidence
-
-## Developer Product
-
-- [x] CLI implemented and documented
-- [x] Reusable typed `@tempo/core` implemented, documented, compiled, and published as GitHub Release `sdk-v0.2.0`
-- [x] CLI and web share core/engine paths
-- [x] SDK quickstart and provenance matrix in README
-
-## Testing
-
-- [x] Offline unit/failure/security/economic/CLI: 2,099 passed, including 2,048 invariant cases, 12 security-boundary cases, and report aggregation coverage
-- [x] Live SDK/integration: 3 passed
-- [x] Live non-trading chain gate: 1 passed
-- [x] Security runtime probes passed; dependency audit reports 0 vulnerabilities
-- [x] Live CLI matrix: 12/12 commands passed (`test/reports/cli-live.md`)
-- [x] Funded contract sequence passed
-- [x] Funded full-window E2E passed
-- [x] Evidence folders and reports are organized
-
-## Verification
-
-- [x] `tempo verify` inspected 15,316 journal records
-- [x] Journal transaction hashes: 31; receipts verified: 31/31; failures: 0
-- [x] Zero-mock literal audit saved to `test/reports/zero-mock-audit.md`
-
-## Reproducibility
-
-- [x] `npm install`, `.env`, `npm test`, dry-run firm, and web reproduce
-- [x] All CLI commands documented
-- [x] Funded faucet through redeem runner is reproducible with documented STT precondition
-
-## Presentation
-
-- [x] Problem and solution are visible in the first dashboard viewport
-- [x] Birth, lifecycle, estimate, and agent disagreement paths are observable
-- [x] Real TEMPO receipt hashes and redemption shown in evidence reports
-- [x] Funded signature moment and narrated 90-second demo recording complete
-- [x] Final 30-second pitch delivered in the narrated artifact and `docs/FINAL.md`
+- [x] README documents installation, `.env` setup, live probe, dry-run,
+  testnet runners, CLI, SDK, wallet, calibration, MCP, security, and evidence.
+- [x] `docs/FINAL.md` contains the refreshed 40-section build record.
+- [x] The dashboard, narrated capture, and evidence reports provide the demo
+  path without fabricating a browser-provider screenshot.
+- [ ] Public GitHub repository visibility: **OWNER ACTION PENDING**. The user
+  stated they will make the repository public after completion; no visibility
+  change was attempted by this build.
 
 ## Automatic Rejection Conditions
 
-All required answers are **NO**.
-
-- [x] MOCK DATA > 0 in production/demo path? **NO**
-- [x] Removing Event Contracts changes little? **NO**
-- [x] Moving to another EVM chain changes little? **NO**
-- [x] Replacing DreamDEX with a generic prediction API keeps the mechanism? **NO**
-- [x] Humans could run every agent action manually at equal quality? **NO**
-- [x] Major official tooling ignored without justification? **NO**
-- [x] Fake autonomy, blockchain, or analytics anywhere? **NO**
-- [x] Critical functionality lacks a meaningful automated test/runner? **NO**
-- [x] Product exists only as a frontend? **NO**
+- [x] MOCK DATA in production/demo path: **NO**
+- [x] Event Contracts, DreamDEX, or Somnia are removable without changing the mechanism: **NO**
+- [x] Hardcoded/fake autonomy, blockchain evidence, or analytics: **NO**
+- [x] Critical functionality without meaningful automated tests: **NO**
+- [x] Frontend-only product: **NO**
 
 ## Evidence Index
 
-- Probe: `port-codex/live-evidence/probe-output-2026-09-01.txt`
-- Contract: `test/reports/contract-live.md`
-- Live failure: `test/reports/failure-postonly-live.md`
-- E2E lifecycle: `test/reports/e2e-live.md`
-- Receipt replay: `test/reports/verify-20260902.md`
-- Demo: `test/reports/demo-20260902.md`
-- Security: `test/reports/security-20260902.md`
-- Node SDK release: `test/reports/release.md` (v0.2.0); historical v0.1.0 artifact: `test/reports/sdk-release-20260903.md`
-- Final-touch checklist: `test/reports/final-checklist.md`
-- Health/readiness: `test/reports/health-endpoint.md`
-- Wallet: `test/reports/wallet-flow.md`
-- Calibration: `test/reports/calibration.md`
-- MCP: `test/reports/mcp-live.md`
-- Offline/live tests: `test/reports/offline-20260903.md`,
-  `test/reports/live-read-20260902.md`, and `test/reports/cli-live.md`
+- `test/reports/contract-live.md`
+- `test/reports/mcp-live.md`
+- `test/reports/security.md`
+- `test/reports/final-checklist.md`
+- `test/reports/release.md`
+- `docs/FINAL.md`

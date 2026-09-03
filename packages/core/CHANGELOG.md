@@ -1,9 +1,20 @@
 # Changelog
 
+## 0.3.0 - 2026-09-03
+
+- Add emergency write pause, strict endpoint/configuration validation, and
+  browser-wallet call allowlisting with review-before-confirmation.
+- Add journal event and decision identifiers plus transaction contract/model
+  provenance for agent and MCP activity.
+- Add bounded MCP schemas, payload limits, tool deadlines, and a read-only
+  default catalog backed by live Somnia/DreamDEX data.
+- Improve rolling calibration with duplicate-window suppression and directional
+  fill scoring.
+
 ## 0.2.0 - 2026-09-03
 
 - Add EIP-1193/EIP-6963 wallet helpers and unsigned SDK order construction.
-- Add deterministic settlement calibration with bounded persistence.
+- Add learned rolling settlement calibration with duplicate-window gating and bounded persistence.
 - Add receipt verification and explicit RiskEngine-backed trade preparation.
 
 ## 0.1.0 - 2026-09-03

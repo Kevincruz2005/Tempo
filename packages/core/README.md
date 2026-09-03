@@ -16,7 +16,7 @@ claim helpers, deterministic policies, risk controls, provenance, and replay.
 ## Install from GitHub Releases
 
 ```bash
-npm install https://github.com/Kevincruz2005/Tempo/releases/download/sdk-v0.2.0/tempo-core-0.2.0.tgz
+npm install https://github.com/Kevincruz2005/Tempo/releases/download/sdk-v0.3.0/tempo-core-0.3.0.tgz
 ```
 
 ## Read-only example
@@ -37,7 +37,7 @@ try {
     exchange.bookParams(chain.pool),
     exchange.book(market.upSymbol, 5),
     exchange.spot(market.asset),
-    exchange.opening(market.marketId),
+    exchange.openingPrice(market.marketId),
   ]);
 
   console.log({ market, chain, grid, book, spot, opening });
@@ -74,13 +74,15 @@ execution.
 Browser integrations pass a viem `WalletClient` backed by an EIP-1193 provider;
 no private key is required. Call `buildWalletOrder(address, market, outcome,
 size, price)` to obtain SDK unsigned approval/order calls after the same live
-status and `RiskEngine` checks used by `place`. Show the returned call
-descriptions to the user before sending them through the wallet.
+status and `RiskEngine` checks used by `place`. The review includes chain,
+allowlisted destinations, native value, collateral balance, and decimals;
+request a separate human confirmation before signing.
 
-`CalibrationEngine` scores journaled fair-value estimates against finalized
-settlements and adjusts only bounded `sigmaMultiplier` and `takerEdge` values.
-It never changes risk caps, never rewrites history, and returns `GATED` honestly
-until 25 scored markets exist unless `force` is explicitly requested.
+`CalibrationEngine` fits a bounded probability-temperature model to the latest
+30 journaled resolved outcomes and scores VECTOR direction against settlement.
+It adjusts only bounded `sigmaMultiplier` and `takerEdge` values. It never
+changes risk caps or recalibrates the same window; `force` bypasses only the
+25-market minimum.
 
 ## Public surface
 
@@ -108,7 +110,7 @@ are estimates and must not be represented as on-chain facts.
 
 ## Verification
 
-The release is built from the same source covered by 2,099 offline tests,
+The release is built from the same source covered by 2,107 offline tests,
 including 2,048 decimal/economic invariant cases and 12 security-boundary
 cases, plus direct report aggregation tests. Repository evidence independently
 verifies 31/31 recorded Somnia Shannon transaction receipts.

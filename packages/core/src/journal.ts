@@ -6,6 +6,7 @@
  * Nothing here invents values: records carry what actually happened, with the
  * exact inputs a decision saw.
  */
+import { randomUUID } from "node:crypto";
 import { createWriteStream, mkdirSync, existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import type { WriteStream } from "node:fs";
@@ -29,6 +30,10 @@ export type JournalType =
   | "shutdown";
 
 export interface JournalRecord {
+  /** Unique operational correlation id assigned when the record is appended. */
+  eventId?: string;
+  /** Correlates an estimate/plan with resulting risk and execution records. */
+  decisionId?: string;
   ts: string;
   type: JournalType;
   agent?: string;
@@ -41,6 +46,8 @@ export interface JournalRecord {
   /** Transaction hash when a write actually landed. */
   tx?: string;
   block?: number;
+  contractAddress?: string;
+  model?: { name: string; version: string; configVersion: string };
 }
 
 export class Journal {
@@ -57,7 +64,14 @@ export class Journal {
   }
 
   append(rec: Omit<JournalRecord, "ts"> & { ts?: string }): JournalRecord {
-    const full: JournalRecord = { ts: rec.ts ?? new Date().toISOString(), ...rec } as JournalRecord;
+    const eventId = rec.eventId ?? randomUUID();
+    const decisionId = rec.decisionId ?? (rec.type === "decision" ? eventId : undefined);
+    const full: JournalRecord = {
+      ts: rec.ts ?? new Date().toISOString(),
+      eventId,
+      ...(decisionId ? { decisionId } : {}),
+      ...rec,
+    } as JournalRecord;
     const line = JSON.stringify(full);
     this.stream?.write(line + "\n");
     this.recent.push(full);

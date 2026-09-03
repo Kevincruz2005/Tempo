@@ -105,30 +105,36 @@ try {
   if (!resting.orderId) throw new Error("post-only quote did not return an order id");
   record("GENESIS cancel", (await maker.cancel(resting.orderId, market.upSymbol)).hash);
 
-  let ask = 0;
   let makerAsk: Awaited<ReturnType<TempoExchange["place"]>> | undefined;
-  for (let attempt = 1; attempt <= 5 && !makerAsk; attempt++) {
+  let take: Awaited<ReturnType<TempoExchange["trade"]>> | undefined;
+  for (let attempt = 1; attempt <= 5 && !take; attempt++) {
     const book = await maker.book(market.upSymbol, 5);
     const bestBid = book.bids[0]?.price ?? params.tick;
     const bestAsk = book.asks[0]?.price;
-    ask = Math.min(1 - params.tick, Math.max(bestBid + 5 * params.tick, bestAsk ?? 0.5));
+    const ask = Math.min(1 - params.tick, Math.max(bestBid + 5 * params.tick, bestAsk ?? 0.5));
     try {
       makerAsk = await maker.place(market.upSymbol, "sell", 1, ask, { postOnly: true });
     } catch (error) {
       if (!(error instanceof ContractRevertError) || error.errorName !== "PostOnlyWouldCross") throw error;
       lines.push(`- PostOnlyWouldCross attempt ${attempt}: live book moved; re-quoting.`);
       flush("RUNNING");
+      continue;
+    }
+    record(`GENESIS post-only sell attempt ${attempt}`, makerAsk.hash);
+    try {
+      take = await taker.trade(market.marketId, "UP", 1, ask);
+      record(`VECTOR IOC take attempt ${attempt}`, take.hash);
+    } catch (error) {
+      if (!(error instanceof ContractRevertError) || error.errorName !== "ImmediateOrCancelNoFill") throw error;
+      lines.push(`- ImmediateOrCancelNoFill attempt ${attempt}: live book moved; cancelling and re-quoting.`);
+      flush("RUNNING");
+    }
+    if (!take && makerAsk.orderId) {
+      const remaining = (await maker.openOrders(market.upSymbol)).some((order) => order.id === makerAsk!.orderId);
+      if (remaining) record(`GENESIS cancel stale sell attempt ${attempt}`, (await maker.cancel(makerAsk.orderId, market.upSymbol)).hash);
     }
   }
-  if (!makerAsk) throw new Error("post-only sell crossed after 5 live re-quotes");
-  record("GENESIS post-only sell", makerAsk.hash);
-  const take = await taker.trade(market.marketId, "UP", 1, ask);
-  record("VECTOR IOC take", take.hash);
-
-  if (makerAsk.orderId) {
-    const remaining = (await maker.openOrders(market.upSymbol)).some((order) => order.id === makerAsk.orderId);
-    if (remaining) await maker.cancel(makerAsk.orderId, market.upSymbol);
-  }
+  if (!take) throw new Error("IOC had no fill after 5 live re-quotes");
 
   let claimMarketId = market.marketId;
   let claimSymbol: string | undefined = market.symbol;

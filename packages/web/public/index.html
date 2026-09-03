@@ -65,6 +65,8 @@
           <label>Size <input id="wallet-size" type="number" min="0.001" step="0.001" value="1" /></label>
           <label>Limit <input id="wallet-price" type="number" min="0.001" max="0.999" step="0.001" value="0.5" /></label>
           <button id="wallet-prepare" type="button">Review IOC</button>
+          <button id="wallet-confirm" type="button" hidden>Confirm in wallet</button>
+          <button id="wallet-cancel" type="button" hidden>Cancel</button>
           <pre id="wallet-summary" hidden></pre>
         </div>
         <div class="wallet-activity" id="wallet-activity"></div>

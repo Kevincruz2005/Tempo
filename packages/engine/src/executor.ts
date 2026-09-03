@@ -41,9 +41,10 @@ export class Executor {
 
   /** Execute a maker plan: cancel stale, post fresh (post-only). */
   async executeQuotePlan(
-    m: { marketId: string; upSymbol: string; downSymbol: string; symbol: string },
+    m: { marketId: string; upSymbol: string; downSymbol: string; symbol: string; pool?: string },
     plan: QuotePlan,
     params: BookParams,
+    decisionId?: string,
   ): Promise<ExecutionResult> {
     const res: ExecutionResult = { sent: 0, cancelled: 0, hashes: [], errors: [] };
     for (const c of plan.cancels) {
@@ -51,6 +52,8 @@ export class Executor {
         type: "order-cancelled",
         agent: this.agent,
         marketId: m.marketId,
+        decisionId,
+        contractAddress: m.pool,
         symbol: c.symbol,
         data: { orderId: c.id, reason: "requote", dryRun: this.dryRun },
       });
@@ -80,6 +83,8 @@ export class Executor {
         type: "order-sent",
         agent: this.agent,
         marketId: m.marketId,
+        decisionId,
+        contractAddress: m.pool,
         symbol,
         data: { kind: o.kind, price, size, postOnly: true, dryRun: this.dryRun },
       });
@@ -95,6 +100,8 @@ export class Executor {
           type: "order-receipt",
           agent: this.agent,
           marketId: m.marketId,
+          decisionId,
+          contractAddress: m.pool,
           symbol,
           tx: out.hash,
           data: { kind: o.kind, price, size, orderId: out.orderId, status: out.status ?? "mined" },
@@ -120,9 +127,10 @@ export class Executor {
 
   /** Execute a taker plan: one IOC order, slippage-bounded. */
   async executeTakerPlan(
-    m: { marketId: string; upSymbol: string; downSymbol: string; symbol: string },
+    m: { marketId: string; upSymbol: string; downSymbol: string; symbol: string; pool?: string },
     plan: TakerPlan,
     params: BookParams,
+    decisionId?: string,
   ): Promise<ExecutionResult> {
     const res: ExecutionResult = { sent: 0, cancelled: 0, hashes: [], errors: [] };
     const symbol = plan.kind === "BUY_UP" ? m.upSymbol : m.downSymbol;
@@ -137,6 +145,8 @@ export class Executor {
       type: "order-sent",
       agent: this.agent,
       marketId: m.marketId,
+      decisionId,
+      contractAddress: m.pool,
       symbol,
       data: { kind: plan.kind, price, size, ioc: true, edge: plan.edgeObserved, reason: plan.reason, dryRun: this.dryRun },
     });
@@ -152,6 +162,8 @@ export class Executor {
         type: "order-receipt",
         agent: this.agent,
         marketId: m.marketId,
+        decisionId,
+        contractAddress: m.pool,
         symbol,
         tx: out.hash,
         data: { kind: plan.kind, price, size, filled: out.filled, orderId: out.orderId, status: out.status ?? "mined" },

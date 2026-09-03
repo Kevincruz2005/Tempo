@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clampProbToTicks, probToTicks, sizeToLots } from "@tempo/core";
+import { TempoExchange, clampProbToTicks, loadConfig, probToTicks, sizeToLots } from "@tempo/core";
 import {
   FixedWindowRateLimiter,
   SECURITY_HEADERS,
@@ -108,5 +108,12 @@ describe("security boundaries", () => {
     expect(safeHttpsUrl("javascript:alert(1)")).toBeNull();
     expect(safeHttpsUrl("data:text/html,attack")).toBeNull();
     expect(safeHttpsUrl("http://explorer.invalid/question/1")).toBeNull();
+  });
+
+  it("enforces the emergency pause before any signed write boundary", async () => {
+    const exchange = new TempoExchange({ config: { ...loadConfig("/tmp"), paused: true } });
+    await expect(exchange.place("untrusted", "buy", 1, 0.5)).rejects.toThrow(/kill switch/);
+    await expect(exchange.faucet()).rejects.toThrow(/kill switch/);
+    await exchange.close();
   });
 });

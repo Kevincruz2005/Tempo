@@ -523,9 +523,12 @@ export class Firm {
 
       this.journal.append({
         type: "decision",
+        agent: "APPRAISER",
         source: `appraiser(${trigger})`,
         marketId: m.marketId,
         symbol: m.symbol,
+        contractAddress: oc.pool,
+        model: { name: "diffusion-fair-value", version: "1", configVersion: "calibration-v1" },
         data: {
           spot: spot.price,
           strike: opening,
@@ -659,6 +662,16 @@ export class Firm {
     };
     const plan = genesisQuotePlan(inputs);
     if (!plan) return;
+    const makerDecision = this.journal.append({
+      type: "decision",
+      agent: "GENESIS",
+      source: "genesis-policy-v1",
+      marketId: m.marketId,
+      symbol: m.symbol,
+      contractAddress: oc.pool,
+      model: { name: "genesis-quote-policy", version: "1", configVersion: "risk-v1" },
+      data: { outcome: "PLAN", fairP: fv.p, secondsLeft, orders: plan.orders.length, cancels: plan.cancels.length },
+    });
 
     // Risk gate per order with real inventory/capital state (escrow of resting
     // orders + inventory gross from on-chain balances).
@@ -693,12 +706,12 @@ export class Firm {
       }
       sent++;
       const one: typeof plan = { ...plan, orders: [o], cancels: sent === 1 ? plan.cancels : [] };
-      const res = await this.executors.GENESIS.executeQuotePlan(m, one, params);
+      const res = await this.executors.GENESIS.executeQuotePlan(m, one, params, makerDecision.decisionId);
       this.recordExecution("GENESIS", res);
       if (res.errors.length > 0 && res.sent === 0) break; // don't hammer a failing path
     }
     if (plan.orders.length === 0 && plan.cancels.length > 0) {
-      const res = await this.executors.GENESIS.executeQuotePlan(m, plan, params);
+      const res = await this.executors.GENESIS.executeQuotePlan(m, plan, params, makerDecision.decisionId);
       this.recordExecution("GENESIS", res);
     }
     this.agentState.GENESIS.lastDecision = `quote ${m.symbol} bid ${plan.anchorBid.toFixed(3)}/ask ${plan.anchorAsk.toFixed(3)}`;
@@ -756,6 +769,16 @@ export class Firm {
     };
     const plan = takerPlan(inputs);
     if (!plan) return;
+    const vectorDecision = this.journal.append({
+      type: "decision",
+      agent: "VECTOR",
+      source: "vector-policy-v1",
+      marketId: m.marketId,
+      symbol: m.symbol,
+      contractAddress: oc.pool,
+      model: { name: "vector-taker-policy", version: "1", configVersion: "calibration-v1" },
+      data: { outcome: "PLAN", kind: plan.kind, fairP: fv.p, secondsLeft, edgeObserved: plan.edgeObserved, threshold: this.calibratedTakerEdge },
+    });
     const collateral = plan.price * plan.size;
     const verdict = this.risk.checkTaker(
       {
@@ -780,7 +803,7 @@ export class Firm {
       });
       return;
     }
-    const res = await this.executors.VECTOR.executeTakerPlan(m, plan, params);
+    const res = await this.executors.VECTOR.executeTakerPlan(m, plan, params, vectorDecision.decisionId);
     this.recordExecution("VECTOR", res);
     this.agentState.VECTOR.lastDecision = `take ${plan.kind} ${plan.size} @ ${plan.price.toFixed(3)} (${plan.reason})`;
     this.agentState.VECTOR.lastActionAt = new Date().toISOString();
@@ -845,7 +868,10 @@ export class Firm {
           agent: name,
           source: "live-tail",
           marketId: f.market_id,
-          data: { kind, price, size, block: f.blockNumber, tx: f.txHash },
+          contractAddress: market.pool,
+          tx: f.txHash,
+          block: Number(f.blockNumber),
+          data: { kind, price, size },
         });
       }
     }
@@ -973,13 +999,18 @@ export class Firm {
       this.appraiser.setSigmaMultiplier(result.state.params.sigmaMultiplier);
       this.journal.append({
         type: "calibration",
-        source: "deterministic-journal-calibration",
+        source: "learned-journal-calibration",
+        model: { name: result.epoch.model.name, version: result.epoch.model.version, configVersion: "calibration-v1" },
         data: {
           epochId: result.epoch.id,
           scoredCount: result.epoch.scoredCount,
           brierBefore: result.epoch.brierBefore,
-          brierAfter: result.epoch.brierAfter ?? "PENDING",
+          brierAfter: result.epoch.brierAfter,
           directionalAccuracy: result.epoch.directionalAccuracy,
+          vectorDirectionalAccuracy: result.score.vectorDirectionalAccuracy,
+          vectorScored: result.score.vectorScored,
+          windowFingerprint: result.epoch.windowFingerprint,
+          model: result.epoch.model,
           oldParams: result.epoch.oldParams,
           newParams: result.epoch.newParams,
           clamped: result.epoch.clamped,
@@ -1158,5 +1189,21 @@ export class Firm {
 
   async buildWalletOrder(address: string, marketRef: string, outcome: "UP" | "DOWN", size: number, price: number) {
     return this.maker.buildWalletOrder(address, marketRef, outcome, size, price);
+  }
+
+  walletConfig() {
+    const chainId = this.cfg.network === "testnet" ? 50312 : 5031;
+    return {
+      network: this.cfg.network,
+      chainId,
+      chainHex: `0x${chainId.toString(16)}`,
+      chainName: this.cfg.network === "testnet" ? "Somnia Shannon" : "Somnia Mainnet",
+      nativeCurrency: this.cfg.network === "testnet"
+        ? { name: "Somnia Testnet Token", symbol: "STT", decimals: 18 }
+        : { name: "Somnia", symbol: "SOMI", decimals: 18 },
+      rpcUrl: this.cfg.endpoints.rpcUrl,
+      explorerUrl: this.cfg.endpoints.explorerUrl,
+      collateral: this.cfg.addresses.collateral,
+    };
   }
 }

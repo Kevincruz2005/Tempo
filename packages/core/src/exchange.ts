@@ -19,6 +19,7 @@ import { TempoError } from "./errors.js";
 import { lotsToSize, probToTicks, sizeToLots } from "./quant.js";
 import { fairValue, realizedVolPerSqrtSec } from "./fairValue.js";
 import { RiskEngine, type RiskVerdict } from "./risk.js";
+import { assertAllowedDestinations, expectedChainId } from "./wallet.js";
 
 export interface BinaryMarketInfo {
   marketId: string;
@@ -80,6 +81,22 @@ export function oracleQuestionUrl(oracleQuestionId: string | undefined): string 
   return `${ORACLE_EXPLORER}/questions/${oracleQuestionId}?view=graph`;
 }
 
+export function normalizeOpeningBoundary(boundary: unknown, referenceSpot: number): number | undefined {
+  if (boundary === undefined || boundary === null || !Number.isFinite(referenceSpot) || referenceSpot <= 0) return undefined;
+  const value = typeof boundary === "object"
+    ? (boundary as Record<string, unknown>).numericValue ?? (boundary as Record<string, unknown>).value
+    : boundary;
+  const raw = Number(value);
+  if (!Number.isFinite(raw)) return undefined;
+  const candidates = Array.from({ length: 19 }, (_, decimals) => raw / 10 ** decimals);
+  const best = candidates.reduce((a, b) =>
+    Math.abs(Math.log(Math.max(b, Number.MIN_VALUE) / referenceSpot)) <
+    Math.abs(Math.log(Math.max(a, Number.MIN_VALUE) / referenceSpot)) ? b : a,
+  );
+  const ratio = best / referenceSpot;
+  return ratio >= 0.5 && ratio <= 2 ? best : undefined;
+}
+
 export interface TempoExchangeOptions {
   config: TempoConfig;
   /** Signer for writes; omit for read-only. */
@@ -132,6 +149,10 @@ export class TempoExchange {
     this.publicClient = createPublicClient({ chain, transport: http(opts.config.endpoints.rpcUrl) });
   }
 
+  private assertWritesAllowed(): void {
+    if (this.cfg.paused) throw new TempoError("RISK_REJECTED", "TEMPO_PAUSED emergency kill switch is active");
+  }
+
   get walletAddress(): string | undefined {
     return this.sdk.walletAddress;
   }
@@ -149,6 +170,7 @@ export class TempoExchange {
 
   /** Build unsigned approval/order calls for an external browser wallet. */
   async buildWalletOrder(address: string, marketRef: string, outcome: "UP" | "DOWN", size: number, price: number) {
+    this.assertWritesAllowed();
     if (!/^0x[0-9a-f]{40}$/i.test(address)) throw new TempoError("UNAVAILABLE", "wallet address is malformed");
     const chain = this.publicClient.chain;
     if (!chain) throw new TempoError("CHAIN_UNAVAILABLE", "configured chain is unavailable");
@@ -168,7 +190,36 @@ export class TempoExchange {
         orderType: ORDER_TYPE.MARKET,
         autoApprove: false,
       });
-      return { prepared, approval: unsigned.approval, order: unsigned.order };
+      const calls = [unsigned.approval, unsigned.order].filter((call): call is NonNullable<typeof call> => Boolean(call));
+      const protocolAddresses = [
+        ...Object.values(this.cfg.addresses).filter((value): value is string => typeof value === "string"),
+        prepared.onchain.pool,
+        prepared.onchain.marketAddress,
+        prepared.onchain.outcomeToken,
+      ];
+      const destinations = assertAllowedDestinations(calls, protocolAddresses);
+      const [collateral, nativeRaw] = await Promise.all([
+        this.collateralBalance(address),
+        this.publicClient.getBalance({ address: address as Address }),
+      ]);
+      if (collateral.human < prepared.worstCaseCost) {
+        throw new TempoError("RISK_REJECTED", `insufficient collateral: need ${prepared.worstCaseCost}, available ${collateral.human}`);
+      }
+      const nativeValue = calls.reduce((sum, call) => sum + BigInt(call.value ?? 0), 0n);
+      if (nativeRaw < nativeValue) throw new TempoError("RISK_REJECTED", "insufficient native balance for transaction value");
+      return {
+        prepared,
+        approval: unsigned.approval,
+        order: unsigned.order,
+        review: {
+          chainId: expectedChainId(this.cfg.network),
+          destinations,
+          nativeValue,
+          collateralBalance: collateral.human,
+          collateralDecimals: collateral.decimals,
+          allowlistValidated: true,
+        },
+      };
     } finally {
       await browserExchange.close();
     }
@@ -288,31 +339,10 @@ export class TempoExchange {
       const res = await this.sdk.client.getOpeningPrices([marketId as `0x${string}`]);
       boundary = (res as Record<string, unknown> | undefined)?.[marketId.toLowerCase()];
     }
-    if (boundary === undefined || boundary === null) return undefined;
-    let raw: number;
-    if (typeof boundary === "object") {
-      const nv = (boundary as Record<string, unknown>).numericValue ?? (boundary as Record<string, unknown>).value;
-      if (nv === undefined) return undefined;
-      raw = Number(nv);
-    } else {
-      raw = Number(boundary);
-    }
-    if (!Number.isFinite(raw)) return undefined;
-
-    // Opening-price encodings differ across deployed series. Match a decimal
-    // scale to the live official feed and reject an implausible mismatch.
-    if (!market) return raw;
+    if (!market) return typeof boundary === "number" ? boundary : Number(boundary);
     const livePrice = referenceSpot ?? (await this.spot(market.asset))?.price;
     if (!livePrice) return undefined;
-    const candidates = Array.from({ length: 19 }, (_, decimals) => raw / 10 ** decimals);
-    const best = candidates.reduce((a, b) =>
-      Math.abs(Math.log(Math.max(b, Number.MIN_VALUE) / livePrice)) <
-      Math.abs(Math.log(Math.max(a, Number.MIN_VALUE) / livePrice))
-        ? b
-        : a,
-    );
-    const ratio = best / livePrice;
-    return ratio >= 0.5 && ratio <= 2 ? best : undefined;
+    return normalizeOpeningBoundary(boundary, livePrice);
   }
 
   /** Underlying spot from the official price feed. */
@@ -477,6 +507,7 @@ export class TempoExchange {
     price: number,
     opts: { postOnly?: boolean; ioc?: boolean; expireTimestampNs?: bigint } = {},
   ): Promise<{ hash?: string; status?: string; filled?: number; orderId?: string }> {
+    this.assertWritesAllowed();
     if (this.readonly) throw new TempoError("NO_KEY", `place() on ${symbol} requires a signer`);
     const market = await this.marketForRef(symbol);
     const outcome = symbol.toLowerCase() === market.downSymbol.toLowerCase() ? "DOWN" : "UP";
@@ -515,6 +546,7 @@ export class TempoExchange {
   }
 
   async cancel(orderId: string, symbol: string): Promise<{ hash?: string; status?: string }> {
+    this.assertWritesAllowed();
     if (this.readonly) throw new TempoError("NO_KEY", "cancel() requires a signer");
     await this.requireTrading(symbol);
     const result = await this.sdk.cancelOrder(orderId, symbol);
@@ -544,6 +576,7 @@ export class TempoExchange {
   }
 
   async mintSet(symbol: string, size: number): Promise<{ hash?: string }> {
+    this.assertWritesAllowed();
     if (this.readonly) throw new TempoError("NO_KEY", "mintSet() requires a signer");
     const { market } = await this.requireTrading(symbol);
     const res = await this.sdk.mintSet(market.symbol, size);
@@ -551,6 +584,7 @@ export class TempoExchange {
   }
 
   async burnSet(symbol: string, size: number): Promise<{ hash?: string }> {
+    this.assertWritesAllowed();
     if (this.readonly) throw new TempoError("NO_KEY", "burnSet() requires a signer");
     const { market } = await this.requireTrading(symbol);
     const res = await this.sdk.burnSet(market.symbol, size);
@@ -583,6 +617,7 @@ export class TempoExchange {
 
   /** Redeem a winning (or voided) outcome via the trader tier with explicit index. */
   async redeem(marketId: string, onchain: OnchainMarket, outcome: "UP" | "DOWN"): Promise<{ hash?: string }> {
+    this.assertWritesAllowed();
     if (this.readonly) throw new TempoError("NO_KEY", "redeem() requires a signer");
     if (!onchain.isResolved && !onchain.isVoided) throw new TempoError("MARKET_NOT_TRADING", `${marketId} is not finalized for redemption`);
     const id = outcome === "UP" ? onchain.yesId : onchain.noId;
@@ -605,6 +640,7 @@ export class TempoExchange {
 
   /** Testnet-only collateral mint (10k tUSDC cap per call). */
   async faucet(): Promise<{ hash?: string }> {
+    this.assertWritesAllowed();
     if (this.readonly) throw new TempoError("NO_KEY", "faucet() requires a signer");
     if (this.cfg.network !== "testnet") throw new TempoError("CONFIG_INVALID", "faucet is testnet-only");
     const res = await this.sdk.trader.faucet();
@@ -747,12 +783,13 @@ export class TempoExchange {
   }
 
   /** Live on-chain outcome balances, keyed by market id rather than recycled pool. */
-  async positions(address?: string): Promise<
+  async positions(address?: string, limit = 50): Promise<
     Array<{ marketId: string; symbol: string; up: number; down: number; status: number }>
   > {
     const owner = address ?? this.walletAddress;
     if (!owner) throw new TempoError("NO_KEY", "positions() requires an address or signer");
-    const rows = await this.markets();
+    if (!Number.isInteger(limit) || limit < 1 || limit > 50) throw new TempoError("UNAVAILABLE", "positions limit must be an integer from 1 to 50");
+    const rows = (await this.markets()).slice(0, limit);
     return Promise.all(
       rows.map(async (market) => {
         const onchain = await this.onchain(market.marketId);

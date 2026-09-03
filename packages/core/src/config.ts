@@ -102,6 +102,8 @@ export interface TempoConfig {
   risk: RiskConfig;
   /** When true, plans are journaled but never sent (default for firm runs). */
   dryRun: boolean;
+  /** Emergency application kill switch. When true every write boundary refuses. */
+  paused: boolean;
   /** Directory for the JSONL journal. */
   journalDir: string;
   /** Underlying assets to trade. */
@@ -127,15 +129,32 @@ function loadDotEnv(startDir = process.cwd()): void {
   }
 }
 
-const num = (name: string, def: number): number => {
+const num = (name: string, def: number, min: number, max: number, integer = false): number => {
   const raw = process.env[name];
   if (raw === undefined || raw.trim() === "") return def;
   const n = Number(raw);
   if (!Number.isFinite(n)) throw new Error(`${name}="${raw}" is not a number`);
+  if (n < min || n > max || (integer && !Number.isInteger(n))) throw new Error(`${name}=${raw} must be ${integer ? "an integer " : ""}from ${min} to ${max}`);
   return n;
 };
 
 const text = (name: string, def: string): string => process.env[name]?.trim() || def;
+
+const bool = (name: string, def: boolean): boolean => {
+  const raw = process.env[name]?.trim().toLowerCase();
+  if (!raw) return def;
+  if (raw !== "true" && raw !== "false") throw new Error(`${name} must be true or false`);
+  return raw === "true";
+};
+
+const endpoint = (name: string, value: string, protocols: readonly string[]): string => {
+  let parsed: URL;
+  try { parsed = new URL(value); } catch { throw new Error(`${name} is not a valid URL`); }
+  if (!protocols.includes(parsed.protocol) || parsed.username || parsed.password || !parsed.hostname) {
+    throw new Error(`${name} must use ${protocols.join(" or ")} without embedded credentials`);
+  }
+  return parsed.toString().replace(/\/$/, "");
+};
 
 const key = (name: string): `0x${string}` | undefined => {
   const raw = process.env[name]?.trim();
@@ -152,25 +171,30 @@ export function loadConfig(startDir = process.cwd()): TempoConfig {
   const base = ENDPOINTS[network];
   const endpoints: Endpoints = {
     ...base,
-    rpcUrl: text("TEMPO_RPC_URL", base.rpcUrl),
-    wsRpcUrl: text("TEMPO_WS_RPC_URL", base.wsRpcUrl),
-    indexerUrl: text("TEMPO_INDEXER_URL", base.indexerUrl),
-    explorerUrl: text("TEMPO_EXPLORER_URL", base.explorerUrl),
+    rpcUrl: endpoint("TEMPO_RPC_URL", text("TEMPO_RPC_URL", base.rpcUrl), ["https:", "http:"]),
+    wsRpcUrl: endpoint("TEMPO_WS_RPC_URL", text("TEMPO_WS_RPC_URL", base.wsRpcUrl), ["wss:", "ws:"]),
+    indexerUrl: endpoint("TEMPO_INDEXER_URL", text("TEMPO_INDEXER_URL", base.indexerUrl), ["https:", "http:"]),
+    explorerUrl: endpoint("TEMPO_EXPLORER_URL", text("TEMPO_EXPLORER_URL", base.explorerUrl), ["https:", "http:"]),
   };
   const risk: RiskConfig = {
-    quoteSize: num("TEMPO_QUOTE_SIZE", DEFAULT_RISK.quoteSize),
-    maxNetInventory: num("TEMPO_MAX_NET_INVENTORY", DEFAULT_RISK.maxNetInventory),
-    maxGrossInventory: num("TEMPO_MAX_GROSS_INVENTORY", DEFAULT_RISK.maxGrossInventory),
-    firmCapitalCap: num("TEMPO_FIRM_CAPITAL_CAP", DEFAULT_RISK.firmCapitalCap),
-    maxOrderCollateral: num("TEMPO_MAX_ORDER_COLLATERAL", DEFAULT_RISK.maxOrderCollateral),
-    maxOpenOrdersPerWindow: num("TEMPO_MAX_OPEN_ORDERS", DEFAULT_RISK.maxOpenOrdersPerWindow),
-    maxLossPerWindow: num("TEMPO_MAX_WINDOW_LOSS", DEFAULT_RISK.maxLossPerWindow),
-    minLeftSecMaker: num("TEMPO_MIN_LEFT_MAKER", DEFAULT_RISK.minLeftSecMaker),
-    minLeftSecTaker: num("TEMPO_MIN_LEFT_TAKER", DEFAULT_RISK.minLeftSecTaker),
-    takerEdge: num("TEMPO_TAKER_EDGE", DEFAULT_RISK.takerEdge),
-    halfSpread0: num("TEMPO_HALF_SPREAD", DEFAULT_RISK.halfSpread0),
-    halfSpreadMin: num("TEMPO_HALF_SPREAD_MIN", DEFAULT_RISK.halfSpreadMin),
+    quoteSize: num("TEMPO_QUOTE_SIZE", DEFAULT_RISK.quoteSize, 0.001, 1_000_000),
+    maxNetInventory: num("TEMPO_MAX_NET_INVENTORY", DEFAULT_RISK.maxNetInventory, 0.001, 10_000_000),
+    maxGrossInventory: num("TEMPO_MAX_GROSS_INVENTORY", DEFAULT_RISK.maxGrossInventory, 0.001, 10_000_000),
+    firmCapitalCap: num("TEMPO_FIRM_CAPITAL_CAP", DEFAULT_RISK.firmCapitalCap, 0.01, 1_000_000_000),
+    maxOrderCollateral: num("TEMPO_MAX_ORDER_COLLATERAL", DEFAULT_RISK.maxOrderCollateral, 0.01, 1_000_000_000),
+    maxOpenOrdersPerWindow: num("TEMPO_MAX_OPEN_ORDERS", DEFAULT_RISK.maxOpenOrdersPerWindow, 1, 1_000, true),
+    maxLossPerWindow: num("TEMPO_MAX_WINDOW_LOSS", DEFAULT_RISK.maxLossPerWindow, 0.01, 1_000_000_000),
+    minLeftSecMaker: num("TEMPO_MIN_LEFT_MAKER", DEFAULT_RISK.minLeftSecMaker, 0, 86_400),
+    minLeftSecTaker: num("TEMPO_MIN_LEFT_TAKER", DEFAULT_RISK.minLeftSecTaker, 0, 86_400),
+    takerEdge: num("TEMPO_TAKER_EDGE", DEFAULT_RISK.takerEdge, 0, 0.5),
+    halfSpread0: num("TEMPO_HALF_SPREAD", DEFAULT_RISK.halfSpread0, 0.000001, 0.5),
+    halfSpreadMin: num("TEMPO_HALF_SPREAD_MIN", DEFAULT_RISK.halfSpreadMin, 0.000001, 0.5),
   };
+  if (risk.maxNetInventory > risk.maxGrossInventory) throw new Error("TEMPO_MAX_NET_INVENTORY cannot exceed TEMPO_MAX_GROSS_INVENTORY");
+  if (risk.maxOrderCollateral > risk.firmCapitalCap) throw new Error("TEMPO_MAX_ORDER_COLLATERAL cannot exceed TEMPO_FIRM_CAPITAL_CAP");
+  if (risk.halfSpreadMin > risk.halfSpread0) throw new Error("TEMPO_HALF_SPREAD_MIN cannot exceed TEMPO_HALF_SPREAD");
+  const assets = text("TEMPO_ASSETS", "BTC,ETH").split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+  if (!assets.length || assets.length > 20 || assets.some((asset) => !/^[A-Z0-9]{2,12}$/.test(asset))) throw new Error("TEMPO_ASSETS must contain 1-20 comma-separated asset symbols");
   return {
     network,
     endpoints,
@@ -180,12 +204,10 @@ export function loadConfig(startDir = process.cwd()): TempoConfig {
       taker: key("TEMPO_KEY_TAKER") ?? key("TEMPO_TAKER_KEY"),
     },
     risk,
-    dryRun: (process.env.TEMPO_DRY_RUN ?? "true").toLowerCase() !== "false",
+    dryRun: bool("TEMPO_DRY_RUN", true),
+    paused: bool("TEMPO_PAUSED", false),
     journalDir: text("TEMPO_JOURNAL_DIR", "journal"),
-    assets: text("TEMPO_ASSETS", "BTC,ETH")
-      .split(",")
-      .map((s) => s.trim().toUpperCase())
-      .filter(Boolean),
+    assets: [...new Set(assets)],
     venueId: process.env.TEMPO_VENUE_ID?.trim() || undefined,
   };
 }

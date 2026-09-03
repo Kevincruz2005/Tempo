@@ -1,12 +1,34 @@
 import { escapeHtml } from "/security.js";
 
 const $ = (id) => document.getElementById(id);
-const TESTNET_CHAIN_ID = 50312;
-const TESTNET_CHAIN_HEX = "0xc488";
 let provider;
 let account;
 let chainId;
 let lastPrepared;
+let lastState;
+let walletConfig;
+let signing = false;
+
+const ADDRESS = /^0x[0-9a-f]{40}$/i;
+const HASH = /^0x[0-9a-f]{64}$/i;
+
+function clearPrepared(message) {
+  lastPrepared = undefined;
+  $("wallet-confirm").hidden = true;
+  $("wallet-cancel").hidden = true;
+  if (message) {
+    $("wallet-summary").hidden = false;
+    $("wallet-summary").textContent = message;
+  }
+}
+
+async function loadWalletConfig() {
+  const response = await fetch("/api/wallet/config");
+  const body = await response.json();
+  if (!response.ok || !Number.isSafeInteger(body.chainId) || !/^0x[0-9a-f]+$/i.test(body.chainHex)) throw new Error("wallet network configuration unavailable");
+  walletConfig = body;
+  showNetworkState();
+}
 
 function setState(state, detail = "") {
   $("wallet-state").textContent = state;
@@ -23,9 +45,13 @@ function showNetworkState() {
     warning.hidden = true;
     return;
   }
-  if (chainId !== TESTNET_CHAIN_ID) {
+  if (!walletConfig) {
     warning.hidden = false;
-    warning.innerHTML = `WRONG NETWORK · wallet chain ${chainId}; TEMPO testnet requires ${TESTNET_CHAIN_ID} <button type="button" id="wallet-switch">Switch network</button>`;
+    warning.textContent = "Wallet network configuration unavailable.";
+    $("wallet-trade").hidden = true;
+  } else if (chainId !== walletConfig.chainId) {
+    warning.hidden = false;
+    warning.innerHTML = `WRONG NETWORK · wallet chain ${chainId}; TEMPO ${walletConfig.network} requires ${walletConfig.chainId} <button type="button" id="wallet-switch">Switch network</button>`;
     $("wallet-switch")?.addEventListener("click", () => void switchNetwork());
     $("wallet-trade").hidden = true;
   } else {
@@ -50,10 +76,12 @@ async function connect() {
   }
   try {
     const accounts = await wallet.request({ method: "eth_requestAccounts" });
-    if (!Array.isArray(accounts) || !/^0x[0-9a-f]{40}$/i.test(accounts[0] ?? "")) throw new Error("wallet returned malformed account");
+    if (!Array.isArray(accounts) || accounts.length === 0 || accounts.some((value) => !ADDRESS.test(value))) throw new Error("wallet returned malformed account");
     account = accounts[0];
     const rawChain = await wallet.request({ method: "eth_chainId" });
-    chainId = typeof rawChain === "string" ? Number.parseInt(rawChain, 16) : Number(rawChain);
+    if (typeof rawChain !== "string" || !/^0x[0-9a-f]+$/i.test(rawChain)) throw new Error("wallet returned malformed chain id");
+    chainId = Number.parseInt(rawChain, 16);
+    if (!Number.isSafeInteger(chainId)) throw new Error("wallet returned malformed chain id");
     const balance = await readBalance();
     setState("CONNECTED", `${account.slice(0, 8)}...${account.slice(-6)} · chain ${chainId} · ${balance}`);
     $("wallet-connect").textContent = "Disconnect wallet";
@@ -67,18 +95,17 @@ async function connect() {
 
 async function switchNetwork() {
   const wallet = currentProvider();
-  if (!wallet) return;
+  if (!wallet || !walletConfig) return;
   try {
-    await wallet.request({ method: "wallet_switchEthereumChain", params: [{ chainId: TESTNET_CHAIN_HEX }] });
+    await wallet.request({ method: "wallet_switchEthereumChain", params: [{ chainId: walletConfig.chainHex }] });
   } catch (error) {
     if (error?.code !== 4902) {
       $("wallet-warning").textContent = "Network switch rejected by wallet.";
       return;
     }
-    await wallet.request({ method: "wallet_addEthereumChain", params: [{ chainId: TESTNET_CHAIN_HEX, chainName: "Somnia Shannon", nativeCurrency: { name: "Somnia Testnet Token", symbol: "STT", decimals: 18 }, rpcUrls: ["https://api.infra.testnet.somnia.network"], blockExplorerUrls: ["https://shannon-explorer.somnia.network"] }] });
+    await wallet.request({ method: "wallet_addEthereumChain", params: [{ chainId: walletConfig.chainHex, chainName: walletConfig.chainName, nativeCurrency: walletConfig.nativeCurrency, rpcUrls: [walletConfig.rpcUrl], blockExplorerUrls: [walletConfig.explorerUrl] }] });
   }
-  chainId = TESTNET_CHAIN_ID;
-  showNetworkState();
+  await connect();
 }
 
 async function refreshWalletActivity() {
@@ -102,7 +129,7 @@ function populateMarkets() {
 }
 
 async function reviewTrade() {
-  if (!account || chainId !== TESTNET_CHAIN_ID) return;
+  if (!account || !walletConfig || chainId !== walletConfig.chainId || signing) return;
   const market = $("wallet-market").value;
   const outcome = $("wallet-side").value;
   const size = Number($("wallet-size").value);
@@ -113,6 +140,9 @@ async function reviewTrade() {
     const response = await fetch(`/api/wallet/prepare?${query}`);
     const body = await response.json();
     if (!response.ok) throw new Error(body.error ?? "order preparation failed");
+    if (body.review?.chainId !== chainId || body.review?.allowlistValidated !== true) throw new Error("prepared transaction failed chain or destination validation");
+    const calls = [body.approval, body.order].filter(Boolean);
+    if (!calls.length || calls.some((call) => !ADDRESS.test(call.to) || typeof call.data !== "string" || !/^0x[0-9a-f]*$/i.test(call.data))) throw new Error("prepared transaction is malformed");
     lastPrepared = body;
     summary.hidden = false;
     summary.textContent = [
@@ -124,10 +154,15 @@ async function reviewTrade() {
       `expiry: ${body.prepared.expireTimestampNs} ns`,
       `seconds left: ${Math.round(body.prepared.secondsLeft)}`,
       `worst-case cost: ${body.prepared.worstCaseCost}`,
+      `collateral available: ${body.review.collateralBalance}`,
+      `chain: ${body.review.chainId} (${walletConfig.network})`,
+      `destinations: ${body.review.destinations.join(", ")}`,
+      `native value: ${body.review.nativeValue}`,
       "RiskEngine: ACCEPTED · chain status: 1 (Trading)",
-      "The SDK unsigned calls are ready; approve each wallet confirmation explicitly.",
+      "Review complete. Select Confirm in wallet to request signatures.",
     ].join("\n");
-    await signPrepared();
+    $("wallet-confirm").hidden = false;
+    $("wallet-cancel").hidden = false;
   } catch (error) {
     summary.hidden = false;
     summary.textContent = `PRE-SIGN BLOCKED · ${error instanceof Error ? error.message.slice(0, 160) : "unavailable"}`;
@@ -135,21 +170,33 @@ async function reviewTrade() {
 }
 
 async function waitReceipt(hash) {
+  if (!HASH.test(hash)) throw new Error("wallet returned malformed transaction hash");
   for (let i = 0; i < 30; i++) {
     const receipt = await currentProvider().request({ method: "eth_getTransactionReceipt", params: [hash] });
-    if (receipt) return receipt;
+    if (receipt) {
+      if (receipt.status !== "0x1" && receipt.status !== "0x0") throw new Error("wallet returned malformed receipt");
+      return receipt;
+    }
     await new Promise((resolve) => setTimeout(resolve, 1000));
   }
   return null;
 }
 
 async function signPrepared() {
-  if (!lastPrepared || !account) return;
+  if (!lastPrepared || !account || !walletConfig || signing) return;
   const wallet = currentProvider();
+  signing = true;
+  $("wallet-confirm").hidden = true;
+  $("wallet-cancel").hidden = true;
   try {
+    const currentAccounts = await wallet.request({ method: "eth_accounts" });
+    const currentChain = await wallet.request({ method: "eth_chainId" });
+    if (!Array.isArray(currentAccounts) || currentAccounts[0]?.toLowerCase() !== account.toLowerCase()) throw new Error("wallet account changed after review");
+    if (typeof currentChain !== "string" || Number.parseInt(currentChain, 16) !== walletConfig.chainId) throw new Error("wallet network changed after review");
     const hashes = [];
     for (const call of [lastPrepared.approval, lastPrepared.order].filter(Boolean)) {
       const hash = await wallet.request({ method: "eth_sendTransaction", params: [{ from: account, to: call.to, data: call.data, value: `0x${BigInt(call.value).toString(16)}` }] });
+      if (!HASH.test(hash)) throw new Error("wallet returned malformed transaction hash");
       const receipt = await waitReceipt(hash);
       if (!receipt || receipt.status !== "0x1") throw new Error(`receipt reverted or unavailable: ${hash}`);
       hashes.push(hash);
@@ -158,6 +205,9 @@ async function signPrepared() {
     await refreshWalletActivity();
   } catch (error) {
     $("wallet-summary").textContent += `\n\nSIGNING STOPPED · ${error instanceof Error ? error.message.slice(0, 160) : "wallet rejected"}`;
+  } finally {
+    signing = false;
+    lastPrepared = undefined;
   }
 }
 
@@ -173,15 +223,19 @@ function discoverWallets() {
     provider = discovered[0]?.provider ?? window.ethereum;
     if (!provider) setState("UNSUPPORTED", "No wallet provider detected.");
     if (provider?.on) {
-      provider.on("accountsChanged", (accounts) => { if (!accounts?.length) { account = undefined; setState("DISCONNECTED", "Wallet disconnected."); } else void connect(); });
-      provider.on("chainChanged", () => void connect());
-      provider.on("disconnect", () => { account = undefined; setState("DISCONNECTED", "Wallet provider disconnected."); });
+      provider.on("accountsChanged", (accounts) => { clearPrepared("PRE-SIGN CANCELLED · wallet account changed"); if (!accounts?.length) { account = undefined; setState("DISCONNECTED", "Wallet disconnected."); } else void connect(); });
+      provider.on("chainChanged", () => { clearPrepared("PRE-SIGN CANCELLED · wallet network changed"); void connect(); });
+      provider.on("disconnect", () => { clearPrepared("PRE-SIGN CANCELLED · wallet provider disconnected"); account = undefined; setState("DISCONNECTED", "Wallet provider disconnected."); });
     }
   }, 250);
 }
 
 window.addEventListener("tempo:state", (event) => { lastState = event.detail; populateMarkets(); });
-$("wallet-connect")?.addEventListener("click", () => account ? (account = undefined, setState("DISCONNECTED", "Wallet disconnected."), $("wallet-connect").textContent = "Connect wallet") : void connect());
+$("wallet-connect")?.addEventListener("click", () => account ? (clearPrepared(), account = undefined, setState("DISCONNECTED", "Wallet disconnected."), $("wallet-connect").textContent = "Connect wallet") : void connect());
 $("wallet-warning")?.addEventListener("click", () => void switchNetwork());
 $("wallet-prepare")?.addEventListener("click", () => void reviewTrade());
+$("wallet-confirm")?.addEventListener("click", () => void signPrepared());
+$("wallet-cancel")?.addEventListener("click", () => clearPrepared("PRE-SIGN CANCELLED · no wallet request was sent"));
+for (const id of ["wallet-market", "wallet-side", "wallet-size", "wallet-price"]) $(id)?.addEventListener("change", () => clearPrepared());
+void loadWalletConfig().catch((error) => setState("UNAVAILABLE", error instanceof Error ? error.message : "wallet configuration unavailable"));
 discoverWallets();

@@ -37,8 +37,33 @@ describe("deterministic calibration", () => {
     expect(result.state.params.takerEdge).toBeGreaterThanOrEqual(0.02);
     expect(result.state.params.takerEdge).toBeLessThanOrEqual(0.08);
     const gated = engine.run(records(25), false, 1_700_000_200_000);
-    expect(gated.epoch?.id).toBe(2);
+    expect(gated.status).toBe("GATED");
+    expect(gated.reason).toMatch(/already calibrated/);
+    const forced = engine.run(records(25), true, 1_700_000_200_000);
+    expect(forced.status).toBe("GATED");
     rmSync(root, { recursive: true, force: true });
+  });
+
+  it("uses only the 30 most recent settled markets and learns a Brier temperature", () => {
+    const root = mkdtempSync(join(tmpdir(), "tempo-calibration-"));
+    const all = records(35, 0.9);
+    const score = scoreCalibrationRecords(all);
+    expect(score.scoredCount).toBe(30);
+    const result = new CalibrationEngine(join(root, "state.json")).run(all);
+    expect(result.epoch?.model.name).toBe("temperature-brier");
+    expect(result.epoch?.model.temperature).toBeGreaterThanOrEqual(0.5);
+    expect(result.epoch?.brierAfter).not.toBeNull();
+    expect(result.epoch!.brierAfter!).toBeLessThanOrEqual(result.epoch!.brierBefore!);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("scores VECTOR fill direction against the real settlement outcome", () => {
+    const input = records(1, 0.8);
+    input.push({ ts: "2023-11-14T22:13:20.250Z", type: "fill", agent: "VECTOR", marketId: input[0].marketId, data: { kind: "BUY_DOWN" } });
+    const score = scoreCalibrationRecords(input);
+    expect(score.vectorFills).toBe(1);
+    expect(score.vectorScored).toBe(1);
+    expect(score.vectorDirectionalAccuracy).toBe(1);
   });
 
   it("recovers defaults from corrupt state and reports the reason", () => {
@@ -53,4 +78,3 @@ describe("deterministic calibration", () => {
     rmSync(root, { recursive: true, force: true });
   });
 });
-

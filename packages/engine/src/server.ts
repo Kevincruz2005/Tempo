@@ -321,6 +321,7 @@ export class TempoServer {
         return this.json(response, 200, { status: "ok", service: "tempo", version: ROOT_VERSION });
       }
       if (url.pathname === "/ready") return this.ready(response);
+      if (url.pathname === "/api/wallet/config") return this.json(response, 200, this.firm.walletConfig());
       if (url.pathname === "/api/wallet/activity") {
         const address = url.searchParams.get("address") ?? "";
         if (!/^0x[0-9a-f]{40}$/i.test(address)) return this.json(response, 400, { error: "address must be a 20-byte hex address" });

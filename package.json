@@ -17,6 +17,10 @@
     "faucet": "tsx packages/cli/src/index.ts faucet",
     "test": "vitest run test/unit test/failure test/security test/economic test/cli test/integration/health.test.ts test/integration/mcp.test.ts --exclude test/failure/live-chain-gate.test.ts",
     "test:live": "vitest run test/sdk test/integration",
+    "test:coverage": "vitest run test/unit test/failure test/security test/economic test/cli test/integration/health.test.ts test/integration/mcp.test.ts --exclude test/failure/live-chain-gate.test.ts --coverage --coverage.include='packages/core/dist/{calibration,fairValue,quant,wallet}.js' --coverage.reporter=text --coverage.reporter=json-summary --coverage.thresholds.statements=85",
+    "typecheck": "npm run build:sdk && tsc -p packages/engine/tsconfig.json && tsc -p packages/cli/tsconfig.json && tsc -p packages/mcp/tsconfig.json",
+    "security:secrets": "tsx test/scripts/secret-scan.ts",
+    "security:check": "npm run security:secrets && npm run typecheck && npm audit --audit-level=high",
     "test:chain-gate": "vitest run test/failure/live-chain-gate.test.ts",
     "test:contract": "tsx test/scripts/contract-live.ts",
     "test:mcp-live": "tsx test/scripts/mcp-live.ts",
@@ -32,6 +36,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
+    "@vitest/coverage-v8": "^4.1.11",
     "typescript": "^5.5.0",
     "vitest": "^4.1.11"
   }

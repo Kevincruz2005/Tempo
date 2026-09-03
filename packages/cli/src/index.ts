@@ -523,7 +523,12 @@ async function main(): Promise<void> {
       });
       const result = engine.run(journal.readFiles(Date.now() - 30 * 24 * 3600_000), hasFlag("force"));
       if (result.status === "APPLIED" && result.epoch) {
-        journal.append({ type: "calibration", source: "deterministic-journal-calibration", data: { ...result.epoch, brierAfter: result.epoch.brierAfter ?? "PENDING" } });
+        journal.append({
+          type: "calibration",
+          source: "learned-journal-calibration",
+          model: { name: result.epoch.model.name, version: result.epoch.model.version, configVersion: "calibration-v1" },
+          data: { ...result.epoch },
+        });
       }
       await journal.close();
       out(JSON.stringify(result, (_key, value) => typeof value === "bigint" ? value.toString() : value, 2));

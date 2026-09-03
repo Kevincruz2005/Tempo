@@ -22,7 +22,7 @@
       <div class="search-results" id="search-results" hidden></div>
     </div>
     <nav class="header-links" aria-label="Product links">
-      <span class="version">CORE 0.2.0</span>
+      <span class="version">CORE 0.3.0</span>
       <a href="/">Dashboard</a>
       <a href="https://github.com/Kevincruz2005/Tempo" target="_blank" rel="noopener noreferrer">GitHub</a>
     </nav>
@@ -34,9 +34,11 @@
       <a href="#overview" class="active">Overview</a>
       <a href="#quickstart">Quickstart</a>
       <a href="#feature-catalog">Feature catalog</a>
+      <a href="#ecosystem">Core primitive</a>
 
       <p class="nav-group">Product</p>
       <a href="#architecture">Architecture</a>
+      <a href="#ecosystem">Why Somnia / DreamDEX / EC</a>
       <a href="#agents">Autonomous firm</a>
       <a href="#lifecycle">Market lifecycle</a>
       <a href="#appraiser">Appraiser and estimates</a>
@@ -58,6 +60,11 @@
       <a href="#testing">Testing and evidence</a>
       <a href="#provenance">Data provenance</a>
       <a href="#deployment">Deployment and failures</a>
+      <a href="#testnet">Testnet setup</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="#reproducibility">Reproducibility</a>
+      <a href="#examples">Examples and FAQ</a>
+      <a href="#license">License</a>
     </nav>
   </aside>
 
@@ -68,7 +75,7 @@
         <h1>TEMPO Documentation</h1>
         <p class="lede">The operator and developer reference for TEMPO: a two-agent opening-auction firm for DreamDEX Event Contracts, built on the pinned Somnia markets SDK.</p>
         <div class="status-strip" aria-label="Verified project status">
-          <div><b>2,099</b><span>offline tests passing</span></div>
+          <div><b>2,107</b><span>offline tests passing</span></div>
           <div><b>31 / 31</b><span>live receipts verified</span></div>
           <div><b>0.29.0</b><span>markets SDK pinned</span></div>
           <div><b>0</b><span>mocked economic values</span></div>
@@ -108,6 +115,7 @@ npm run firm</code></pre>
         <div class="config-grid">
           <div><code>TEMPO_NETWORK</code><span><code>testnet</code> or <code>mainnet</code></span></div>
           <div><code>TEMPO_DRY_RUN</code><span>Defaults to <code>true</code></span></div>
+          <div><code>TEMPO_PAUSED</code><span>Emergency write stop; default <code>false</code></span></div>
           <div><code>TEMPO_KEY_MAKER</code><span>Optional GENESIS signer</span></div>
           <div><code>TEMPO_KEY_TAKER</code><span>Optional VECTOR signer</span></div>
           <div><code>TEMPO_ASSETS</code><span>Default <code>BTC,ETH</code></span></div>
@@ -122,8 +130,33 @@ npm run firm</code></pre>
           <div><code>TEMPO_LLM_URL</code><span>Optional chat-completions endpoint</span></div>
           <div><code>TEMPO_LLM_MODEL</code><span>Optional narrative model name</span></div>
           <div><code>TEMPO_MCP_WRITES</code><span>Default <code>false</code>; explicit MCP write opt-in</span></div>
+          <div><code>TEMPO_QUOTE_SIZE</code><span>Per-plan contract quantity</span></div>
+          <div><code>TEMPO_MAX_NET_INVENTORY</code><span>Absolute net inventory cap</span></div>
+          <div><code>TEMPO_MAX_GROSS_INVENTORY</code><span>Gross outcome inventory cap</span></div>
+          <div><code>TEMPO_FIRM_CAPITAL_CAP</code><span>Per-agent committed capital cap</span></div>
+          <div><code>TEMPO_MAX_ORDER_COLLATERAL</code><span>Single-order collateral cap</span></div>
+          <div><code>TEMPO_MAX_OPEN_ORDERS</code><span>Working-order count cap</span></div>
+          <div><code>TEMPO_MAX_WINDOW_LOSS</code><span>Per-window realized-loss stop</span></div>
+          <div><code>TEMPO_MIN_LEFT_MAKER</code><span>Maker expiry gate; 0 is cadence-scaled</span></div>
+          <div><code>TEMPO_MIN_LEFT_TAKER</code><span>Taker expiry gate in seconds</span></div>
+          <div><code>TEMPO_TAKER_EDGE</code><span>Minimum VECTOR probability edge</span></div>
+          <div><code>TEMPO_HALF_SPREAD</code><span>Initial maker half-spread</span></div>
+          <div><code>TEMPO_HALF_SPREAD_MIN</code><span>Minimum maker half-spread</span></div>
         </div>
-        <p class="note">Risk parameters are also environment-configurable: quote size, net/gross inventory, firm capital, per-order collateral, open-order count, per-window loss, maker/taker time gates, taker edge, and spread bounds.</p>
+        <p class="note"><code>TEMPO_MAKER_KEY</code> and <code>TEMPO_TAKER_KEY</code> are legacy aliases; prefer the explicit <code>TEMPO_KEY_*</code> names. Numeric values and cross-field relationships are bounded at startup.</p>
+      </section>
+
+      <section class="doc-section" id="ecosystem" data-title="Core primitive and ecosystem">
+        <div class="eyebrow">LOAD-BEARING DESIGN</div>
+        <h2>Core primitive and ecosystem</h2>
+        <h3>Core primitive</h3>
+        <p>TEMPO is a machine-native opening and continuous-liquidity service for rolling Event Contracts. It converts market birth into an explicit, agent-operated opening auction and carries the position lifecycle through verified settlement and claim.</p>
+        <h3>Why Somnia</h3>
+        <p>Somnia's live log tail, reactivity path, fast blocks, and native transaction delivery make event-to-decision-to-order operation practical at rolling-window cadence. Removing that path degrades the product into delayed polling.</p>
+        <h3>Why DreamDEX</h3>
+        <p>The one-book/two-outcome CLOB, opening boundary, mint/burn pair inventory, live grid parameters, explicit expiries, finalized registry, and redemption API directly define both agent policies.</p>
+        <h3>Why Event Contracts</h3>
+        <p>Birth, binary boundary, expiry, oracle resolution, void handling, claim, and roll are the lifecycle. Without Event Contracts, the opening mechanism and settlement automation do not exist.</p>
       </section>
 
       <section class="doc-section" id="feature-catalog" data-title="Feature catalog">
@@ -254,10 +287,10 @@ const estimate = fairValue({
       </section>
 
       <section class="doc-section" id="sdk" data-title="Core SDK">
-        <div class="eyebrow">@TEMPO/CORE 0.2.0</div>
+        <div class="eyebrow">@TEMPO/CORE 0.3.0</div>
         <h2>Core SDK</h2>
         <p><code>@tempo/core</code> is the reusable Node 20+ ESM SDK, distributed as a compiled GitHub Release artifact with TypeScript declarations. It consumes <code>@somnia-chain/markets-sdk</code> exactly at version <code>0.29.0</code>.</p>
-        <pre><code>npm install https://github.com/Kevincruz2005/Tempo/releases/download/sdk-v0.2.0/tempo-core-0.2.0.tgz</code></pre>
+        <pre><code>npm install https://github.com/Kevincruz2005/Tempo/releases/download/sdk-v0.3.0/tempo-core-0.3.0.tgz</code></pre>
         <h3>Read-only market client</h3>
         <pre><code>import { loadConfig, TempoExchange } from "@tempo/core";
 
@@ -274,7 +307,7 @@ try {
     exchange.bookParams(chain.pool),
     exchange.book(market.upSymbol, 5),
     exchange.spot(market.asset),
-    exchange.opening(market.marketId),
+    exchange.openingPrice(market.marketId),
   ]);
 } finally {
   await exchange.close();
@@ -313,6 +346,21 @@ const receipt = await exchange.quote(
           <div><code>wallet</code><span>EIP-1193/EIP-6963 parsing, chain checks, and pre-sign summaries</span></div>
           <div><code>calibration</code><span>Bounded journal-scored pricing adjustment with fail-safe persistence</span></div>
         </div>
+        <h3>Functional exports and public types</h3>
+        <table class="api-table">
+          <thead><tr><th>Export group</th><th>Typed public surface</th><th>Failure behavior</th></tr></thead>
+          <tbody>
+            <tr><td>Configuration</td><td><code>loadConfig</code>, <code>DEFAULT_RISK</code>; <code>Network</code>, <code>Endpoints</code>, <code>RiskConfig</code>, <code>AgentKeys</code>, <code>TempoConfig</code></td><td>Throws on invalid URL, boolean, key, numeric range, or cross-field limit.</td></tr>
+            <tr><td>Estimation</td><td><code>normCdf</code>, <code>fairValue</code>, <code>realizedVolPerSqrtSec</code>; <code>FairValueInput</code>, <code>FairValue</code></td><td>Returns <code>NaN</code> estimate fields when required real history is insufficient.</td></tr>
+            <tr><td>Quantization</td><td><code>probToTicks</code>, <code>ticksToProb</code>, <code>sizeToLots</code>, <code>lotsToSize</code>, <code>quantizePrice</code>, <code>quantizeSize</code>, <code>clampProbToTicks</code>, <code>oneUnit</code></td><td>Throws on invalid probability, size, grid, decimals, or unsafe integer conversion.</td></tr>
+            <tr><td>Policies</td><td><code>dynamicHalfSpread</code>, <code>inventorySkew</code>, <code>genesisQuotePlan</code>, <code>takerPlan</code>, <code>GenesisMaker</code>, <code>TakerPolicy</code>; book/market/plan/input types</td><td>Returns <code>null</code> when a safe plan cannot be formed.</td></tr>
+            <tr><td>Risk</td><td><code>RiskEngine</code>; <code>RiskCheckOrder</code>, <code>RiskState</code>, <code>RiskVerdict</code></td><td>Returns a typed rejection; never sends a transaction.</td></tr>
+            <tr><td>Wallet</td><td><code>expectedChainId</code>, <code>expectedChain</code>, <code>parseChainId</code>, <code>normalizeAddress</code>, <code>parseTransactionHash</code>, <code>parseReceiptStatus</code>, <code>assertAllowedDestinations</code>, <code>truncateAddress</code>, <code>requestAccounts</code>, <code>readWalletChainId</code>, <code>createInjectedWalletClient</code>, <code>buildWalletTradeSummary</code>; EIP-1193/EIP-6963 types</td><td>Rejects malformed provider data, destinations, balances, chain, receipt, and expiry.</td></tr>
+            <tr><td>Calibration</td><td><code>scoreCalibrationRecords</code>, <code>CalibrationStore</code>, <code>CalibrationEngine</code>; calibration state/score/result types</td><td>Returns <code>GATED</code> for small, empty, or duplicate windows; corrupt state restores bounded defaults.</td></tr>
+            <tr><td>Journal/report</td><td><code>Journal</code>, <code>aggregate</code>, <code>renderMarkdown</code>, <code>buildReport</code>; <code>JournalRecord</code>, <code>JournalType</code>, <code>ReportStats</code></td><td>Skips corrupt historical lines and preserves unavailable evidence honestly.</td></tr>
+            <tr><td>Ledger/provenance/errors</td><td><code>AgentLedger</code>, <code>fillKindFromTrade</code>, <code>tag</code>, <code>tagged</code>, <code>describeConfig</code>, <code>TempoError</code>, <code>isTempoError</code>; lifecycle/evidence/provenance/error types</td><td>Typed errors expose codes and safe details, never credentials.</td></tr>
+          </tbody>
+        </table>
       </section>
 
       <section class="doc-section" id="exchange-api" data-title="Exchange API">
@@ -424,7 +472,7 @@ await journal.close();</code></pre>
         <div class="token-list" aria-label="Journal record types">
           <code>startup</code><code>market-birth</code><code>market-state</code><code>price</code><code>decision</code><code>order-sent</code><code>order-receipt</code><code>order-cancelled</code><code>fill</code><code>risk-reject</code><code>settlement</code><code>claim</code><code>error</code><code>shutdown</code>
         </div>
-        <p>Records can carry source, market ID, symbol, agent, free-form data, transaction hash, and block number. Subscriber failures do not break the runtime.</p>
+        <p>Records carry an event ID; decisions also carry a correlation ID. Source, market ID, contract address, symbol, agent, model/config version, transaction hash, block, and exact inputs are available where relevant. Subscriber failures do not break the runtime.</p>
       </section>
 
       <section class="doc-section" id="reporting" data-title="Firm reporting">
@@ -449,17 +497,17 @@ npm run cli -- report --since 7d --llm --out test/reports/weekly-report.md</code
       <section class="doc-section" id="calibration" data-title="Calibration loop">
         <div class="eyebrow">COLD-PATH LEARNING FROM FACTS</div>
         <h2>Calibration loop</h2>
-        <p>After claim sweeps, TEMPO scores the last pre-expiry fair-value estimate for each resolved, non-voided market. A rolling 30-day journal window is used; one epoch adjusts at most once and requires 25 scored markets unless explicitly forced.</p>
+        <p>After claim sweeps, TEMPO selects at most the latest 30 resolved, non-voided markets and scores the closest eligible pre-expiry estimate. A bounded temperature model minimizes Brier loss on that real settlement window. One fingerprinted window can produce only one epoch; <code>--force</code> bypasses the 25-market size gate but never the empty or duplicate-window gates.</p>
         <pre><code>npm run cli -- calibrate
 npm run cli -- calibrate --force</code></pre>
-        <p>Only <code>sigmaMultiplier</code> and <code>takerEdge</code> move, each clamped to 0.5x–2x its environment default. Risk caps never change. Every adjustment is recorded as a <code>calibration</code> journal record with old/new parameters, Brier score, directional accuracy, clamp status, and reason. Corrupt <code>journal/calibration.json</code> recovers defaults and records an error.</p>
-        <div class="callout fact"><strong>AI ESTIMATE / CHAIN FACT</strong><p>The appraiser's probability is an estimate. The settlement outcome is an on-chain fact. Calibration is deterministic math over those two recorded values and never puts an LLM in the 100 ms decision path.</p></div>
+        <p>Only <code>sigmaMultiplier</code> and <code>takerEdge</code> move, each clamped to 0.5x–2x its environment default. VECTOR direction is evaluated against settlement before edge adjustment. Risk caps never change. Every epoch records model/version, temperature, input fingerprint, old/new parameters, Brier before/after, directional metrics, clamp status, and reason.</p>
+        <div class="callout fact"><strong>AI ESTIMATE / CHAIN FACT</strong><p>The probability and learned calibration are estimates. Settlement is an on-chain fact. Safety remains deterministic and external to the model; unavailable evidence cannot trigger an epoch.</p></div>
       </section>
 
       <section class="doc-section" id="mcp" data-title="MCP server">
         <div class="eyebrow">MODEL CONTEXT PROTOCOL</div>
         <h2>MCP server</h2>
-        <p><code>@tempo/mcp</code> exposes bounded stdio tools to an MCP client. Every call is schema-validated, timeout-limited to 10 seconds, journaled with an argument hash, and redacted before transport.</p>
+        <p><code>@tempo/mcp</code> exposes bounded stdio tools to an MCP client. Every call is schema-validated, limited to 16 KiB, timeout-limited to 10 seconds, returned as text plus structured content, and journaled as agent <code>MCP</code> with an argument hash.</p>
         <pre><code>npm run cli -- mcp</code></pre>
         <pre><code>{
   "mcpServers": {
@@ -469,7 +517,7 @@ npm run cli -- calibrate --force</code></pre>
     }
   }
 }</code></pre>
-        <p>Read tools cover discovery, contract state, live books, fair value, risk, positions, settlements, activity, and receipt verification. <code>simulate_trade</code> is always dry-run and runs the same chain gate and RiskEngine. <code>place_order</code> is refused unless <code>TEMPO_MCP_WRITES=true</code> and a configured agent key exists; it uses the same IOC exchange path and never accepts a raw key.</p>
+        <p>Read tools cover discovery, contract state, live books, fair value, risk, positions, settlements, activity, and receipt verification. <code>simulate_trade</code> is always dry-run and runs the same chain gate and RiskEngine. <code>place_order</code> is absent unless <code>TEMPO_MCP_WRITES=true</code> and a signer exists; when enabled it uses the firm Executor and never accepts a raw key or destination.</p>
       </section>
 
       <section class="doc-section" id="cli" data-title="CLI reference">
@@ -494,7 +542,7 @@ npm run cli -- calibrate --force</code></pre>
             <tr><td><code>backtest [--limit N]</code></td><td>Evaluate the appraiser on real finalized windows and feed history.</td></tr>
             <tr><td><code>verify</code></td><td>Cross-check every journaled transaction hash against chain receipts.</td></tr>
             <tr><td><code>report [--since 24h] [--llm] [--out file]</code></td><td>Aggregate journal facts, score estimates against settlements, and optionally add a clearly labeled stats-only AI narrative.</td></tr>
-            <tr><td><code>calibrate [--force]</code></td><td>Run one bounded deterministic pricing calibration epoch from journal settlements.</td></tr>
+            <tr><td><code>calibrate [--force]</code></td><td>Run one bounded learned pricing calibration epoch from journal settlements.</td></tr>
             <tr><td><code>mcp</code></td><td>Start the stdio MCP server with read tools and explicitly guarded writes.</td></tr>
             <tr><td><code>faucet</code></td><td>Mint testnet collateral for configured signer accounts.</td></tr>
           </tbody>
@@ -523,6 +571,7 @@ npm run cli -- calibrate --force</code></pre>
             <tr><td><code>GET /api/provenance</code></td><td>Source map for every displayed value class.</td></tr>
             <tr><td><code>GET /health</code></td><td>Deterministic service/version liveness response; no dependency or secret data.</td></tr>
             <tr><td><code>GET /ready</code></td><td>Cached 5-second indexer, RPC, feed, and requested live-tail readiness checks; returns 200 or 503.</td></tr>
+            <tr><td><code>GET /api/wallet/config</code></td><td>Safe active network, chain, currency, RPC/explorer, and collateral metadata.</td></tr>
             <tr><td><code>GET /api/wallet/activity?address=…</code></td><td>Read-only live-store fills/orders for a validated wallet address.</td></tr>
             <tr><td><code>GET /api/wallet/prepare?…</code></td><td>Returns SDK unsigned approval/order calls after a full pre-sign chain and risk check.</td></tr>
           </tbody>
@@ -532,12 +581,12 @@ npm run cli -- calibrate --force</code></pre>
       <section class="doc-section" id="wallet" data-title="Connect wallet">
         <div class="eyebrow">HUMAN SIGNER / EIP-6963</div>
         <h2>Connect wallet</h2>
-        <p>The dashboard connects an EIP-6963 provider, falling back to <code>window.ethereum</code>. It displays only the connected address (truncated), real chain id, and native STT balance. TEMPO never receives a seed phrase, private key, or agent key.</p>
+        <p>The dashboard connects an EIP-6963 provider, falling back to <code>window.ethereum</code>. It displays only the connected address (truncated), real chain id, and native balance. Active chain metadata comes from server configuration rather than a browser constant. TEMPO never receives a seed phrase, private key, or agent key.</p>
         <h3>Network and activity</h3>
         <p>Somnia Shannon testnet is chain <code>50312</code>; mainnet is <code>5031</code>. A wrong-network banner offers a wallet chain switch. Account, chain, and provider disconnect events clear local state. Fills and orders are attributed read-only through the markets SDK live store.</p>
         <h3>One guarded action</h3>
-        <p>The IOC review first calls the core SDK's <code>buildWalletOrder</code>. The UI shows market symbol, side, size, limit, nanosecond expiry, seconds left, worst-case cost, RiskEngine verdict, and live status <code>1</code> before requesting approval. The wallet then signs only the returned SDK unsigned calls; receipt status and hashes are shown after confirmation.</p>
-        <div class="callout warning"><strong>NO BLIND SIGNING</strong><p>Expired, malformed, wrong-network, rejected, or cancelled requests stop before a signature. No browser path can access GENESIS or VECTOR keys.</p></div>
+        <p>The IOC review calls <code>buildWalletOrder</code>, checks collateral/native balances, and validates every destination against configured protocol/live-market addresses. It shows market, side, size, limit, expiry, cost, available balance, chain, destinations, value, risk verdict, and status <code>1</code>. Review never signs: a separate <code>Confirm in wallet</code> action is required.</p>
+        <div class="callout warning"><strong>NO BLIND SIGNING</strong><p>Account/network changes, insufficient funds, expiry, bad destinations, malformed provider data/hashes/receipts, rejection, cancellation, and disconnect stop the flow. No browser path can access GENESIS or VECTOR keys.</p></div>
       </section>
 
       <section class="doc-section" id="security" data-title="Security model">
@@ -553,7 +602,9 @@ npm run cli -- calibrate --force</code></pre>
           <article><b>Transport boundary</b><p>Recursive credential-key redaction, depth/cycle limits, generic server errors, and no-store API responses.</p></article>
           <article><b>File boundary</b><p>Decoded path containment rejects traversal, dotfiles, backslashes, and malformed encodings.</p></article>
           <article><b>Supply chain</b><p>The markets SDK is exactly pinned at <code>0.29.0</code>; the recorded npm audit reports zero known vulnerabilities.</p></article>
+          <article><b>Emergency control</b><p><code>TEMPO_PAUSED=true</code> refuses every write before SDK submission. Dry-run remains the default.</p></article>
         </div>
+        <p>CI runs repository secret scanning, strict TypeScript, offline/security tests, critical-core coverage, dependency audit, and package inspection. Rotation and compromised-key procedures are in <code>docs/SECURITY.md</code>. TEMPO deploys no custom contract, so custom-contract access-control and reentrancy scanners are not applicable.</p>
         <div class="callout warning"><strong>REMOTE DEPLOYMENT</strong><p>The built-in server is an operator-local surface, not a public identity system. Remote access requires TLS, authentication, authorization, and ingress restriction at an audited proxy.</p></div>
       </section>
 
@@ -561,9 +612,9 @@ npm run cli -- calibrate --force</code></pre>
         <div class="eyebrow">VERIFIED DELIVERY</div>
         <h2>Testing and evidence</h2>
         <div class="evidence-grid">
-          <div><b>2,099 / 2,099</b><span>Offline unit, failure, security, economic, and CLI tests</span></div>
+          <div><b>2,107 / 2,107</b><span>Offline unit, failure, security, economic, CLI, and MCP tests</span></div>
           <div><b>2,048</b><span>Deterministic 6- and 18-decimal invariant cases</span></div>
-          <div><b>12 / 12</b><span>Security-boundary cases</span></div>
+          <div><b>87.35%</b><span>Critical pure-core statement coverage</span></div>
           <div><b>3 / 3</b><span>Live SDK and integration tests</span></div>
           <div><b>1 / 1</b><span>Real non-trading chain gate</span></div>
           <div><b>31 / 31</b><span>Journal transaction receipts independently verified</span></div>
@@ -581,6 +632,8 @@ npm run cli -- calibrate --force</code></pre>
           </tbody>
         </table>
         <pre><code>npm test
+npm run test:coverage
+npm run security:check
 npm run test:live
 npm run test:chain-gate
 npm run test:cli-live
@@ -630,6 +683,53 @@ TEMPO_DRY_RUN=false npm run test:e2e</code></pre>
         </div>
         <p>Expected operational paths include feed or history gaps, indexer lag, locked markets, expired plans, risk rejection, <code>PostOnlyWouldCross</code>, stream fallback, insufficient gas, and voided outcomes. Each path is explicit and journaled where it reaches the runtime.</p>
 
+      </section>
+
+      <section class="doc-section" id="testnet" data-title="Testnet setup">
+        <div class="eyebrow">SOMNIA SHANNON</div>
+        <h2>Testnet setup</h2>
+        <p>Shannon uses chain <code>50312</code>. Run the bundled live probe first, fund two distinct agent accounts with STT, use the official collateral faucet, and retain <code>TEMPO_DRY_RUN=true</code> until doctor, balances, grid, status, and venue discovery are reviewed. Keys belong in an ignored local <code>.env</code> or secret manager only.</p>
+      </section>
+
+      <section class="doc-section" id="troubleshooting" data-title="Troubleshooting">
+        <div class="eyebrow">FAIL CLOSED</div>
+        <h2>Troubleshooting</h2>
+        <table><tbody>
+          <tr><td>No markets</td><td>Run the live probe, check readiness, and inspect the discovered venue ID.</td></tr>
+          <tr><td><code>NO DATA</code></td><td>Wait for sufficient official feed history; do not configure a synthetic fallback.</td></tr>
+          <tr><td><code>MARKET_NOT_TRADING</code></td><td>Select a current window; the on-chain status gate rejected a stale one.</td></tr>
+          <tr><td><code>PostOnlyWouldCross</code></td><td>The book moved into GENESIS; the engine cancels/reprices rather than crossing.</td></tr>
+          <tr><td>Wallet blocked</td><td>Review chain, address, collateral/STT, market expiry, destination, and provider response.</td></tr>
+          <tr><td><code>TEMPO_PAUSED</code></td><td>An operator activated the emergency write stop; follow the security runbook.</td></tr>
+        </tbody></table>
+      </section>
+
+      <section class="doc-section" id="reproducibility" data-title="Reproducibility">
+        <div class="eyebrow">CLEAN ENVIRONMENT</div>
+        <h2>Reproducibility</h2>
+        <pre><code>npm ci
+cp .env.example .env
+npm run security:check
+npm test
+npm run test:coverage
+npx tsx probe/live-probe.ts
+npm run firm</code></pre>
+        <p>Offline gates require no private key. Live and funded scripts use official services only and write dated evidence under <code>test/reports/</code>. Anonymous GitHub clone and hosted docs become available after repository visibility is made public.</p>
+      </section>
+
+      <section class="doc-section" id="examples" data-title="Examples and FAQ">
+        <div class="eyebrow">COMMON WORKFLOWS</div>
+        <h2>Examples and FAQ</h2>
+        <h3>How do I inspect without trading?</h3><p>Leave keys empty and run <code>npm run cli -- markets</code>, <code>book BTC</code>, or <code>firm simulate</code>.</p>
+        <h3>How do I stop every write?</h3><p>Set <code>TEMPO_PAUSED=true</code> and restart. The core refuses writes even when a signer exists.</p>
+        <h3>Can an MCP client choose a contract?</h3><p>No. It chooses a bounded market reference; Tempo resolves and chain-gates it. No arbitrary destination or signer argument exists.</p>
+        <h3>Are estimates oracle facts?</h3><p>No. Fair value, volatility, calibration, and agent plans are labeled estimates. Status, settlement, balances, and receipts are facts.</p>
+      </section>
+
+      <section class="doc-section" id="license" data-title="License">
+        <div class="eyebrow">OPEN SOURCE</div>
+        <h2>License</h2>
+        <p>TEMPO and <code>@tempo/core</code> are released under the MIT License. See <code>LICENSE</code> and the license included in the SDK artifact.</p>
         <div class="doc-footer">
           <div><b>TEMPO</b><span>Autonomous opening auction for DreamDEX Event Contracts on Somnia.</span></div>
           <a href="/">Return to dashboard</a>
@@ -643,6 +743,7 @@ TEMPO_DRY_RUN=false npm run test:e2e</code></pre>
     <a href="#overview" class="active">Overview</a>
     <a href="#quickstart">Quickstart</a>
     <a href="#feature-catalog">Features</a>
+    <a href="#ecosystem">Primitive</a>
     <a href="#architecture">Architecture</a>
     <a href="#agents">Agents</a>
     <a href="#wallet">Wallet</a>
@@ -655,6 +756,9 @@ TEMPO_DRY_RUN=false npm run test:e2e</code></pre>
     <a href="#security">Security</a>
     <a href="#testing">Testing</a>
     <a href="#provenance">Provenance</a>
+    <a href="#testnet">Testnet</a>
+    <a href="#troubleshooting">Troubleshooting</a>
+    <a href="#license">License</a>
   </aside>
 
   <div class="sidebar-backdrop" id="sidebar-backdrop"></div>

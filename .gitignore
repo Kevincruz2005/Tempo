@@ -13,5 +13,6 @@ journal/
 port-codex.zip
 release/
 packages/core/dist/
+coverage/
 *.log
 .DS_Store

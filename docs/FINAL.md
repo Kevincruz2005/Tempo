@@ -1,8 +1,8 @@
 # TEMPO - Final Build Record
 
-> Delivered build status on 2026-09-02. Read-only, dry-run, and funded-write
-> surfaces are live and tested on Somnia Shannon; all claimed hashes were
-> replayed against chain receipts.
+> Refreshed build status on 2026-09-03. Read-only, dry-run, browser-wallet,
+> MCP, and funded-write surfaces are live on Somnia Shannon. Every hash cited
+> below is from an evidence report and is independently receipt-verifiable.
 
 ## 1. Project Name
 
@@ -80,8 +80,9 @@ engine is the autonomous writer. Evidence: package workspace and README.
 
 ## 15. Official Tooling
 
-Markets SDK `0.29.0` is pinned and used through unified, client, trader, live
-watch, reactivity, feed, chain and ABI surfaces. Evidence: lockfile and matrix.
+Markets SDK `0.29.0` is pinned exactly and used through unified, client,
+trader, live-watch, price-feed, chain and ABI surfaces. Evidence:
+`package-lock.json`, `docs/RECONNAISSANCE.md`, and the README provenance matrix.
 
 ## 16. CLI
 
@@ -91,12 +92,12 @@ matrix runs and `--help`; the final live report records 12/12 passing commands.
 
 ## 17. Reusable SDK
 
-The public surface exports config, exchange, fair value, risk, policies,
-decimal quantization, journal/replay, deterministic report aggregation, ledger,
-types, claims and backtest.
-The Node 20+ ESM build ships compiled JavaScript and TypeScript declarations as
-GitHub Release `sdk-v0.2.0`, with checksum and CycloneDX SBOM assets. Evidence:
-`packages/core/src/index.ts`, package metadata, and `sdk-release-20260903-v020.md`.
+The public surface exports config, exchange, wallet preparation, fair value,
+risk, policies, decimal quantization, journal/replay, calibration, report
+aggregation, ledger, types, claims and backtest. The Node 20+ ESM build ships
+compiled JavaScript and TypeScript declarations as GitHub Release `sdk-v0.3.0`,
+with checksum and CycloneDX SBOM assets. Evidence: `packages/core/src/index.ts`,
+package metadata, and `test/reports/release.md`.
 
 ## 18. Agent Coordination
 
@@ -120,9 +121,10 @@ There is no database or SQL query surface, so SQL injection is absent by
 architecture. The dashboard is local-only by default, GET-only, same-origin and
 Host-gated, rate/SSE bounded, path-contained, payload-redacted, and protected by
 CSP/isolation headers; dynamic browser content is HTML-encoded and audit links
-are HTTPS-only. No key means no write, keys must differ, malformed/off-grid
-inputs fail locally, and live status is re-read before every trading mutation.
-Evidence: 12 security tests, HTTP boundary probes, and the live chain-gate test.
+are HTTPS-only. Browser wallet calls are reviewed before confirmation and
+destination-allowlisted; MCP has strict schemas, a 16 KiB cap and a ten-second
+deadline; `TEMPO_PAUSED` fails every write closed. Evidence: security-boundary
+tests, `docs/SECURITY.md`, secret scan, dependency audit, and live chain gate.
 
 ## 22. Failure Model
 
@@ -143,9 +145,12 @@ fixtures, scripts and reports are present. Evidence: `test/`.
 
 ## 25. Test Results
 
-Offline: 2,099/2,099 pass. Live SDK/integration: 3/3 pass. Live chain gate: 1/1 pass.
-Funded contract flow: PASS. Autonomous same-window E2E lifecycle: PASS, including
-settlement and claim hash `0xd9aad147…bf2ac5e`. Evidence: dated reports.
+Offline: 2,107/2,107 pass across 17 files, with 87.35% statement coverage for
+the critical pure core modules. Live SDK/integration and non-trading chain gate
+pass. MCP read validation passes all 11 tools with writes absent by default.
+The funded contract sequence PASSed on 2026-09-03, including maker/taker fills
+and redemption hash `0x424adc8bbdd46b7f06bf1ef42cc23fc72bdfba20575c735a93be4ba2c27a5134`.
+Evidence: `test/reports/contract-live.md` and `test/reports/mcp-live.md`.
 
 ## 26. Deployment
 
@@ -176,27 +181,31 @@ activity is generated. Evidence: SSE event handling in `app.js`.
 
 ## 31. Observability
 
-Typed JSONL records capture source, timestamp, inputs, decision, error, block
-and hash. `tempo verify` checks every journal hash against chain receipts.
+Typed JSONL records capture event id, decision id, agent, model, source,
+timestamp, inputs, market/pool context, error, block and hash. `tempo verify`
+checks each journal hash against chain receipts.
 
 ## 32. Zero-Mock Audit
 
 Production grep found no volatility fallback, hardcoded 6-decimal conversion,
 or failed-read-to-zero path. Missing state is labeled. Production fixtures: 0.
-Transaction hashes claimed: 31 unique journal hashes; `tempo verify` found all
-31 successful receipts and zero failures. Evidence: `zero-mock-audit.md` and
-`verify-20260902.md` (15,316 records).
+The secret scan inspected 164 tracked/untracked repository files without a
+credential finding; transaction evidence is limited to real receipt hashes in
+the reports. Evidence: `zero-mock-audit.md`, `test/reports/security.md`, and
+the current `tempo verify` output in the submission gate.
 
 ## 33. SDK Utilization Audit
 
-Unified tier handles symbols/human reads; client tier handles registry, chain
-truth, params, watches and history; trader tier handles explicit orders,
-faucet and redeem. Spot HTTP/WS non-use is justified because it lacks ECs.
+Unified tier handles symbols and human reads; client tier handles registry,
+chain truth, params, watches and history; trader tier handles explicit orders,
+faucet and redeem. MCP uses the same core SDK rather than a parallel API path.
+Spot HTTP/WS non-use is justified because it lacks Event Contracts.
 
 ## 34. Reproducibility
 
-`npm install`, `.env`, `npm test`, live tests, CLI and dry-run dashboard are
-documented in README. Funded runners preflight two keys and STT.
+`npm install`, `.env`, `npm test`, the live probe, CLI, and dry-run dashboard
+are documented in README. Funded runners preflight two distinct keys, STT,
+live Trading status, tick/lot parameters, and receipts.
 
 ## 35. Startup Potential
 
