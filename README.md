@@ -4,11 +4,9 @@
 
   # TEMPO
 
+  <img src="assets/tempo-flow-animation.gif" width="480" alt="3D animation showing the TEMPO market-making flow">
+
   <b>⚡ Every DreamDEX Event Contract is born with an empty book. TEMPO is the opening auction. ⚡</b>
-
-  <br /><br />
-
-  <img src="test/reports/dashboard-1440x900.png" width="820" alt="TEMPO observatory — live windows, anchored books, agent tape">
 
   <br /><br />
 
@@ -113,14 +111,6 @@ SETTLE    the chain resolves the window (on-chain reactivity — no keeper)
 CLAIM     winnings redeemed on-chain (void-aware: both sides at 0.5)
 ROLL      successor window appears → back to BIRTH
 ```
-
-<div align="center">
-  <img src="test/reports/dashboard-390x844.png" width="270" alt="Mobile observatory view">
-
-  <br /><br />
-
-  [▶ Watch the 10-second 3D TEMPO flow animation](assets/tempo-flow-animation.mp4)
-</div>
 
 ---
 
