@@ -6,7 +6,7 @@
  *
  * This is a pure function: unit tests assert its exact shape (Φ at normal
  * argument, step behavior at t→0, band widening with vol). It is an ESTIMATE —
- * the journal and the UI label it "QUANTITATIVE ESTIMATE" and never as an on-chain fact.
+ * the journal and the UI label it "MODEL ESTIMATE" and never as an on-chain fact.
  */
 
 /** Standard normal CDF via erf approximation (Abramowitz–Stegun 7.1.26, |ε|<1.5e-7). */
@@ -35,7 +35,7 @@ export interface FairValueInput {
 }
 
 export interface FairValue {
-  /** Estimated P(close ≥ strike). QUANTITATIVE ESTIMATE, not a fact. */
+  /** Estimated P(close ≥ strike). MODEL ESTIMATE, not a fact. */
   p: number;
   /** Distance of spot from strike, in units of sigma*sqrt(t). */
   d: number;

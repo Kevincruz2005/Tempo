@@ -56,7 +56,7 @@
 - [x] README.md (reproducibility §34), zero-mock audit (§32), SDK utilization matrix (§33), demo script (§27), per-feature provenance table (§38)
 - [x] `docs/FINAL.md` — the 40-section output (DESIGN Part II) refreshed with real build evidence (per port-codex/05 Part C)
 - [x] Run the pre-submission gate (`port-codex/05-SUBMISSION-GATE.md` Part B) → filled checklist saved to `test/reports/submission-gate.md`
-- [x] `tempo verify` output attached under `test/reports/`; 31/31 unique journal transaction hashes verified successful on Shannon
+- [x] `tempo verify` output attached under `test/reports/`; 31/31 unique journal transaction hashes from the funded validation sample verified successful on Shannon
 
 ## Handoff notes for Codex (observed on the live deployment 2026-09-01)
 - Testnet has TWO live venue ids right now: 1m/5m series on

@@ -55,12 +55,14 @@
 | Agent decisions journaled (24 h) | **6,274** — every one with its full inputs |
 | Real orders sent (24 h) | **168** → **120 unique transaction hashes** |
 | On-chain fills / settlements claimed | **10 / 3** |
-| Transaction verification sample | **31/31 hashes checked on-chain, 0 failures** (`tempo verify`) |
-| Fair-value calibration snapshot | **Brier 0.0723** · 100% directional on scored markets |
+| Transaction verification sample | **31/31 unique transaction hashes from the funded validation sample verified on-chain, 0 failures** (`tempo verify`) |
+| Historical 2026-09-02 snapshot across 3 scored markets | **Brier 0.0723** · 100% directional |
 | Operational errors journaled | **996 — firm crashes: 0** |
 | Automated tests | **2,107 passing** (17 files) |
 | Security | `npm audit`: **0 vulnerabilities** · CycloneDX SBOM · SHA256 checksums |
 | Mocked economic values | **0** — audited |
+
+The system journaled **996 operational errors—including market-discovery and settlement-feed failures—and absorbed them without crashing the firm.**
 
 ---
 
@@ -72,7 +74,7 @@ Traditional exchanges solved this centuries ago with the **opening auction**. Th
 
 **TEMPO is the autonomous opening auction**: an agent firm that attends every window's birth, anchors it with derived two-sided liquidity, reacts at machine speed, manages the endgame, settles, claims, and rolls. A rolling sequence of ephemeral windows becomes **one continuously liquid market**.
 
-**No human market maker or external keeper is required. Market updates react to live events rather than polling.**
+**No human market maker or external keeper is required. Market updates react to live events, while bounded scheduled tasks handle discovery, expiry, claims, retries, and health checks.**
 
 ---
 
@@ -87,7 +89,7 @@ Traditional exchanges solved this centuries ago with the **opening auction**. Th
 
 **DreamDEX Event Contracts are the mechanism, not a feature:**
 
-- the **on-chain opening price** is the anchor the whole fair-value model is built on
+- the **on-chain opening price** is the anchor the whole real-time fair-value engine is built on
 - the **mint-a-pair path** enables two-sided quoting with **zero inventory**
 - **mandatory order expiry** (capped at the window's own) is a built-in dead-man's switch for autonomous agents
 - the **`Finalized` lifecycle** provides the settlement/claim/roll path
@@ -125,7 +127,7 @@ Two independent agents, separate keys, separate capital, genuinely different pol
 
 Every order from either agent passes the same deterministic **`RiskEngine`** before signing: per-window inventory caps, per-order collateral caps, firm capital limits, tick/lot grid alignment, expiry headroom, mandatory order expiry. During the recorded 24 h window the engine rejected an order that would have breached the inventory cap — the safety boundary working, on-chain-verifiable in the journal.
 
-**Intentionally no LLM in the hot path** — these markets move on Somnia's ~100 ms blocks, so sending each pricing or execution decision through a remote LLM would introduce significant network latency, variable response times, rate limits, and performance loss. The hot path therefore uses a deterministic quantitative model for consistent machine-speed execution. An optional LLM narrates reports from journal facts only, labeled `AI NARRATIVE`.
+**Intentionally no LLM in the hot path** — these markets move on Somnia's ~100 ms blocks, so sending each pricing or execution decision through a remote LLM would introduce significant network latency, variable response times, rate limits, and performance loss. The hot path therefore uses the real-time fair-value engine for consistent machine-speed execution. An optional LLM narrates reports from journal facts only, labeled `AI NARRATIVE`.
 
 ---
 
@@ -133,11 +135,11 @@ Every order from either agent passes the same deterministic **`RiskEngine`** bef
 
 TEMPO doesn't ask you to trust a black-box trader. It leaves evidence.
 
-1. **Every estimate is journaled before action** — spot, strike, σ, time, computed probability — labeled `QUANTITATIVE ESTIMATE`. Chain reads are labeled `CHAIN FACT`.
+1. **Every estimate is journaled before action** — spot, strike, σ, time, computed probability — labeled `MODEL ESTIMATE`. Chain reads are labeled `CHAIN FACT`.
 2. **Every settlement is an on-chain fact.**
-3. **The firm grades itself** — each resolved market scores the appraiser's last pre-expiry estimate against the actual winning outcome:
-   - **Brier score: 0.0723** across 3 scored markets (0 = perfect, 0.25 = coin-flip)
-   - **Directional accuracy: 100%** on that evaluation snapshot
+3. **The firm grades itself** — each resolved market scores the real-time fair-value engine's last pre-expiry estimate against the actual winning outcome:
+   - **Brier score: 0.1093** across 6 scored markets (0 = perfect, 0.25 = coin-flip)
+   - **Directional accuracy: 83.3%** on the current evaluation snapshot
 4. **The firm learns within hard bounds** — a deterministic calibration loop adjusts exactly two pricing parameters (σ multiplier, taker edge), clamped to **0.5×–2×** of operator defaults, one adjustment per ≥25-market epoch, every adjustment journaled with its reason.
 
 Autonomous. Bounded. Auditable.
@@ -148,7 +150,7 @@ Autonomous. Bounded. Auditable.
 
 ```mermaid
 graph TD
-    Feed[Official oracle price feed<br/>spot + EMA] -->|appraiser| Core
+    Feed[Official oracle price feed<br/>spot + EMA] -->|real-time fair-value engine| Core
     Tail[Chain logs · live tail ·<br/>somnia_watch reactivity] --> Core
 
     subgraph Core["@tempo/core (typed Node SDK)"]
@@ -182,7 +184,7 @@ graph TD
 
 ## ✅ On-Chain Proof
 
-**All transactions below are real, live on [shannon-explorer.somnia.network](https://shannon-explorer.somnia.network), and independently verifiable via `tempo verify` (31/31 checked, 0 failures).**
+**All transactions below are real, live on [shannon-explorer.somnia.network](https://shannon-explorer.somnia.network), and independently verifiable via `tempo verify`. The funded validation sample contains 31/31 unique transaction hashes verified successful on-chain; the full 24-hour operation recorded 120 unique transaction hashes.**
 
 Funded lifecycle of market `0x…010fad` — 2026-09-02:
 
@@ -317,6 +319,17 @@ Dry-run is the default everywhere; the firm refuses to sign without keys, and th
 - 🔑 **Operator-scoped browser trading** — DreamDEX's session-key model for controlled human interaction with the anchored books.
 - 🤖 **Specialized agents** — hedger and laddered endgame quoter inside the same firm-wide risk envelope.
 - ⚙️ **Mainnet** — a configuration switch (`TEMPO_NETWORK=mainnet`); addresses are CREATE3-identical, decimals/venues/grids are runtime-derived.
+
+---
+
+## 🔗 Evidence Links
+
+- **GitHub:** [repository](https://github.com/Kevincruz2005/Tempo)
+- **On-chain evidence:** [full lifecycle report](test/reports/full-onchain-mode.md)
+- **Zero-mock audit:** [audit report](test/reports/zero-mock-audit.md)
+- **Current evaluation:** [0.1093 Brier / 83.3% directional accuracy across 6 scored markets](https://github.com/Kevincruz2005/Tempo/blob/main/test/reports/gemini-report.md)
+- **Historical firm report:** [2026-09-02 snapshot](https://github.com/Kevincruz2005/Tempo/blob/main/test/reports/firm-report-20260902.md)
+- **Evidence index:** [test reports](test/reports)
 
 ---
 

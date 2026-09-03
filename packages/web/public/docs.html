@@ -41,7 +41,7 @@
       <a href="#ecosystem">Why Somnia / DreamDEX / EC</a>
       <a href="#agents">Autonomous firm</a>
       <a href="#lifecycle">Market lifecycle</a>
-      <a href="#appraiser">Appraiser and estimates</a>
+      <a href="#appraiser">Real-time fair-value engine</a>
       <a href="#dashboard">Dashboard and HTTP API</a>
       <a href="#wallet">Connect wallet</a>
 
@@ -193,7 +193,7 @@ npm run firm</code></pre>
         <div class="architecture-flow" aria-label="TEMPO data and execution flow">
           <div><span>OFFICIAL INPUTS</span><b>Indexer / RPC / live logs / price feed</b></div>
           <i>TO</i>
-          <div><span>CORE</span><b>Exchange / appraiser / policies / risk / quant</b></div>
+          <div><span>CORE</span><b>Exchange / real-time fair-value engine / policies / risk / quant</b></div>
           <i>TO</i>
           <div><span>ENGINE</span><b>GENESIS / VECTOR / executor / lifecycle</b></div>
           <i>TO</i>
@@ -203,7 +203,7 @@ npm run firm</code></pre>
         <table>
           <thead><tr><th>Package</th><th>Responsibility</th><th>Network boundary</th></tr></thead>
           <tbody>
-            <tr><td><code>@tempo/core</code></td><td>Config, exchange wrapper, appraiser math, policies, risk, quantization, ledger, journal, provenance, typed errors.</td><td>Pure modules have no network imports; <code>TempoExchange</code> owns SDK/RPC access.</td></tr>
+            <tr><td><code>@tempo/core</code></td><td>Config, exchange wrapper, real-time fair-value engine, policies, risk, quantization, ledger, journal, provenance, typed errors.</td><td>Pure modules have no network imports; <code>TempoExchange</code> owns SDK/RPC access.</td></tr>
             <tr><td><code>@tempo/engine</code></td><td>Reactive firm, per-agent executors, lifecycle state, settlement sweeps, HTTP/SSE server.</td><td>Consumes live SDK reads and delegates writes through core.</td></tr>
             <tr><td><code>tempo-cli</code></td><td>Thin operator shell over shared core and engine behavior.</td><td>No duplicated economic logic.</td></tr>
             <tr><td><code>packages/web</code></td><td>Read-only dashboard and documentation.</td><td>Consumes sanitized engine state and SSE journal records.</td></tr>
@@ -259,10 +259,10 @@ npm run firm</code></pre>
         </ol>
       </section>
 
-      <section class="doc-section" id="appraiser" data-title="Appraiser and estimates">
+      <section class="doc-section" id="appraiser" data-title="Real-time fair-value engine">
         <div class="eyebrow">DETERMINISTIC ESTIMATION</div>
-        <h2>Appraiser and estimates</h2>
-        <p>The appraiser computes <code>P(close &gt;= strike)</code> under a driftless diffusion. Inputs are the official live spot, the on-chain opening boundary, realized volatility from timestamped feed observations, and seconds remaining.</p>
+        <h2>Real-time fair-value engine</h2>
+        <p>The real-time fair-value engine computes <code>P(close &gt;= strike)</code> under a driftless diffusion. Inputs are the official live spot, the on-chain opening boundary, realized volatility from timestamped feed observations, and seconds remaining.</p>
         <pre><code>import { fairValue, realizedVolPerSqrtSec } from "@tempo/core";
 
 const sigma = realizedVolPerSqrtSec(feedTicks);
@@ -273,7 +273,7 @@ const estimate = fairValue({
   secondsLeft,
 });
 
-// estimate.p and estimate.band are QUANTITATIVE ESTIMATES, never chain facts.</code></pre>
+// estimate.p and estimate.band are MODEL ESTIMATES, never chain facts.</code></pre>
         <table>
           <thead><tr><th>Output</th><th>Meaning</th></tr></thead>
           <tbody>
@@ -501,7 +501,7 @@ npm run cli -- report --since 7d --llm --out test/reports/weekly-report.md</code
         <pre><code>npm run cli -- calibrate
 npm run cli -- calibrate --force</code></pre>
         <p>Only <code>sigmaMultiplier</code> and <code>takerEdge</code> move, each clamped to 0.5x–2x its environment default. VECTOR direction is evaluated against settlement before edge adjustment. Risk caps never change. Every epoch records model/version, temperature, input fingerprint, old/new parameters, Brier before/after, directional metrics, clamp status, and reason.</p>
-        <div class="callout fact"><strong>QUANTITATIVE ESTIMATE / CHAIN FACT</strong><p>The probability and learned calibration are estimates. Settlement is an on-chain fact. Safety remains deterministic and external to the model; unavailable evidence cannot trigger an epoch.</p></div>
+        <div class="callout fact"><strong>MODEL ESTIMATE / CHAIN FACT</strong><p>The probability and learned calibration are estimates. Settlement is an on-chain fact. Safety remains deterministic and external to the model; unavailable evidence cannot trigger an epoch.</p></div>
       </section>
 
       <section class="doc-section" id="mcp" data-title="MCP server">
@@ -539,7 +539,7 @@ npm run cli -- calibrate --force</code></pre>
             <tr><td><code>claims [--claim]</code></td><td>List finalized claims or explicitly redeem payable outcomes.</td></tr>
             <tr><td><code>settlements [--limit N]</code></td><td>List finalized windows with resolution and oracle audit link.</td></tr>
             <tr><td><code>activity [--n N]</code></td><td>Read the typed local journal tape.</td></tr>
-            <tr><td><code>backtest [--limit N]</code></td><td>Evaluate the appraiser on real finalized windows and feed history.</td></tr>
+            <tr><td><code>backtest [--limit N]</code></td><td>Evaluate the real-time fair-value engine on real finalized windows and feed history.</td></tr>
             <tr><td><code>verify</code></td><td>Cross-check every journaled transaction hash against chain receipts.</td></tr>
             <tr><td><code>report [--since 24h] [--llm] [--out file]</code></td><td>Aggregate journal facts, score estimates against settlements, and optionally add a clearly labeled stats-only AI narrative.</td></tr>
             <tr><td><code>calibrate [--force]</code></td><td>Run one bounded learned pricing calibration epoch from journal settlements.</td></tr>
@@ -654,7 +654,7 @@ TEMPO_DRY_RUN=false npm run test:e2e</code></pre>
             <tr><td>Balances</td><td><span class="badge fact-badge">FACT</span></td><td>Collateral ERC-20 and outcome ERC-6909</td></tr>
             <tr><td>Fills / receipts</td><td><span class="badge fact-badge">FACT</span></td><td>Chain logs and <code>realtime_sendRawTransaction</code> receipts</td></tr>
             <tr><td>Settlement</td><td><span class="badge fact-badge">FACT</span></td><td>Finalized market state plus oracle explorer</td></tr>
-            <tr><td>Fair value / sigma</td><td><span class="badge estimate-badge">ESTIMATE</span></td><td>TEMPO appraiser over documented real inputs</td></tr>
+            <tr><td>Fair value / sigma</td><td><span class="badge estimate-badge">MODEL ESTIMATE</span></td><td>TEMPO real-time fair-value engine over documented real inputs</td></tr>
             <tr><td>Agent decision</td><td><span class="badge estimate-badge">ESTIMATE</span></td><td>Pure policy plan plus RiskEngine verdict</td></tr>
             <tr><td>P&amp;L / inventory</td><td><span class="badge derived-badge">DERIVED</span></td><td>Agent ledger over real fills and settlements</td></tr>
           </tbody>

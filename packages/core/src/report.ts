@@ -199,7 +199,7 @@ export function renderMarkdown(stats: ReportStats, aiNarrative?: { model: string
   }
   L.push(`- Claims: **${stats.execution.claims.count}**${stats.execution.claims.txs.length ? ` (${stats.execution.claims.txs.length} txs)` : ""}`);
   L.push("");
-  L.push("## Estimate quality (QUANTITATIVE ESTIMATE vs settlement fact)");
+  L.push("## Estimate quality (MODEL ESTIMATE vs settlement fact)");
   if (stats.estimateQuality.brier !== null) {
     L.push(`- Markets scored: **${stats.estimateQuality.scoredMarkets}**`);
     L.push(`- **Brier score: ${fmt(stats.estimateQuality.brier, 4)}** (0 = perfect, 0.25 = coin-flip confidence, 1 = always wrong)`);

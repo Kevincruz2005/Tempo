@@ -347,7 +347,7 @@ async function main(): Promise<void> {
     case "backtest": {
       await withExchange(async (ex) => {
         const rows = await ex.backtest(Number(flag("limit", "10")));
-        out("real-feed midpoint fair-value backtest (QUANTITATIVE ESTIMATE; finalized outcome is chain fact)");
+        out("real-feed midpoint fair-value backtest (MODEL ESTIMATE; finalized outcome is chain fact)");
         for (const row of rows) {
           out(
             `${row.asset.padEnd(4)} ${new Date(row.expiry * 1000).toISOString()}  ` +

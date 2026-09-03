@@ -56,7 +56,8 @@ DESIGN.md, demo, and submission text:
   circular at birth — the kit's own ec-maker falls back to 0.5).
 - **Verifiable Trading Intelligence** — the information mechanism: every
   estimate journaled *before* action, scored *after* settlement against
-  on-chain ground truth (Brier 0.072, directional 100% on scored markets),
+  on-chain ground truth (historical 2026-09-02 snapshot: Brier 0.072 across
+  3 scored markets, directional 100%),
 > feeding bounded calibration epochs. "Show me another trading system whose
 > intelligence you can audit against ground truth."
 - **The Roll** — settle → claim → successor, the loop that turns a series of
@@ -101,7 +102,7 @@ Telegram draft 1 (dev channel, honest + specific):
 > BTC/ETH window on Shannon testnet with two-sided quotes derived from the
 > oracle feed vs the on-chain opening price. It's live right now — if you
 > want to see it work, open any 5m BTC window on the testnet event-contracts
-> page and trade against our quotes. Fair-value model currently scores
+> page and trade against our quotes. The real-time fair-value engine currently scores
 > Brier 0.072 against settlements. Happy to share the numbers.
 
 Telegram draft 2 (shorter, casual):
@@ -147,10 +148,9 @@ function, the same reason exchanges run opening auctions."
 A: "There's measured intelligence instead. The appraiser computes
 probabilities continuously across ~14 concurrent windows at machine cadence —
 infeasible manually — and the system scores every estimate against on-chain
-settlement truth, Brier 0.072, then self-calibrates within clamped bounds. We
+settlement truth, then self-calibrates within clamped bounds. We
 deliberately kept an LLM out of the hot path: at 100ms blocks there's no room
-for one, and an LLM pricing 'BTC above its open in 8 minutes' adds latency,
-not accuracy."
+for one, and putting an LLM in pricing adds latency, not accuracy."
 
 **Q: "Couldn't the bot kit do this?"**
 A: "The kit's maker polls every 10 seconds and quotes the mid of an existing

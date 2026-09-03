@@ -145,7 +145,7 @@ ETH 1m expired 2026-09-02T05:47:00.000Z  trades 0  last —
 - Exit: 0
 
 ```text
-real-feed midpoint fair-value backtest (AI ESTIMATE; finalized outcome is chain fact)
+real-feed midpoint fair-value backtest (MODEL ESTIMATE; finalized outcome is chain fact)
 ETH  2026-09-02T05:48:00.000Z  NO DATA (real midpoint feed history, volatility, or opening boundary unavailable)
 BTC  2026-09-02T05:48:00.000Z  NO DATA (real midpoint feed history, volatility, or opening boundary unavailable)
 ETH  2026-09-02T05:47:00.000Z  NO DATA (real midpoint feed history, volatility, or opening boundary unavailable)

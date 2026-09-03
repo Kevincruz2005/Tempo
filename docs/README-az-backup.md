@@ -52,7 +52,7 @@ Contracts, TEMPO has no opening auction or lifecycle to operate.
 
 ## Why AI
 
-The appraiser produces an observable **AI ESTIMATE** from real feed history,
+The appraiser produces an observable **MODEL ESTIMATE** from real feed history,
 spot, opening boundary, realized volatility, and time remaining. A learned
 temperature-calibration model fits Brier loss over the latest 30 resolved
 windows and materially changes the uncertainty multiplier used by subsequent
@@ -189,7 +189,7 @@ fixture or intercepted-network fallback.
 | Book / fills | fact | markets SDK Somnia log tail |
 | Balances | fact | collateral ERC-20 and outcome ERC-6909 |
 | Settlement | fact | finalized registry, chain, oracle link |
-| Fair value / sigma | AI estimate | documented model over real inputs |
+| Fair value / sigma | MODEL ESTIMATE | documented real-time fair-value engine over real inputs |
 | Inventory / P&L | derived | real fills and settlement |
 
 ## Observability

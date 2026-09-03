@@ -30,7 +30,7 @@ const readToolDefinitions = [
   { name: "inspect_event_contract", description: "Inspect on-chain state, live book parameters, and opening price for a market.", inputSchema: { type: "object", properties: { market: { type: "string", minLength: 1, maxLength: 200 } }, required: ["market"] } },
   { name: "get_live_book", description: "Read the SDK's locally materialized live binary book.", inputSchema: { type: "object", properties: { market: { type: "string" }, depth: { type: "integer", minimum: 1, maximum: 20 } }, required: ["market"] } },
   { name: "get_market_state", description: "Read current on-chain market status and resolution state.", inputSchema: { type: "object", properties: { market: { type: "string" } }, required: ["market"] } },
-  { name: "get_fair_value", description: "Compute a deterministic QUANTITATIVE ESTIMATE from official spot, opening boundary, realized volatility, and time.", inputSchema: { type: "object", properties: { market: { type: "string" } }, required: ["market"] } },
+  { name: "get_fair_value", description: "Compute a MODEL ESTIMATE with TEMPO's real-time fair-value engine from official spot, opening boundary, realized volatility, and time.", inputSchema: { type: "object", properties: { market: { type: "string" } }, required: ["market"] } },
   { name: "get_risk_state", description: "Return configured deterministic risk caps and signer availability, never addresses or keys.", inputSchema: { type: "object", properties: {} } },
   { name: "get_positions", description: "Read real ERC-6909 outcome balances for an address or configured signer.", inputSchema: { type: "object", properties: { address: { type: "string" }, limit: { type: "integer", minimum: 1, maximum: 50 } } } },
   { name: "get_settlement", description: "Read finalized settlement facts and the oracle explorer URL.", inputSchema: { type: "object", properties: { market: { type: "string" } }, required: ["market"] } },
@@ -161,14 +161,14 @@ async function handleTool(
         openingFor(row),
         reader.spotHistory(row.asset, { limit: 240 }),
       ]);
-      if (!spot || strike === undefined) return { label: "QUANTITATIVE ESTIMATE", status: "NO DATA", inputs: { spot: "UNAVAILABLE", strike: "UNAVAILABLE", sigma: "UNAVAILABLE", secondsLeft: Math.max(0, Number(row.expiry) - Date.now() / 1000) } };
+      if (!spot || strike === undefined) return { label: "MODEL ESTIMATE", status: "NO DATA", inputs: { spot: "UNAVAILABLE", strike: "UNAVAILABLE", sigma: "UNAVAILABLE", secondsLeft: Math.max(0, Number(row.expiry) - Date.now() / 1000) } };
       const sigma = realizedVolPerSqrtSec(history);
       const secondsLeft = Math.max(0, Number(row.expiry) - Date.now() / 1000);
       const estimate = fairValue({ spot: spot.price, strike, sigmaPerSqrtSec: sigma, secondsLeft });
       if (!Number.isFinite(sigma) || !Number.isFinite(estimate.p)) {
-        return { label: "QUANTITATIVE ESTIMATE", status: "NO DATA", reason: "insufficient valid official price-feed history", inputs: { spot: spot.price, strike, sigma: "UNAVAILABLE", secondsLeft, samples: history.length }, provenance: { spot: "official price feed", strike: "on-chain opening price" } };
+        return { label: "MODEL ESTIMATE", status: "NO DATA", reason: "insufficient valid official price-feed history", inputs: { spot: spot.price, strike, sigma: "UNAVAILABLE", secondsLeft, samples: history.length }, provenance: { spot: "official price feed", strike: "on-chain opening price" } };
       }
-      return { label: "QUANTITATIVE ESTIMATE", value: estimate, inputs: { spot: spot.price, strike, sigma, secondsLeft, samples: history.length }, provenance: { spot: "official price feed", strike: "on-chain opening price" } };
+      return { label: "MODEL ESTIMATE", value: estimate, inputs: { spot: spot.price, strike, sigma, secondsLeft, samples: history.length }, provenance: { spot: "official price feed", strike: "on-chain opening price" } };
     }
     case "get_risk_state":
       z.object({}).strict().parse(args);

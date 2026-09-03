@@ -48,11 +48,11 @@ Event Contracts on the Somnia blockchain. Two docs are the source of truth:
     write actions. Never fake an execution.
 12. **Provenance on every displayed value**: source (feed/indexer/chain),
     endpoint/contract, timestamp/block, journaled.
-13. **QUANTITATIVE ESTIMATE ≠ ON-CHAIN FACT.** Every fair-value probability, volatility
+13. **MODEL ESTIMATE ≠ ON-CHAIN FACT.** Every fair-value probability, volatility
     estimate, and agent decision is an *estimate* — label it as such wherever
     displayed (UI, CLI, journal) and journal its exact inputs. On-chain status,
     prices, opening prices, fills, balances, and settlements are *facts* —
-    render them with their provenance. Never present the appraiser's number as
+    render them with their provenance. Never present the fair-value engine's number as
     an authoritative market oracle.
 
 ## Where things are

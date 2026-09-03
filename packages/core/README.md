@@ -113,7 +113,7 @@ are estimates and must not be represented as on-chain facts.
 The release is built from the same source covered by 2,107 offline tests,
 including 2,048 decimal/economic invariant cases and 12 security-boundary
 cases, plus direct report aggregation tests. Repository evidence independently
-verifies 31/31 recorded Somnia Shannon transaction receipts.
+verifies 31/31 recorded Somnia Shannon transaction receipts from the funded validation sample.
 
 ## License
 

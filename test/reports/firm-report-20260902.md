@@ -2,6 +2,8 @@
 
 Window: `2026-09-01T18:25:23.203Z` → `2026-09-02T18:25:23.274Z` · all figures computed from the journal (real records only)
 
+**Historical 2026-09-02 snapshot across 3 scored markets.**
+
 ## Runs
 - Firm starts: **29** (13 live-configured, 16 dry-run) · clean shutdowns: 15 · accumulated uptime: 82.6 min
 
@@ -17,7 +19,7 @@ Window: `2026-09-01T18:25:23.203Z` → `2026-09-02T18:25:23.274Z` · all figures
 - Fill kinds: BUY_DOWN: 6, BUY_UP: 4
 - Claims: **3** (3 txs)
 
-## Estimate quality (AI ESTIMATE vs settlement fact)
+## Estimate quality (historical MODEL ESTIMATE vs settlement fact)
 - Markets scored: **3**
 - **Brier score: 0.0723** (0 = perfect, 0.25 = coin-flip confidence, 1 = always wrong)
 - Directional accuracy: **100.0%**
