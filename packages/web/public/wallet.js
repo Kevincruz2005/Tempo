@@ -8,6 +8,14 @@ let lastPrepared;
 let lastState;
 let walletConfig;
 let signing = false;
+let discoveredWallets = [];
+let selectedWalletKey;
+
+const FEATURED_WALLETS = [
+  { key: "metamask", name: "MetaMask", mark: "M", rdns: ["io.metamask"] },
+  { key: "okx", name: "OKX Wallet", mark: "O", rdns: ["com.okex.wallet", "com.okx.wallet"] },
+  { key: "coinbase", name: "Coinbase Wallet", mark: "C", rdns: ["com.coinbase.wallet"] },
+];
 
 const ADDRESS = /^0x[0-9a-f]{40}$/i;
 const HASH = /^0x[0-9a-f]{64}$/i;
@@ -36,7 +44,57 @@ function setState(state, detail = "") {
 }
 
 function currentProvider() {
-  return provider ?? window.ethereum;
+  return provider;
+}
+
+function identifyWallet(info) {
+  const rdns = String(info?.rdns ?? "").toLowerCase();
+  const name = String(info?.name ?? "").toLowerCase();
+  const match = FEATURED_WALLETS.find((wallet) => wallet.rdns.some((value) => rdns === value) || name.includes(wallet.name.toLowerCase().split(" ")[0]));
+  return match?.key ?? "browser";
+}
+
+function renderWalletChoices() {
+  const picker = $("wallet-picker");
+  const options = $("wallet-options");
+  if (!picker || !options || account) return;
+  const entries = FEATURED_WALLETS.map((wallet) => {
+    const found = discoveredWallets.find((item) => identifyWallet(item.info) === wallet.key);
+    return { ...wallet, provider: found?.provider };
+  });
+  if (!entries.some((entry) => entry.provider) && window.ethereum) {
+    entries.push({ key: "browser", name: "Browser wallet", mark: "?", rdns: [], provider: window.ethereum });
+  }
+  options.innerHTML = entries
+    .map((entry) => {
+      const detected = Boolean(entry.provider);
+      const selected = entry.key === selectedWalletKey;
+      const label = detected ? "Detected · select" : "Not detected";
+      return `<button class="wallet-option${selected ? " selected" : ""}" type="button" data-wallet="${escapeHtml(entry.key)}" ${detected ? "" : "disabled"}>
+        <span class="wallet-option-mark">${escapeHtml(entry.mark)}</span>
+        <span class="wallet-option-copy"><span class="wallet-option-name">${escapeHtml(entry.name)}</span><span class="wallet-option-state">${label}</span></span>
+      </button>`;
+    })
+    .join("");
+  options.querySelectorAll("button[data-wallet]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const entry = entries.find((item) => item.key === button.dataset.wallet);
+      if (!entry?.provider) return;
+      selectedWalletKey = entry.key;
+      provider = entry.provider;
+      bindProviderEvents(provider);
+      picker.hidden = true;
+      void connect();
+    });
+  });
+  picker.hidden = false;
+}
+
+function bindProviderEvents(wallet) {
+  if (!wallet?.on) return;
+  wallet.on("accountsChanged", (accounts) => { clearPrepared("PRE-SIGN CANCELLED · wallet account changed"); if (!accounts?.length) { account = undefined; setState("DISCONNECTED", "Wallet disconnected."); renderWalletChoices(); } else void connect(); });
+  wallet.on("chainChanged", () => { clearPrepared("PRE-SIGN CANCELLED · wallet network changed"); void connect(); });
+  wallet.on("disconnect", () => { clearPrepared("PRE-SIGN CANCELLED · wallet provider disconnected"); account = undefined; setState("DISCONNECTED", "Wallet disconnected."); renderWalletChoices(); });
 }
 
 function showNetworkState() {
@@ -85,6 +143,7 @@ async function connect() {
     const balance = await readBalance();
     setState("CONNECTED", `${account.slice(0, 8)}...${account.slice(-6)} · chain ${chainId} · ${balance}`);
     $("wallet-connect").textContent = "Disconnect wallet";
+    $("wallet-picker").hidden = true;
     showNetworkState();
     await refreshWalletActivity();
     populateMarkets();
@@ -220,18 +279,28 @@ function discoverWallets() {
   window.dispatchEvent(new Event("eip6963:requestProvider"));
   setTimeout(() => {
     window.removeEventListener("eip6963:announceProvider", handler);
-    provider = discovered[0]?.provider ?? window.ethereum;
-    if (!provider) setState("UNSUPPORTED", "No wallet provider detected.");
-    if (provider?.on) {
-      provider.on("accountsChanged", (accounts) => { clearPrepared("PRE-SIGN CANCELLED · wallet account changed"); if (!accounts?.length) { account = undefined; setState("DISCONNECTED", "Wallet disconnected."); } else void connect(); });
-      provider.on("chainChanged", () => { clearPrepared("PRE-SIGN CANCELLED · wallet network changed"); void connect(); });
-      provider.on("disconnect", () => { clearPrepared("PRE-SIGN CANCELLED · wallet provider disconnected"); account = undefined; setState("DISCONNECTED", "Wallet provider disconnected."); });
-    }
+    discoveredWallets = discovered;
+    if (!discovered.length && !window.ethereum) setState("UNSUPPORTED", "No wallet provider detected.");
+    renderWalletChoices();
   }, 250);
 }
 
 window.addEventListener("tempo:state", (event) => { lastState = event.detail; populateMarkets(); });
-$("wallet-connect")?.addEventListener("click", () => account ? (clearPrepared(), account = undefined, setState("DISCONNECTED", "Wallet disconnected."), $("wallet-connect").textContent = "Connect wallet") : void connect());
+$("wallet-connect")?.addEventListener("click", () => {
+  if (account) {
+    clearPrepared();
+    account = undefined;
+    setState("DISCONNECTED", "Wallet disconnected.");
+    $("wallet-connect").textContent = "Connect wallet";
+    renderWalletChoices();
+    return;
+  }
+  if (!provider) {
+    renderWalletChoices();
+    return;
+  }
+  void connect();
+});
 $("wallet-warning")?.addEventListener("click", () => void switchNetwork());
 $("wallet-prepare")?.addEventListener("click", () => void reviewTrade());
 $("wallet-confirm")?.addEventListener("click", () => void signPrepared());

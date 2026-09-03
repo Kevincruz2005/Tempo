@@ -58,6 +58,10 @@
       <div class="wallet-panel" id="wallet-panel">
         <div class="wallet-head"><b>Human wallet</b><span id="wallet-state">DISCONNECTED</span></div>
         <div class="wallet-meta" id="wallet-meta">Connect an EIP-6963 wallet to inspect your own activity.</div>
+        <div class="wallet-picker" id="wallet-picker" hidden>
+          <div class="wallet-picker-label">Choose a wallet</div>
+          <div class="wallet-options" id="wallet-options"></div>
+        </div>
         <div class="wallet-warning" id="wallet-warning" hidden></div>
         <div class="wallet-trade" id="wallet-trade" hidden>
           <label>Window <select id="wallet-market"></select></label>
@@ -71,6 +75,11 @@
         </div>
         <div class="wallet-activity" id="wallet-activity"></div>
       </div>
+      <article class="ai-narrative" id="ai-narrative" aria-live="polite">
+        <div class="ai-narrative-head"><b>Gemini briefing</b><span id="ai-narrative-model">LOADING</span></div>
+        <blockquote id="ai-narrative-text">Fetching the latest journal summary…</blockquote>
+        <small id="ai-narrative-meta">AI commentary · journal metrics remain authoritative</small>
+      </article>
       <div class="body" id="firm"></div>
     </section>
 

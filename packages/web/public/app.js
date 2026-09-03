@@ -155,16 +155,42 @@ async function refresh() {
   render(await response.json());
 }
 
+async function refreshNarrative() {
+  const model = $("ai-narrative-model");
+  const text = $("ai-narrative-text");
+  const meta = $("ai-narrative-meta");
+  if (!model || !text || !meta) return;
+  try {
+    const response = await fetch("/api/narrative");
+    const body = await response.json();
+    if (!response.ok || body.status !== "READY" || typeof body.text !== "string") {
+      model.textContent = body.model ?? "UNAVAILABLE";
+      text.textContent = body.reason ?? "No Gemini briefing available.";
+      meta.textContent = "AI commentary · journal metrics remain authoritative";
+      return;
+    }
+    model.textContent = body.model ?? "GEMINI";
+    text.textContent = body.text;
+    meta.textContent = body.generatedAt ? `AI commentary · ${body.generatedAt} · journal metrics remain authoritative` : "AI commentary · journal metrics remain authoritative";
+  } catch {
+    model.textContent = "UNAVAILABLE";
+    text.textContent = "Gemini briefing unavailable.";
+    meta.textContent = "AI commentary · journal metrics remain authoritative";
+  }
+}
+
 async function bootstrap() {
   try {
     const journal = await fetch("/api/journal?n=80").then((response) => response.json());
     records = journal.records ?? [];
     renderTape();
     await refresh();
+    void refreshNarrative();
   } catch {
     $("pill-tail").textContent = "UNAVAILABLE";
   }
   setInterval(() => void refresh().catch(() => ($("pill-tail").textContent = "UNAVAILABLE")), 2000);
+  setInterval(() => void refreshNarrative(), 60_000);
   const stream = new EventSource("/api/stream");
   stream.onmessage = (event) => {
     let record;

@@ -6,7 +6,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { extname, resolve, sep } from "node:path";
-import type { JournalRecord } from "@tempo/core";
+import { aggregate, type JournalRecord } from "@tempo/core";
 import type { Firm } from "./firm.js";
 
 const MIME: Record<string, string> = {
@@ -178,6 +178,8 @@ export class TempoServer {
   private unsubscribe?: () => void;
   private readonly readinessProbe: () => Promise<ReadinessResult>;
   private readinessCache?: { at: number; result: ReadinessResult };
+  private narrativeCache?: { at: number; value: { status: "READY" | "UNAVAILABLE"; model?: string; generatedAt?: string; text?: string; reason?: string } };
+  private narrativeInFlight?: Promise<NonNullable<TempoServer["narrativeCache"]>["value"]>;
 
   constructor(
     private readonly firm: Firm,
@@ -341,6 +343,7 @@ export class TempoServer {
         return this.json(response, 200, prepared);
       }
       if (url.pathname === "/api/state") return this.json(response, 200, await this.firm.snapshot());
+      if (url.pathname === "/api/narrative") return this.json(response, 200, await this.narrative());
       if (url.pathname === "/api/journal") {
         const limit = parseJournalLimit(url.searchParams.get("n"));
         if (limit === undefined) return this.json(response, 400, { error: "n must be an integer from 1 to 300" });
@@ -363,6 +366,56 @@ export class TempoServer {
     } catch {
       this.firm.journal.append({ type: "error", data: { what: "dashboard request failed", path: url.pathname } });
       this.json(response, 500, { error: "internal server error" });
+    }
+  }
+
+  private async narrative(): Promise<NonNullable<TempoServer["narrativeCache"]>["value"]> {
+    const now = Date.now();
+    if (this.narrativeCache && now - this.narrativeCache.at < 60_000) return this.narrativeCache.value;
+    if (this.narrativeInFlight) return this.narrativeInFlight;
+    this.narrativeInFlight = (async () => {
+      const apiKey = process.env.TEMPO_LLM_API_KEY ?? process.env.OPENAI_API_KEY;
+      if (!apiKey) return { status: "UNAVAILABLE" as const, reason: "Gemini narrative is not configured" };
+      const records = this.firm.journal.readFiles(Date.now() - 24 * 3600_000);
+      const stats = aggregate(records, new Date(Date.now() - 24 * 3600_000).toISOString(), new Date().toISOString());
+      const model = process.env.TEMPO_LLM_MODEL ?? "gemini-2.5-flash";
+      const url = process.env.TEMPO_LLM_URL ?? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30_000);
+      try {
+        const result = await fetch(url, {
+          method: "POST",
+          signal: controller.signal,
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model,
+            temperature: 0.2,
+            messages: [
+              {
+                role: "system",
+                content: "Write a concise executive summary of this trading-firm report in 3-5 sentences. Use only the supplied statistics. Do not calculate new metrics, repeat transaction hashes, or present AI estimates as on-chain facts.",
+              },
+              { role: "user", content: JSON.stringify(stats) },
+            ],
+          }),
+        });
+        if (!result.ok) return { status: "UNAVAILABLE" as const, model, reason: `Gemini request failed (${result.status})` };
+        const body = (await result.json()) as { choices?: Array<{ message?: { content?: unknown } }> };
+        const text = body.choices?.[0]?.message?.content;
+        if (typeof text !== "string" || !text.trim()) return { status: "UNAVAILABLE" as const, model, reason: "Gemini returned no narrative" };
+        return { status: "READY" as const, model, generatedAt: new Date().toISOString(), text: text.trim().slice(0, 2_400) };
+      } catch (error) {
+        return { status: "UNAVAILABLE" as const, model, reason: error instanceof Error && error.name === "AbortError" ? "Gemini request timed out" : "Gemini request unavailable" };
+      } finally {
+        clearTimeout(timeout);
+      }
+    })();
+    try {
+      const value = await this.narrativeInFlight;
+      this.narrativeCache = { at: Date.now(), value };
+      return value;
+    } finally {
+      this.narrativeInFlight = undefined;
     }
   }
 
