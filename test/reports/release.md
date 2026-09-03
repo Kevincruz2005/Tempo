@@ -4,6 +4,7 @@
 - Repository: `Kevincruz2005/Tempo`
 - Implementation commit: `8d03791`
 - Final release commit: `aa0f2f1fe1f763d09a312b5018f59b9024440a61`
+- Post-release readiness hardening on `main`: `9d3440b7c219e2209f945e5de13a22db3f389790`
 - SDK: `@tempo/core` `0.2.0`
 - Tag: `sdk-v0.2.0`
 - GitHub release: https://github.com/Kevincruz2005/Tempo/releases/tag/sdk-v0.2.0
