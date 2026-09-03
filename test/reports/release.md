@@ -3,7 +3,7 @@
 - Date: 2026-09-03
 - Repository: `Kevincruz2005/Tempo`
 - Implementation commit: `8d03791`
-- Release commit: recorded by the `sdk-v0.2.0` tag and GitHub release after this evidence update
+- Final release commit: `aa0f2f1fe1f763d09a312b5018f59b9024440a61`
 - SDK: `@tempo/core` `0.2.0`
 - Tag: `sdk-v0.2.0`
 - GitHub release: pending publication after the final commit
