@@ -14,7 +14,7 @@
 >    outputs all route through it (§20, §69).
 > 3. **Keys stay out**: never in repo, browser, health responses, MCP tools,
 >    logs, or journal records (§55).
-> 4. **Estimate vs fact**: every model/LLM output is labeled `AI ESTIMATE` or
+> 4. **Estimate vs fact**: every model/LLM output is labeled `QUANTITATIVE ESTIMATE` or
 >    `AI NARRATIVE`; chain reads are `CHAIN FACT` (§12).
 > 5. **No regressions**: `npm test` (28 offline tests) and all three packages'
 >    `tsc --noEmit` must stay green after every feature; add tests per feature.
@@ -150,7 +150,7 @@ with one real epoch from live journal data.
 **Tool surface (read tools — implement all):**
 `discover_markets`, `inspect_event_contract` (on-chain state + book params +
 opening price), `get_live_book`, `get_market_state`, `get_fair_value` (must
-include the `AI ESTIMATE` label and the inputs: spot, strike, sigma, seconds
+include the `QUANTITATIVE ESTIMATE` label and the inputs: spot, strike, sigma, seconds
 left), `get_risk_state`, `get_positions`, `get_settlement` (incl. oracle
 explorer URL), `get_activity` (journal tail), `verify_receipt` (on-chain
 receipt lookup by hash).

@@ -393,7 +393,7 @@ export class TempoServer {
             messages: [
               {
                 role: "system",
-                content: "Write a concise executive summary of this trading-firm report in 3-5 sentences. Use only the supplied statistics. Do not calculate new metrics, repeat transaction hashes, or present AI estimates as on-chain facts.",
+                content: "Write a concise executive summary of this trading-firm report in 3-5 sentences. Use only the supplied statistics. Do not calculate new metrics, repeat transaction hashes, or present quantitative estimates as on-chain facts.",
               },
               { role: "user", content: JSON.stringify(stats) },
             ],
@@ -482,7 +482,7 @@ const PROVENANCE = [
   { key: "spot", source: "price-feed", via: "DreamDEX/Somnia EMA oracle feed (fetchPrice/watchPrice)" },
   { key: "strike", source: "on-chain", via: "BinaryMarketsModule opening price (getOpeningPrices)" },
   { key: "book", source: "on-chain events", via: "markets-sdk live tail (somnia_watch over pool logs)" },
-  { key: "fairValue", source: "policy", via: "TEMPO appraiser - AI ESTIMATE from spot/strike/vol/time" },
+  { key: "fairValue", source: "policy", via: "TEMPO appraiser - QUANTITATIVE ESTIMATE from spot/strike/vol/time" },
   { key: "status", source: "on-chain", via: "getMarketOnchain(marketId).status" },
   { key: "balances", source: "on-chain", via: "collateral ERC-20 + ERC-6909 outcome balances" },
   { key: "fills", source: "on-chain events", via: "live fill tape (OrderFilled logs)" },

@@ -62,7 +62,7 @@ Run after Phases 1–6 of `04-BUILD-PLAN.md`. Save the filled checklist to
 - [ ] Agent decisions observable (journal: inputs → decision → tx)
 - [ ] Agent state real (on-chain balances, real fills; two keys, two capitals)
 - [ ] No hardcoded fake autonomy (policies are pure functions of live inputs, unit-tested)
-- [ ] **AI ESTIMATE vs FACT separated**: every fair-value/probability shown is
+- [ ] **QUANTITATIVE ESTIMATE vs FACT separated**: every fair-value/probability shown is
       labeled an *estimate* with its inputs; on-chain status/prices/fills/settlements
       are labeled *facts* with provenance (rule added to AGENTS.md #13)
 

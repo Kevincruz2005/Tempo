@@ -4,9 +4,9 @@
 
 DreamDEX creates a brand-new prediction market every minute — and every one of them is **born dead**: an empty order book, no bids, no asks, no price, until two opposite traders happen to collide. We verified this on-chain: finalized windows with literally zero trades.
 
-**TEMPO is the missing piece of market structure: an autonomous opening auction.** A firm of two independent AI agents — **GENESIS** (the liquidity genesis maker) and **VECTOR** (the adversarial taker) — attends the birth of every Event Contract window, anchors it with a two-sided quote computed from the official oracle price feed against the window's **on-chain opening price**, re-prices it reactively as the market breathes, manages the endgame as expiry approaches, observes settlement, claims winnings, and rolls to the successor window. Forever. No human, no keeper, no polling.
+**TEMPO is the missing piece of market structure: an autonomous opening auction.** A firm of two independent trading agents — **GENESIS** (the liquidity genesis maker) and **VECTOR** (the adversarial taker) — attends the birth of every Event Contract window, anchors it with a two-sided quote computed from the official oracle price feed against the window's **on-chain opening price**, re-prices it reactively as the market breathes, manages the endgame as expiry approaches, observes settlement, claims winnings, and rolls to the successor window. Forever. No human, no keeper, no polling.
 
-The result: on Somnia's ~100 ms blocks, a rolling series of ephemeral windows becomes **one continuous, always-liquid market** — and every decision the firm makes is journaled before it acts and scored against on-chain settlement truth after the fact (current Brier score: **0.072**). Not claimed intelligence — **verifiable machine intelligence**.
+The result: on Somnia's ~100 ms blocks, a rolling series of ephemeral windows becomes **one continuous, always-liquid market** — and every decision the firm makes is journaled before it acts and scored against on-chain settlement truth after the fact (current Brier score: **0.072**). The system's estimates and decisions are transparent, bounded, and verifiable.
 
 ---
 
@@ -51,11 +51,11 @@ ROLL       successor window appears → back to BIRTH
 
 **Why DreamDEX Event Contracts (load-bearing):** the mechanism *is* the product — the on-chain opening price as anchor, mint-a-pair zero-inventory quoting, mandatory order expiry as a built-in dead-man's switch for autonomous agents, the `Finalized` claim flow, oracle-settled rolling windows. Delete Event Contracts and there is no birth to attend.
 
-## Verifiable Machine Intelligence
+## Verifiable Trading Intelligence
 
 Most "AI trading" claims cannot be checked. Ours can:
 
-1. **Every estimate is journaled before action** — spot, strike, σ, time, and the computed probability, with an explicit `AI ESTIMATE` label (chain reads are labeled `CHAIN FACT`).
+1. **Every estimate is journaled before action** — spot, strike, σ, time, and the computed probability, with an explicit `QUANTITATIVE ESTIMATE` label (chain reads are labeled `CHAIN FACT`).
 2. **Every settlement is an on-chain fact.**
 3. **The system grades itself:** each resolved market scores the appraiser's last pre-expiry estimate against the actual winning outcome.
    - **Brier score: 0.0723** (0 = perfect, 0.25 = coin-flip confidence)

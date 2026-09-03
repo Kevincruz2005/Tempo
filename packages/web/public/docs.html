@@ -273,7 +273,7 @@ const estimate = fairValue({
   secondsLeft,
 });
 
-// estimate.p and estimate.band are AI ESTIMATES, never chain facts.</code></pre>
+// estimate.p and estimate.band are QUANTITATIVE ESTIMATES, never chain facts.</code></pre>
         <table>
           <thead><tr><th>Output</th><th>Meaning</th></tr></thead>
           <tbody>
@@ -501,7 +501,7 @@ npm run cli -- report --since 7d --llm --out test/reports/weekly-report.md</code
         <pre><code>npm run cli -- calibrate
 npm run cli -- calibrate --force</code></pre>
         <p>Only <code>sigmaMultiplier</code> and <code>takerEdge</code> move, each clamped to 0.5x–2x its environment default. VECTOR direction is evaluated against settlement before edge adjustment. Risk caps never change. Every epoch records model/version, temperature, input fingerprint, old/new parameters, Brier before/after, directional metrics, clamp status, and reason.</p>
-        <div class="callout fact"><strong>AI ESTIMATE / CHAIN FACT</strong><p>The probability and learned calibration are estimates. Settlement is an on-chain fact. Safety remains deterministic and external to the model; unavailable evidence cannot trigger an epoch.</p></div>
+        <div class="callout fact"><strong>QUANTITATIVE ESTIMATE / CHAIN FACT</strong><p>The probability and learned calibration are estimates. Settlement is an on-chain fact. Safety remains deterministic and external to the model; unavailable evidence cannot trigger an epoch.</p></div>
       </section>
 
       <section class="doc-section" id="mcp" data-title="MCP server">

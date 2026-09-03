@@ -34,7 +34,7 @@
 - [Why Somnia? Why DreamDEX?](#-why-somnia-why-dreamdex)
 - [The Mechanism](#-the-mechanism)
 - [The Agent Firm](#-the-agent-firm)
-- [Verifiable Machine Intelligence](#-verifiable-machine-intelligence)
+- [Verifiable Trading Intelligence](#-verifiable-trading-intelligence)
 - [System Architecture](#-system-architecture)
 - [On-Chain Proof](#-on-chain-proof)
 - [Developer Surface](#-developer-surface)
@@ -129,11 +129,11 @@ Every order from either agent passes the same deterministic **`RiskEngine`** bef
 
 ---
 
-## 🧠 Verifiable Machine Intelligence
+## 🧠 Verifiable Trading Intelligence
 
 TEMPO doesn't ask you to trust a black-box "AI trader." It leaves evidence.
 
-1. **Every estimate is journaled before action** — spot, strike, σ, time, computed probability — labeled `AI ESTIMATE`. Chain reads are labeled `CHAIN FACT`.
+1. **Every estimate is journaled before action** — spot, strike, σ, time, computed probability — labeled `QUANTITATIVE ESTIMATE`. Chain reads are labeled `CHAIN FACT`.
 2. **Every settlement is an on-chain fact.**
 3. **The firm grades itself** — each resolved market scores the appraiser's last pre-expiry estimate against the actual winning outcome:
    - **Brier score: 0.0723** (0 = perfect, 0.25 = coin-flip)

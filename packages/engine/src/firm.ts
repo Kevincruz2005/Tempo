@@ -75,7 +75,7 @@ interface MarketView {
   status: number;
   spot: { value: number; ema?: number; at: string; block?: number; source: "price-feed" };
   opening: { value: number; at: string; source: "on-chain/indexer" };
-  fairValue: { value: number; band: [number, number]; sigma: number; samples: number; at: string; source: "AI ESTIMATE" };
+  fairValue: { value: number; band: [number, number]; sigma: number; samples: number; at: string; source: "QUANTITATIVE ESTIMATE" };
   book: Book;
   bookAt: string;
 }
@@ -512,7 +512,7 @@ export class Firm {
           source: "price-feed",
         },
         opening: { value: opening, at: new Date().toISOString(), source: "on-chain/indexer" },
-        fairValue: { value: fv.p, band: fv.band, sigma, samples, at: new Date().toISOString(), source: "AI ESTIMATE" },
+        fairValue: { value: fv.p, band: fv.band, sigma, samples, at: new Date().toISOString(), source: "QUANTITATIVE ESTIMATE" },
         book,
         bookAt: new Date().toISOString(),
       });

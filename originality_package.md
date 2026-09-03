@@ -54,7 +54,7 @@ DESIGN.md, demo, and submission text:
 - **The Anchoring** — computing fair value from the oracle feed vs the
   on-chain opening price *before any book exists* (vs mid-of-book, which is
   circular at birth — the kit's own ec-maker falls back to 0.5).
-- **Verifiable Machine Intelligence** — the information mechanism: every
+- **Verifiable Trading Intelligence** — the information mechanism: every
   estimate journaled *before* action, scored *after* settlement against
   on-chain ground truth (Brier 0.072, directional 100% on scored markets),
 > feeding bounded calibration epochs. "Show me another trading system whose
