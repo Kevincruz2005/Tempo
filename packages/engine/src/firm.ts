@@ -130,6 +130,7 @@ export class Firm {
   private readonly calibration: CalibrationEngine;
   private calibratedTakerEdge: number;
   private liveTailRequested = false;
+  private readinessRpc?: { block: bigint; advancedAt: number };
 
   constructor(cfg: TempoConfig, opts: { managedCadences?: readonly number[] } = {}) {
     this.cfg = cfg;
@@ -1101,8 +1102,13 @@ export class Firm {
       indexer.ok = false;
     }
     try {
-      rpc.block = (await this.maker.rpcHead()).toString();
-      rpc.ok = true;
+      const block = await this.maker.rpcHead();
+      const now = Date.now();
+      const previous = this.readinessRpc;
+      const advancedAt = !previous || block > previous.block ? now : previous.advancedAt;
+      this.readinessRpc = { block, advancedAt };
+      rpc.block = block.toString();
+      rpc.ok = now - advancedAt < 30_000;
     } catch {
       rpc.ok = false;
     }
