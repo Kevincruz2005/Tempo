@@ -44,6 +44,8 @@ describe("multipage observatory UI contract", () => {
     expect(html).toContain('id="theme-toggle"');
     expect(app).toContain("theme-light");
     expect(html).toContain("white / purple / blue");
+    expect(css).toContain("@keyframes edge-flow");
+    expect(css).toContain("var(--flow-a)");
     expect(app).toContain("scheduleLiveRender");
     expect(css).toContain(".page-host.live-refresh .page");
   });

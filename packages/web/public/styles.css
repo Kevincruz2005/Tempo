@@ -610,3 +610,60 @@ body.theme-light .book-level::before { opacity: .16; }
   .agent-meta div b { font-size: 13px; }
   .drawer-grid { grid-template-columns: 1fr; }
 }
+
+/* Final reading scale and theme-aware animated edge treatment. */
+:root { --flow-a: #fff; --flow-b: #858585; }
+body.theme-dark { --flow-a: #fff; --flow-b: #777; }
+body.theme-light { --flow-a: #8b5cf6; --flow-b: #2672e8; }
+.page-header h1 { font-size: clamp(28px, 3.4vw, 42px); }
+.page-header p { font-size: 15px; }
+.panel-head h2, .panel-head h3 { font-size: 14px; }
+.panel-head small { font-size: 11px; }
+.agent-title b { font-size: 14px; }
+.agent-meta div span, .drawer-grid span, .fact > span { font-size: 11px; }
+.agent-meta div b, .drawer-grid b, .fact > b { font-size: 15px; }
+.activity-row { min-height: 41px; font-size: 12px; }
+.risk-row-head, .risk-row-head b { font-size: 12px; }
+.status-pill { font-size: 11px; }
+.icon-button { font-size: 13px; }
+.button { min-height: 40px; font-size: 13px; }
+.button-small { min-height: 33px; font-size: 11px; }
+
+.agent-card, .proof-card, .fact, .pulse-stat, .price-card, .settlement-row {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--line-bright);
+}
+.agent-card::before, .proof-card::before, .fact::before, .pulse-stat::before, .price-card::before, .settlement-row::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: -1px;
+  border: 1px solid transparent;
+  border-radius: inherit;
+  background: linear-gradient(112deg, transparent 8%, var(--flow-a) 29%, var(--flow-b) 48%, transparent 74%) border-box;
+  background-size: 240% 100%;
+  -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: .65;
+  pointer-events: none;
+  animation: edge-flow 5.5s linear infinite;
+}
+.agent-card > *, .proof-card > *, .fact > *, .pulse-stat > *, .price-card > *, .settlement-row > * { position: relative; z-index: 1; }
+.panel::after {
+  background: linear-gradient(112deg, transparent 8%, var(--flow-a), var(--flow-b) 48%, transparent 74%) border-box;
+  background-size: 240% 100%;
+  animation: edge-flow 5.5s linear infinite;
+}
+.button { position: relative; overflow: hidden; border-color: var(--line-bright); }
+.button::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 35%, var(--accent-soft), transparent 65%); background-size: 240% 100%; animation: edge-flow 6s linear infinite; pointer-events: none; }
+.button > * { position: relative; z-index: 1; }
+
+@keyframes edge-flow { from { background-position: 0 0; } to { background-position: 240% 0; } }
+
+@media (max-width: 620px) {
+  .page-header h1 { font-size: 28px; }
+  .agent-meta div span, .drawer-grid span, .fact > span { font-size: 10px; }
+  .agent-meta div b, .drawer-grid b, .fact > b { font-size: 14px; }
+}
