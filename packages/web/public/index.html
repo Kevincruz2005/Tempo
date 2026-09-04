@@ -4,11 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="TEMPO — the autonomous opening auction for DreamDEX Event Contracts on Somnia." />
-  <meta name="theme-color" content="#070a0d" />
+  <meta name="theme-color" content="#f6f7ff" />
   <title>TEMPO — Autonomous Opening Auction</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
-<body>
+<body class="theme-light">
   <a class="skip-link" href="#main-content">Skip to content</a>
   <div class="ambient" aria-hidden="true"><span></span><span></span><span></span></div>
   <div id="app" class="app-shell">
@@ -28,7 +28,7 @@
         <span class="status-pill" id="pill-net"><i></i><span>CONNECTING</span></span>
         <span class="status-pill desktop-status" id="pill-mode">—</span>
         <span class="status-pill desktop-status" id="pill-tail">—</span>
-        <button class="icon-button" id="theme-toggle" type="button" aria-label="Switch theme"><span id="theme-icon" aria-hidden="true">☾</span><b id="theme-label">Light</b></button>
+        <button class="icon-button" id="theme-toggle" type="button" aria-label="Switch to dark theme"><span id="theme-icon" aria-hidden="true">☾</span><b id="theme-label">Dark</b></button>
         <button class="icon-button wallet-trigger" id="wallet-open" type="button" aria-label="Open wallet" aria-haspopup="dialog">
           <span class="wallet-dot" aria-hidden="true"></span><span id="wallet-top-state">Wallet</span>
         </button>
@@ -114,7 +114,7 @@
         <label>Refresh interval<select id="setting-refresh"><option value="2000">2 seconds</option><option value="5000">5 seconds</option><option value="10000">10 seconds</option></select></label>
         <label>Default asset<select id="setting-asset"><option value="ALL">All assets</option><option value="BTC">BTC</option><option value="ETH">ETH</option></select></label>
         <label>Default cadence<select id="setting-interval"><option value="ALL">All intervals</option></select></label>
-        <label>Theme<select id="setting-theme"><option value="dark">Dark · black / white</option><option value="light">Light · white / purple / blue</option></select></label>
+        <label>Theme<select id="setting-theme"><option value="light">Light · white / purple / blue</option><option value="dark">Dark · black / white</option></select></label>
         <label class="toggle-row"><input id="setting-motion" type="checkbox" /><span>Reduce non-essential motion</span></label>
       </div>
       <div class="settings-truth"><span>Runtime <b id="settings-runtime">UNAVAILABLE</b></span><span>Wallet <b id="settings-wallet">DISCONNECTED</b></span></div>

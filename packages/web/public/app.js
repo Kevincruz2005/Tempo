@@ -24,7 +24,7 @@ const model = {
     historyTab: "OPERATIONS", historyQuery: "", historyAgent: "ALL", historySource: "ALL", historyStatus: "ALL",
     historyWindow: "ALL", historyAsset: "ALL", historyInterval: "ALL", historyType: "ALL",
   },
-  settings: { density: "comfortable", refresh: 2000, asset: "ALL", interval: "ALL", theme: "dark", reducedMotion: false },
+  settings: { density: "comfortable", refresh: 2000, asset: "ALL", interval: "ALL", theme: "light", reducedMotion: false },
 };
 
 function join(parts) { return parts.join(""); }
@@ -203,11 +203,27 @@ function marketFacts(row) {
     fact("Venue", row?.venueId ? short(row.venueId) : "UNAVAILABLE", "chain", "DreamDEX venue registry") + "</div>";
 }
 
+function renderEmptyBook(view) {
+  const at = view?.bookAt ? utc(view.bookAt) : "LIVE DISCOVERY";
+  return '<div class="empty-book-box fair-value" role="status" aria-label="Empty order book awaiting genesis">' +
+    '<div class="section-kicker"><span>EMPTY BOOK — awaiting genesis</span>' +
+    badge("chain", "DreamDEX verified event book · " + escapeHtml(at)) + '</div>' +
+    '<div class="fair-value-number empty-book-hero" title="Zero materialized orders in book">' +
+    '<span>0.000</span><small class="empty-book-unit">UP / DOWN</small>' +
+    '</div>' +
+    '<div class="band-track empty-book-track" style="--left:0%;--width:100%;--marker:50%">' +
+    '<span class="band empty-band"></span><span class="marker empty-marker"></span>' +
+    '</div>' +
+    '<p class="empty-book-primary"><strong>No materialized levels were returned by the live store.</strong></p>' +
+    '<p class="empty-book-note">GENESIS maker deploys the initial two-sided quote anchor once discovery window finalizes. Note: Observatory panels on both sides may be toggled freely without clipping order-book depth.</p>' +
+    '</div>';
+}
+
 function renderBook(view, depth = 7) {
   if (!view?.book) return empty("PENDING", "Awaiting a chain-derived market view.");
   const asks = [...(view.book.yesAsks || [])].slice(0, depth).reverse();
   const bids = [...(view.book.yesBids || [])].slice(0, depth);
-  if (!asks.length && !bids.length) return empty("EMPTY BOOK — awaiting genesis", "No materialized levels were returned by the live store.");
+  if (!asks.length && !bids.length) return renderEmptyBook(view);
   const maxSize = Math.max(1, ...asks.map((row) => Number(row.size)), ...bids.map((row) => Number(row.size)));
   const level = (row, side) => '<div class="book-level ' + side + '" style="--depth:' +
     Math.max(3, Number(row.size) / maxSize * 100) + '%" title="Chain event book · ' + escapeHtml(view.bookAt) +
@@ -279,6 +295,51 @@ function rightTab(key, label) {
   return '<button class="right-tab" type="button" data-toggle-panel="' + key + '" aria-expanded="false" aria-label="Open ' + label + '"><span class="toggle-arrow" aria-hidden="true">←</span><span class="toggle-text">' + label + '</span></button>';
 }
 
+function dashboardLifecycle(selected) {
+  const current = selected?.lifecycle || "BIRTH";
+  const currentIndex = LIFE.indexOf(current);
+  const assetName = selected ? escapeHtml(selected.asset) + " " + fmt(selected.intervalSec / 60, 0) + "m" : "AWAITING SELECTION";
+  const marketIdParam = selected?.marketId ? encodeURIComponent(selected.marketId) : "";
+  const auditLink = selected
+    ? '<a class="text-link mono" href="/history?market=' + marketIdParam + '" data-route>Audit window ↗</a>'
+    : '<span class="mono" style="color:var(--muted)">Awaiting selection</span>';
+
+  const steps = LIFE.map((stage, index) => {
+    const isDone = currentIndex >= 0 && index < currentIndex;
+    const isActive = stage === current;
+    const stateClass = isActive ? "active" : isDone ? "done" : "upcoming";
+    const num = String(index + 1).padStart(2, "0");
+    const href = selected ? '/history?market=' + marketIdParam : '/history';
+
+    return '<a class="dash-life-step ' + stateClass + '" href="' + href + '" data-route ' +
+      'title="Stage ' + num + ': ' + stage + ' (' + escapeHtml(lifecycleCopy(stage)) + ') · Click to inspect history">' +
+      '<div class="dash-life-head">' +
+        '<span class="dash-life-num">' + num + '</span>' +
+        '<span class="dash-life-status">' + (isActive ? 'CURRENT' : isDone ? 'DONE' : 'NEXT') + '</span>' +
+      '</div>' +
+      '<div class="dash-life-body">' +
+        '<b class="dash-life-name">' + stage + '</b>' +
+        '<small class="dash-life-copy">' + escapeHtml(lifecycleCopy(stage)) + '</small>' +
+      '</div>' +
+      '<div class="dash-life-bar"><span class="dash-life-progress"></span></div>' +
+    '</a>';
+  });
+
+  return '<section class="panel dashboard-lifecycle-panel" aria-label="Market lifecycle progress">' +
+    '<div class="panel-head dashboard-lifecycle-head">' +
+      '<div class="panel-head-title">' +
+        '<h2>Market lifecycle progress</h2>' +
+        '<small>01 BIRTH → 08 ROLL · ' + assetName + ' · CONTINUOUS CYCLE</small>' +
+      '</div>' +
+      '<div class="dashboard-lifecycle-actions">' +
+        '<span class="status-pill ' + (selected ? 'pill-active' : '') + '"><span>ACTIVE: ' + escapeHtml(current) + '</span></span>' +
+        auditLink +
+      '</div>' +
+    '</div>' +
+    '<div class="dashboard-lifecycle-track">' + join(steps) + '</div>' +
+  '</section>';
+}
+
 function renderDashboard() {
   const markets = model.state?.markets || [];
   if (!model.selected || !market(model.selected)) model.selected = (markets.find((row) => row.secondsLeft > 20 && row.view) || markets[0])?.marketId || null;
@@ -293,7 +354,7 @@ function renderDashboard() {
   const dash = model.dashboard;
   const gridClass = "dashboard-grid" + (dash.venue ? " venue-minimized" : "") + (dash.right ? " right-minimized" : " right-expanded") + (dash.agents ? " agents-minimized" : "") + (dash.evidence ? " evidence-minimized" : "");
   const selectedContent = selected ? marketFacts(selected) + '<div class="market-core">' + renderBook(selected.view, 5) +
-    renderFairValue(selected.view) + '</div><div style="margin-top:var(--page-gap)">' + lifecycle(selected.lifecycle, true) + "</div>" :
+    renderFairValue(selected.view) + '</div>' :
     empty("NO ACTIVE WINDOW", "No market is available for inspection.");
   const agentsPanel = '<section class="panel agents-risk-panel ' + (dash.agents ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Agents & risk</h2><small>GENESIS EXPANDED · ONE BOUNDARY · TWO POLICIES</small></div>' + panelToggle("agents", dash.agents) + '</div><div class="agents-risk-body panel-body scroll-region"><div class="agent-stack">' +
     (agents.length ? join(agents.map(agentCard)) : empty("NO DATA", "Agent state unavailable.")) + '</div><div class="drawer-divider"></div><div class="risk-bars">' +
@@ -320,7 +381,9 @@ function renderDashboard() {
     (selected ? escapeHtml(selected.asset) + " " + fmt(selected.intervalSec / 60, 0) + "m · " + escapeHtml(selected.lifecycle) : "Selected market") +
     "</h2>" + (selected ? '<a class="text-link" href="' + marketPath(selected.marketId) + '" data-route>Inspect market ↗</a>' : "") +
     '</div><div class="panel-body">' + selectedContent + "</div></section>" +
-    rightPanels + '</div></section>';
+    rightPanels + '</div>' +
+    dashboardLifecycle(selected) +
+    '</section>';
 }
 
 function touch(row) {
