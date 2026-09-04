@@ -18,7 +18,7 @@ const model = {
   rowIndex: -1,
   births: new Set(),
   walletProofs: new Map(),
-  dashboard: { venue: true, right: true, agents: false, evidence: true },
+  dashboard: { venue: true, right: true, agents: true, evidence: true },
   filters: {
     marketQuery: "", marketStatus: "ALL", asset: "ALL", interval: "ALL", sort: "EXPIRY",
     historyTab: "OPERATIONS", historyQuery: "", historyAgent: "ALL", historySource: "ALL", historyStatus: "ALL",
@@ -271,7 +271,7 @@ function briefing() {
 
 function panelToggle(key, minimized) {
   const left = key === "venue";
-  const arrow = minimized ? (left ? "→" : "←") : (left ? "←" : "→");
+  const arrow = key === "agents" && minimized ? "↓" : key === "evidence" && minimized ? "↑" : minimized ? (left ? "→" : "←") : (left ? "←" : "→");
   return '<button class="panel-toggle" type="button" data-toggle-panel="' + key + '" aria-expanded="' + (!minimized) + '" aria-label="' + (minimized ? "Expand " : "Minimize ") + key + ' panel"><span class="toggle-arrow" aria-hidden="true">' + arrow + '</span><span class="toggle-text">' + (minimized ? "Expand" : "Minimize") + '</span></button>';
 }
 
@@ -291,7 +291,7 @@ function renderDashboard() {
   const births = model.records.filter((row) => row.type === "market-birth").length;
   const actions = '<a class="button button-ghost" href="/markets" data-route>View all markets</a>' + btn("Settings", "data-open-settings");
   const dash = model.dashboard;
-  const gridClass = "dashboard-grid" + (dash.venue ? " venue-minimized" : "") + (dash.right ? " right-minimized" : "") + (dash.agents ? " agents-minimized" : "") + (dash.evidence ? " evidence-minimized" : "");
+  const gridClass = "dashboard-grid" + (dash.venue ? " venue-minimized" : "") + (dash.right ? " right-minimized" : " right-expanded") + (dash.agents ? " agents-minimized" : "") + (dash.evidence ? " evidence-minimized" : "");
   const selectedContent = selected ? marketFacts(selected) + '<div class="market-core">' + renderBook(selected.view, 5) +
     renderFairValue(selected.view) + '</div><div style="margin-top:var(--page-gap)">' + lifecycle(selected.lifecycle, true) + "</div>" :
     empty("NO ACTIVE WINDOW", "No market is available for inspection.");
@@ -1075,7 +1075,7 @@ function bindGlobal() {
         if (key === "right") {
           model.dashboard.right = !opening;
           if (opening) {
-            model.dashboard.agents = false;
+            model.dashboard.agents = true;
             model.dashboard.evidence = true;
           }
         } else {
