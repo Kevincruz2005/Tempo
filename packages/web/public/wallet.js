@@ -245,6 +245,7 @@ async function signPrepared() {
   if (!lastPrepared || !account || !walletConfig || signing) return;
   const wallet = currentProvider();
   signing = true;
+  let activeHash;
   $("wallet-confirm").hidden = true;
   $("wallet-cancel").hidden = true;
   try {
@@ -256,14 +257,27 @@ async function signPrepared() {
     for (const call of [lastPrepared.approval, lastPrepared.order].filter(Boolean)) {
       const hash = await wallet.request({ method: "eth_sendTransaction", params: [{ from: account, to: call.to, data: call.data, value: `0x${BigInt(call.value).toString(16)}` }] });
       if (!HASH.test(hash)) throw new Error("wallet returned malformed transaction hash");
+      activeHash = hash;
+      $("wallet-summary").textContent += `\n\nPENDING RECEIPT · ${hash}`;
+      window.dispatchEvent(new CustomEvent("tempo:wallet-receipt", {
+        detail: { hash, status: "pending", account, chainId, marketId: lastPrepared.prepared.market.marketId },
+      }));
       const receipt = await waitReceipt(hash);
       if (!receipt || receipt.status !== "0x1") throw new Error(`receipt reverted or unavailable: ${hash}`);
       hashes.push(hash);
+      window.dispatchEvent(new CustomEvent("tempo:wallet-receipt", {
+        detail: { hash, status: "confirmed", account, chainId, block: receipt.blockNumber, marketId: lastPrepared.prepared.market.marketId },
+      }));
+      activeHash = undefined;
     }
     $("wallet-summary").textContent += `\n\nRECEIPTS · ${hashes.join(" · ")} · status success`;
+    window.dispatchEvent(new CustomEvent("tempo:wallet-complete", { detail: { hashes } }));
     await refreshWalletActivity();
   } catch (error) {
     $("wallet-summary").textContent += `\n\nSIGNING STOPPED · ${error instanceof Error ? error.message.slice(0, 160) : "wallet rejected"}`;
+    if (activeHash) window.dispatchEvent(new CustomEvent("tempo:wallet-receipt", {
+      detail: { hash: activeHash, status: "failed", account, chainId, marketId: lastPrepared?.prepared?.market?.marketId },
+    }));
   } finally {
     signing = false;
     lastPrepared = undefined;

@@ -1,106 +1,135 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>TEMPO — Opening Auction for DreamDEX Event Contracts</title>
-<link rel="stylesheet" href="/styles.css" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="TEMPO — the autonomous opening auction for DreamDEX Event Contracts on Somnia." />
+  <meta name="theme-color" content="#070a0d" />
+  <title>TEMPO — Autonomous Opening Auction</title>
+  <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-<div id="app">
-  <header class="topbar">
-    <div class="brand">
-      <span class="mark"></span>
-      <span class="name">TEMPO</span>
-      <span class="tagline">the autonomous opening auction · DreamDEX Event Contracts · Somnia</span>
-    </div>
-    <div class="pillrow">
-      <a class="navlink" href="/docs.html">DOCS</a>
-      <button class="wallet-button" id="wallet-connect" type="button" title="Connect an EIP-1193 wallet">Connect wallet</button>
-      <span class="pill" id="pill-net">—</span>
-      <span class="pill" id="pill-mode">—</span>
-      <span class="pill" id="pill-tail">●</span>
-      <span class="pill" id="pill-uptime">—</span>
-    </div>
-  </header>
-
-  <main class="grid">
-    <!-- Left: venue pulse -->
-    <section class="panel" id="panel-venues">
-      <h2>Windows <span class="sub">rolling series · seconds to expiry</span></h2>
-      <div class="body scrolly" id="window-list"><div class="empty">connecting…</div></div>
-    </section>
-
-    <!-- Center: selected window -->
-    <section class="panel" id="panel-window">
-      <h2 id="window-title">Select a window <span class="sub" id="window-sub"></span></h2>
-      <div class="body" id="window-detail">
-        <div class="facts" id="facts"></div>
-        <div class="bookwrap">
-          <div class="bookcol">
-            <h3>UP book <span class="est">chain events</span></h3>
-            <div class="book" id="book"></div>
-          </div>
-          <div class="fvcol">
-            <h3>Fair value <span class="est">MODEL ESTIMATE</span></h3>
-            <div class="fvbig" id="fv-p">—</div>
-            <div class="fvband" id="fv-band"></div>
-            <div class="fvmeta" id="fv-meta"></div>
-            <div class="fvnote">P(close ≥ strike) under a driftless diffusion from the oracle feed, the on-chain opening price, realized vol, and time left. An estimate — never a fact.</div>
-          </div>
-        </div>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+  <div class="ambient" aria-hidden="true"><span></span><span></span><span></span></div>
+  <div id="app" class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="/" data-route aria-label="TEMPO home">
+        <span class="brand-orbit" aria-hidden="true"><i></i></span>
+        <span class="brand-copy"><strong>TEMPO</strong><small>MARKETS IN MOTION</small></span>
+      </a>
+      <nav class="primary-nav" aria-label="Primary navigation">
+        <a href="/dashboard" data-route>Dashboard</a>
+        <a href="/markets" data-route>Markets</a>
+        <a href="/history" data-route>History</a>
+        <a href="/docs" data-route>Docs</a>
+        <a href="/pricing" data-route>Pricing</a>
+      </nav>
+      <div class="system-cluster" aria-label="System status">
+        <span class="status-pill" id="pill-net"><i></i><span>CONNECTING</span></span>
+        <span class="status-pill desktop-status" id="pill-mode">—</span>
+        <span class="status-pill desktop-status" id="pill-tail">—</span>
+        <button class="icon-button wallet-trigger" id="wallet-open" type="button" aria-label="Open wallet" aria-haspopup="dialog">
+          <span class="wallet-dot" aria-hidden="true"></span><span id="wallet-top-state">Wallet</span>
+        </button>
+        <button class="icon-button" id="command-open" type="button" aria-label="Open command menu" aria-haspopup="dialog"><span aria-hidden="true">⌘</span><b>Menu</b></button>
       </div>
-    </section>
+    </header>
 
-    <!-- Right top: firm -->
-    <section class="panel" id="panel-firm">
-      <h2>The Firm <span class="sub">two agents · separate keys · separate policies</span></h2>
-      <div class="wallet-panel" id="wallet-panel">
-        <div class="wallet-head"><b>Human wallet</b><span id="wallet-state">DISCONNECTED</span></div>
-        <div class="wallet-meta" id="wallet-meta">Connect an EIP-6963 wallet to inspect your own activity.</div>
+    <main id="main-content" class="page-host" tabindex="-1">
+      <div class="page-loading" role="status"><span class="loader-mark"></span><b>Loading TEMPO</b><small>Reading verified market state…</small></div>
+    </main>
+
+    <footer class="status-rail">
+      <div><span class="live-beacon"></span><span id="footer-status">Connecting to TEMPO engine</span></div>
+      <nav aria-label="System links">
+        <a href="https://github.com/Kevincruz2005/Tempo" target="_blank" rel="noopener noreferrer">Repository</a>
+        <a id="footer-explorer" href="https://shannon-explorer.somnia.network" target="_blank" rel="noopener noreferrer">Somnia Explorer</a>
+        <a href="/docs#security" data-route>Security</a>
+        <span class="zero-mock">ZERO MOCKED VALUES</span>
+      </nav>
+    </footer>
+  </div>
+
+  <div class="overlay" id="command-overlay" hidden>
+    <section class="command-dialog" role="dialog" aria-modal="true" aria-labelledby="command-title">
+      <div class="dialog-head"><div><span class="eyebrow">GLOBAL NAVIGATION</span><h2 id="command-title">Command menu</h2></div><button class="close-button" data-close="command-overlay" aria-label="Close command menu">×</button></div>
+      <label class="command-search"><span aria-hidden="true">⌕</span><input id="command-search" type="search" autocomplete="off" placeholder="Navigate, search markets, open tools…" /></label>
+      <div class="command-results" id="command-results"></div>
+      <div class="key-legend"><span><kbd>↑</kbd><kbd>↓</kbd> Move</span><span><kbd>Enter</kbd> Open</span><span><kbd>Esc</kbd> Close</span></div>
+    </section>
+  </div>
+
+  <div class="drawer-backdrop" id="wallet-overlay" hidden>
+    <aside class="side-drawer wallet-drawer" role="dialog" aria-modal="true" aria-labelledby="wallet-title">
+      <div class="dialog-head"><div><span class="eyebrow">HUMAN EXECUTION</span><h2 id="wallet-title">Wallet & IOC order</h2></div><button class="close-button" data-close="wallet-overlay" aria-label="Close wallet panel">×</button></div>
+      <div class="trust-callout"><span class="shield-icon">◇</span><div><b>Client-signed. Chain-gated.</b><small>TEMPO never receives your private key. Every prepared order is checked against live status and RiskEngine before wallet confirmation.</small></div></div>
+      <section class="wallet-panel" id="wallet-panel">
+        <div class="wallet-head"><b>Connection</b><span id="wallet-state">DISCONNECTED</span></div>
+        <div class="wallet-meta" id="wallet-meta">Connect an EIP-6963 wallet to inspect your on-chain activity.</div>
+        <button class="button button-primary full-button" id="wallet-connect" type="button">Connect wallet</button>
         <div class="wallet-picker" id="wallet-picker" hidden>
-          <div class="wallet-picker-label">Choose a wallet</div>
+          <div class="wallet-picker-label">Choose a detected wallet</div>
           <div class="wallet-options" id="wallet-options"></div>
         </div>
         <div class="wallet-warning" id="wallet-warning" hidden></div>
-        <div class="wallet-trade" id="wallet-trade" hidden>
-          <label>Window <select id="wallet-market"></select></label>
-          <label>Side <select id="wallet-side"><option value="UP">UP</option><option value="DOWN">DOWN</option></select></label>
-          <label>Size <input id="wallet-size" type="number" min="0.001" step="0.001" value="1" /></label>
-          <label>Limit <input id="wallet-price" type="number" min="0.001" max="0.999" step="0.001" value="0.5" /></label>
-          <button id="wallet-prepare" type="button">Review IOC</button>
-          <button id="wallet-confirm" type="button" hidden>Confirm in wallet</button>
-          <button id="wallet-cancel" type="button" hidden>Cancel</button>
-          <pre id="wallet-summary" hidden></pre>
-        </div>
         <div class="wallet-activity" id="wallet-activity"></div>
+        <div class="drawer-divider"></div>
+        <div class="wallet-trade" id="wallet-trade" hidden>
+          <div class="section-kicker"><span>PREPARE HUMAN ORDER</span><span class="prov policy">RISKENGINE</span></div>
+          <label>Window<select id="wallet-market"></select></label>
+          <div class="field-pair">
+            <label>Outcome<select id="wallet-side"><option value="UP">UP</option><option value="DOWN">DOWN</option></select></label>
+            <label>Size<input id="wallet-size" type="number" min="0.001" step="0.001" value="1" inputmode="decimal" /></label>
+          </div>
+          <label>IOC limit<input id="wallet-price" type="number" min="0.001" max="0.999" step="0.001" value="0.5" inputmode="decimal" /></label>
+          <button class="button button-primary" id="wallet-prepare" type="button">Review IOC</button>
+          <button class="button button-primary" id="wallet-confirm" type="button" hidden>Confirm in wallet</button>
+          <button class="button button-ghost" id="wallet-cancel" type="button" hidden>Cancel review</button>
+          <pre class="wallet-summary" id="wallet-summary" hidden></pre>
+        </div>
+      </section>
+    </aside>
+  </div>
+
+  <div class="drawer-backdrop" id="proof-overlay" hidden>
+    <aside class="side-drawer" role="dialog" aria-modal="true" aria-labelledby="proof-title">
+      <div class="dialog-head"><div><span class="eyebrow">ON-CHAIN EVIDENCE</span><h2 id="proof-title">Transaction proof</h2></div><button class="close-button" data-close="proof-overlay" aria-label="Close transaction proof">×</button></div>
+      <div id="proof-content"></div>
+    </aside>
+  </div>
+
+  <div class="drawer-backdrop" id="audit-overlay" hidden>
+    <aside class="side-drawer wide-drawer" role="dialog" aria-modal="true" aria-labelledby="audit-title">
+      <div class="dialog-head"><div><span class="eyebrow">JOURNAL EVIDENCE</span><h2 id="audit-title">Event inspection</h2></div><button class="close-button" data-close="audit-overlay" aria-label="Close event inspection">×</button></div>
+      <div id="audit-content"></div>
+    </aside>
+  </div>
+
+  <div class="overlay" id="settings-overlay" hidden>
+    <section class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <div class="dialog-head"><div><span class="eyebrow">LOCAL DISPLAY ONLY</span><h2 id="settings-title">Observatory settings</h2></div><button class="close-button" data-close="settings-overlay" aria-label="Close settings">×</button></div>
+      <div class="settings-grid">
+        <label>Density<select id="setting-density"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label>
+        <label>Refresh interval<select id="setting-refresh"><option value="2000">2 seconds</option><option value="5000">5 seconds</option><option value="10000">10 seconds</option></select></label>
+        <label>Default asset<select id="setting-asset"><option value="ALL">All assets</option><option value="BTC">BTC</option><option value="ETH">ETH</option></select></label>
+        <label>Default cadence<select id="setting-interval"><option value="ALL">All intervals</option></select></label>
+        <label class="toggle-row"><input id="setting-motion" type="checkbox" /><span>Reduce non-essential motion</span></label>
       </div>
-      <article class="ai-narrative" id="ai-narrative" aria-live="polite">
-        <div class="ai-narrative-head"><b>Gemini briefing</b><button id="ai-summary" type="button">Generate AI summary</button><span id="ai-narrative-model">IDLE</span></div>
-        <blockquote id="ai-narrative-text">Click “Generate AI summary” to send the current journal metrics to Gemini.</blockquote>
-        <small id="ai-narrative-meta">AI commentary · nothing is sent until you click the button</small>
-      </article>
-      <div class="body" id="firm"></div>
+      <div class="settings-truth"><span>Runtime <b id="settings-runtime">UNAVAILABLE</b></span><span>Wallet <b id="settings-wallet">DISCONNECTED</b></span></div>
+      <p class="settings-note">Only harmless display preferences are stored in this browser. Signing keys and operator configuration are never exposed here.</p>
+      <button class="button button-primary" id="settings-save">Save display settings</button>
     </section>
+  </div>
 
-    <!-- Right bottom: activity -->
-    <section class="panel" id="panel-tape">
-      <h2>Activity <span class="sub">events → decisions → real transactions</span></h2>
-      <div class="body scrolly" id="tape"><div class="empty">connecting…</div></div>
+  <div class="overlay" id="shortcuts-overlay" hidden>
+    <section class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title">
+      <div class="dialog-head"><div><span class="eyebrow">KEYBOARD</span><h2 id="shortcuts-title">Shortcuts</h2></div><button class="close-button" data-close="shortcuts-overlay" aria-label="Close shortcuts">×</button></div>
+      <div class="shortcut-grid"><span><kbd>1–7</kbd> Pages</span><span><kbd>/</kbd> Search</span><span><kbd>J</kbd><kbd>K</kbd> Move rows</span><span><kbd>Enter</kbd> Inspect</span><span><kbd>Esc</kbd> Close</span><span><kbd>?</kbd> This guide</span></div>
     </section>
+  </div>
 
-    <section class="panel" id="panel-settlements">
-      <h2>Settlements <span class="sub">finalized facts · oracle audit</span></h2>
-      <div class="body scrolly" id="settlements"><div class="empty">connecting…</div></div>
-    </section>
-  </main>
-
-  <footer class="statusline">
-    <span id="provenance-link">every value carries provenance — hover any metric</span>
-    <span class="right" id="zero-mock">MOCKED VALUES = 0</span>
-  </footer>
-</div>
-<script type="module" src="/app.js"></script>
-<script type="module" src="/wallet.js"></script>
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="true"></div>
+  <script type="module" src="/app.js"></script>
+  <script type="module" src="/wallet.js"></script>
 </body>
 </html>

@@ -106,7 +106,15 @@ export function resolveStaticFile(staticDir: string, pathname: string): string |
     return undefined;
   }
   if (decoded.includes("\0") || decoded.includes("\\")) return undefined;
-  const requested = decoded === "/" ? "/index.html" : decoded;
+  const isApplicationRoute =
+    decoded === "/" ||
+    decoded === "/dashboard" ||
+    decoded === "/markets" ||
+    decoded === "/history" ||
+    decoded === "/docs" ||
+    decoded === "/pricing" ||
+    /^\/markets\/0x[0-9a-f]{64}$/i.test(decoded);
+  const requested = isApplicationRoute ? "/index.html" : decoded;
   const segments = requested.split("/").filter(Boolean);
   if (segments.some((segment) => segment === "." || segment === ".." || segment.startsWith("."))) return undefined;
 

@@ -24,6 +24,12 @@ describe("security boundaries", () => {
 
   it("contains static paths and rejects traversal, dotfiles, and backslashes", () => {
     expect(resolveStaticFile("/srv/tempo", "/")).toBe("/srv/tempo/index.html");
+    expect(resolveStaticFile("/srv/tempo", "/dashboard")).toBe("/srv/tempo/index.html");
+    expect(resolveStaticFile("/srv/tempo", "/markets")).toBe("/srv/tempo/index.html");
+    expect(resolveStaticFile("/srv/tempo", `/markets/0x${"a".repeat(64)}`)).toBe("/srv/tempo/index.html");
+    expect(resolveStaticFile("/srv/tempo", "/history")).toBe("/srv/tempo/index.html");
+    expect(resolveStaticFile("/srv/tempo", "/docs")).toBe("/srv/tempo/index.html");
+    expect(resolveStaticFile("/srv/tempo", "/pricing")).toBe("/srv/tempo/index.html");
     expect(resolveStaticFile("/srv/tempo", "/app.js")).toBe("/srv/tempo/app.js");
     expect(resolveStaticFile("/srv/tempo", "/docs.html")).toBe("/srv/tempo/docs.html");
     expect(resolveStaticFile("/srv/tempo", "/assets/dashboard.png")).toBe("/srv/tempo/assets/dashboard.png");
@@ -31,6 +37,7 @@ describe("security boundaries", () => {
     expect(resolveStaticFile("/srv/tempo", "/../secret")).toBeUndefined();
     expect(resolveStaticFile("/srv/tempo", "/.env")).toBeUndefined();
     expect(resolveStaticFile("/srv/tempo", "/folder\\secret")).toBeUndefined();
+    expect(resolveStaticFile("/srv/tempo", "/markets/not-a-market-id")).toBe("/srv/tempo/markets/not-a-market-id");
   });
 
   it("accepts same-origin browser reads and rejects cross-site requests", () => {

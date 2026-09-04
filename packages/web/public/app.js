@@ -1,222 +1,1150 @@
 import { escapeHtml, safeHttpsUrl } from "/security.js";
 
 const $ = (id) => document.getElementById(id);
-const fmt = (value, digits = 2) =>
-  Number.isFinite(value) ? Number(value).toLocaleString(undefined, { maximumFractionDigits: digits }) : "NO DATA";
-const short = (value) => {
+const LIFE = ["BIRTH", "ANCHOR", "GENESIS", "REPRICE", "ENDGAME", "SETTLE", "CLAIM", "ROLL"];
+const HASH = /^0x[0-9a-f]{64}$/i;
+const model = {
+  state: null,
+  records: [],
+  walletConfig: null,
+  docs: null,
+  selected: null,
+  stream: "CONNECTING",
+  refreshAt: null,
+  refreshTimer: null,
+  liveRenderTimer: null,
+  eventSource: null,
+  commandIndex: 0,
+  rowIndex: -1,
+  births: new Set(),
+  walletProofs: new Map(),
+  filters: {
+    marketQuery: "", marketStatus: "ALL", asset: "ALL", interval: "ALL", sort: "EXPIRY",
+    historyTab: "OPERATIONS", historyQuery: "", historyAgent: "ALL", historySource: "ALL", historyStatus: "ALL",
+    historyWindow: "ALL", historyAsset: "ALL", historyInterval: "ALL", historyType: "ALL",
+  },
+  settings: { density: "comfortable", refresh: 2000, asset: "ALL", interval: "ALL", reducedMotion: false },
+};
+
+function join(parts) { return parts.join(""); }
+function fmt(value, digits = 2) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toLocaleString(undefined, { maximumFractionDigits: digits }) : "NO DATA";
+}
+function pct(value, digits = 1) { return Number.isFinite(Number(value)) ? fmt(Number(value) * 100, digits) + "%" : "NO DATA"; }
+function short(value, start = 8, end = 6) {
   const text = typeof value === "string" ? value : "";
-  return text ? `${text.slice(0, 8)}...${text.slice(-6)}` : "UNAVAILABLE";
-};
-const safeTime = (seconds) => {
-  const value = Number(seconds);
-  if (!Number.isFinite(value)) return "NO DATA";
+  return text.length > start + end ? text.slice(0, start) + "…" + text.slice(-end) : text || "UNAVAILABLE";
+}
+function utc(value, seconds = false) {
+  const date = new Date(seconds ? Number(value) * 1000 : value);
+  return Number.isFinite(date.valueOf()) ? date.toISOString().replace("T", " ").slice(0, 19) + "Z" : "NO DATA";
+}
+function time(value, seconds = false) {
+  const full = utc(value, seconds);
+  return full === "NO DATA" ? full : full.slice(11);
+}
+function secondsLeft(value) {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds)) return "NO DATA";
+  if (seconds <= 0) return "0s";
+  if (seconds < 60) return Math.round(seconds) + "s";
+  if (seconds < 3600) return Math.floor(seconds / 60) + "m " + Math.round(seconds % 60) + "s";
+  return Math.floor(seconds / 3600) + "h " + Math.floor((seconds % 3600) / 60) + "m";
+}
+function badge(kind, title) {
+  const names = { chain: "CHAIN FACT", model: "MODEL ESTIMATE", policy: "POLICY", derived: "DERIVED", journal: "JOURNAL EVENT", llm: "LLM COMMENTARY" };
+  return '<span class="prov ' + kind + '" title="' + escapeHtml(title || names[kind]) + '">' + names[kind] + "</span>";
+}
+function empty(title, detail, action) {
+  return '<div class="state-block" role="status"><b>' + escapeHtml(title) + "</b>" +
+    (detail ? "<p>" + escapeHtml(detail) + "</p>" : "") + (action || "") + "</div>";
+}
+function btn(label, attrs, type) {
+  return '<button class="button ' + (type || "button-ghost") + '" type="button" ' + (attrs || "") + ">" + label + "</button>";
+}
+function fact(label, value, source, title) {
+  return '<div class="fact"><span>' + escapeHtml(label) + " " + badge(source, title) + "</span><b>" + escapeHtml(value) + "</b></div>";
+}
+function marketPath(id) { return "/markets/" + encodeURIComponent(String(id)); }
+function path() {
+  const value = location.pathname.replace(/\/+$/, "") || "/";
+  return value === "/docs.html" ? "/docs" : value;
+}
+function routeBase() { return path().startsWith("/markets/") ? "/markets" : path(); }
+function market(id) {
+  return model.state?.markets?.find((row) => row.marketId.toLowerCase() === String(id).toLowerCase());
+}
+function marketRecords(id) {
+  return model.records.filter((row) => row.marketId?.toLowerCase() === String(id).toLowerCase());
+}
+function recordDetail(record) {
+  const data = record?.data || {};
+  return data.reason || data.what || data.outcome || data.kind || data.lifecycle || data.status || "";
+}
+function recordSource(record) {
+  if (["order-receipt", "fill", "settlement", "claim"].includes(record.type)) return "chain";
+  if (record.agent === "APPRAISER" || record.model?.name === "diffusion-fair-value") return "model";
+  if (record.type === "risk-reject" || String(record.source || "").includes("policy")) return "policy";
+  return "journal";
+}
+function recordStatus(record) {
+  if (record.type === "risk-reject") return "rejected";
+  if (record.type === "error") return "failed";
+  if (record.type === "order-sent" && !record.tx) return record.data?.dryRun ? "journal" : "pending";
+  if (record.tx || ["fill", "settlement", "claim", "order-receipt"].includes(record.type)) return "confirmed";
+  return "journal";
+}
+function explorerUrl(kind, value) {
+  const root = safeHttpsUrl(model.walletConfig?.explorerUrl);
+  if (!root) return null;
+  try { return new URL(kind + "/" + value, root.endsWith("/") ? root : root + "/").href; } catch { return null; }
+}
+function heading(kicker, title, copy, actions) {
+  return '<header class="page-header"><div><span class="eyebrow">' + escapeHtml(kicker) + "</span><h1>" + escapeHtml(title) +
+    "</h1><p>" + escapeHtml(copy) + '</p></div><div class="page-actions">' + (actions || "") + "</div></header>";
+}
+function lifecycleCopy(stage) {
+  return ({ BIRTH: "Window appears", ANCHOR: "Opening read", GENESIS: "Two-sided quote", REPRICE: "Book breathes", ENDGAME: "Expiry control", SETTLE: "Oracle resolves", CLAIM: "Winner redeemed", ROLL: "Next window" })[stage] || "";
+}
+function lifecycle(current, compact) {
+  const currentIndex = LIFE.indexOf(current);
+  if (compact) return '<div class="lifecycle-detail" aria-label="Market lifecycle">' + join(LIFE.map((stage, index) => {
+    const cls = index < currentIndex ? "done" : index === currentIndex ? "current" : "";
+    return '<a class="' + cls + '" href="/history?market=' + encodeURIComponent(model.selected || "") + '" data-route><span>' +
+      String(index + 1).padStart(2, "0") + "</span><b>" + stage + "</b></a>";
+  })) + "</div>";
+  return '<div class="lifecycle" aria-label="Market lifecycle">' + join(LIFE.map((stage, index) =>
+    '<div class="lifecycle-step ' + (stage === current ? "active" : "") + '"><b>' + String(index + 1).padStart(2, "0") +
+    " · " + stage + "</b><small>" + lifecycleCopy(stage) + "</small></div>")) + "</div>";
+}
+
+function renderLanding() {
+  const markets = model.state?.markets || [];
+  const selected = markets.find((row) => row.secondsLeft > 0 && row.view) || markets[0];
+  if (selected) model.selected = selected.marketId;
+  const receipts = model.records.filter((row) => row.type === "order-receipt" && HASH.test(row.tx || "")).length;
+  const settlements = model.state?.settlements?.length || 0;
+  const mode = model.state ? (model.state.live.dryRun ? "DRY RUN" : "LIVE") : "UNAVAILABLE";
+  const selectedLink = selected
+    ? '<a class="button button-ghost" href="' + marketPath(selected.marketId) + '" data-route>Follow ' + escapeHtml(selected.asset) + " " + fmt(selected.intervalSec / 60, 0) + "m window</a>"
+    : '<span class="button button-ghost" aria-disabled="true">NO ACTIVE WINDOW</span>';
+  return '<section class="page landing"><div class="landing-inner"><div class="hero"><div class="hero-copy">' +
+    '<span class="eyebrow">AUTONOMOUS OPENING AUCTION · SOMNIA</span><h1>Every event contract begins with an <em>empty book.</em></h1>' +
+    '<p class="hero-lede">TEMPO is the autonomous opening-auction and market-making layer for DreamDEX Event Contracts—anchoring each window, managing its endgame, and leaving verifiable evidence behind.</p>' +
+    '<div class="hero-actions"><a class="button button-primary" href="/dashboard" data-route>Open observatory ↗</a>' +
+    '<button class="button button-ghost" type="button" data-open-wallet>Connect wallet</button></div>' +
+    '<div class="hero-network"><span class="live-beacon ' + (model.state ? "online" : "offline") + '"></span><span>' +
+    escapeHtml(model.walletConfig?.chainName || "Somnia network") + " · Chain " + escapeHtml(model.walletConfig?.chainId || "UNAVAILABLE") + " · " + escapeHtml(mode) + "</span></div></div>" +
+    '<div class="hero-visual" aria-label="Animated TEMPO lifecycle reactor"><div class="reactor"><span class="reactor-ring"></span><span class="reactor-ring"></span><span class="reactor-ring"></span>' +
+    '<div class="reactor-core"><img src="/assets/tempo-logo.png" alt="" /></div><span class="orbit-label one">ON-CHAIN BIRTH</span><span class="orbit-label two">FAIR VALUE</span>' +
+    '<span class="orbit-label three">RISK GATE</span><span class="orbit-label four">VERIFIED SETTLEMENT</span></div></div></div>' +
+    lifecycle(selected?.lifecycle || "BIRTH", false) +
+    '<div class="landing-proof"><article class="proof-card"><b>Market birth</b><p>Rolling DreamDEX windows are discovered from the official venue surface and keyed by market ID.</p></article>' +
+    '<article class="proof-card"><b>Autonomous liquidity</b><p>GENESIS and VECTOR apply independent policies over live inputs, with every write bounded by RiskEngine.</p></article>' +
+    '<article class="proof-card"><b>Verifiable execution</b><p>Journal records, transaction hashes, settlements, and oracle links keep the operating trail inspectable.</p></article>' +
+    '<div class="evidence-strip"><div><strong>' + fmt(markets.length, 0) + '</strong><span>MARKETS IN CURRENT SNAPSHOT · ' + badge("chain") + "</span></div>" +
+    '<div><strong>' + fmt(model.records.length, 0) + '</strong><span>SESSION EVENTS LOADED · ' + badge("journal") + "</span></div>" +
+    '<div><strong>' + fmt(receipts + settlements, 0) + '</strong><span>RECEIPTS + SETTLEMENTS · ' + badge("derived") + "</span></div></div></div>" +
+    '<div class="page-actions">' + selectedLink + '<a class="button button-primary" href="/dashboard" data-route>Watch the live firm</a></div></div></section>';
+}
+
+function marketItems(markets) {
+  if (!markets.length) return empty("NO ACTIVE WINDOW", "The official registry returned no current windows.");
+  return join(markets.map((row) =>
+    '<button class="market-item ' + (row.marketId === model.selected ? "active " : "") + (model.births.has(row.marketId) ? "birth" : "") +
+    '" type="button" data-select-market="' + escapeHtml(row.marketId) + '"><span class="market-item-main"><span class="asset-mark">' +
+    escapeHtml(row.asset.slice(0, 3)) + "</span><b>" + escapeHtml(row.asset) + " " + fmt(row.intervalSec / 60, 0) +
+    'm</b></span><span class="countdown ' + (row.secondsLeft <= 20 ? "urgent" : "") + '">' + secondsLeft(row.secondsLeft) +
+    "</span><small>" + escapeHtml(row.lifecycle) + " · " + escapeHtml(short(row.marketId)) + "</small></button>"));
+}
+
+function mode(agent) { return agent.readOnly ? "READ ONLY" : agent.dryRun ? "DRY RUN" : "LIVE"; }
+function inventory(agent) {
+  if (!agent?.inventory) return null;
+  return Object.values(agent.inventory).reduce((sum, row) => sum + Number(row.qtyUp || 0) + Number(row.qtyDown || 0), 0);
+}
+function peakWindowInventory(agent) {
+  if (!agent?.inventory) return null;
+  const values = Object.values(agent.inventory).map((row) => Math.abs(Number(row.qtyUp || 0)) + Math.abs(Number(row.qtyDown || 0)));
+  return values.length ? Math.max(...values) : 0;
+}
+function lastRecord(agent, types) {
+  return [...model.records].reverse().find((row) => row.agent === agent && (types || ["decision"]).includes(row.type));
+}
+function agentCard(agent) {
+  const recent = lastRecord(agent.name);
+  return '<button class="agent-card" type="button" data-agent="' + escapeHtml(agent.name) + '"><div class="agent-title"><b>' +
+    escapeHtml(agent.name) + '</b><span class="prov ' + (agent.readOnly ? "derived" : "chain") + '">' + mode(agent) +
+    '</span></div><div class="agent-meta"><div><span>Collateral ' + badge("chain") + "</span><b>" +
+    (agent.collateral ? fmt(agent.collateral.human) : "UNAVAILABLE") + "</b></div><div><span>Inventory " + badge("derived") +
+    "</span><b>" + (agent.inventory ? fmt(inventory(agent), 3) : "UNAVAILABLE") + "</b></div><div><span>Open orders " +
+    badge("chain") + "</span><b>" + (agent.readOnly ? "UNAVAILABLE" : fmt(agent.openOrders, 0)) +
+    "</b></div><div><span>Last decision " + badge("journal") + "</span><b>" +
+    escapeHtml(short(recordDetail(recent) || agent.lastDecision, 14, 0)) + "</b></div></div></button>";
+}
+function riskBar(label, value, cap) {
+  const ratio = Number.isFinite(value) && Number.isFinite(cap) && cap > 0 ? Math.min(100, Math.max(0, value / cap * 100)) : 0;
+  return '<button class="risk-row" type="button" data-risk="' + escapeHtml(label) + '"><span class="risk-row-head"><span>' +
+    escapeHtml(label) + "</span><b>" + (Number.isFinite(value) ? fmt(value) : "UNAVAILABLE") + " / " +
+    (Number.isFinite(cap) ? fmt(cap) : "UNAVAILABLE") + " " + badge("policy") +
+    '</b></span><span class="risk-track"><i style="--value:' + ratio + '%"></i></span></button>';
+}
+
+function marketFacts(row) {
+  const view = row?.view;
+  return '<div class="market-facts">' +
+    fact("Expiry", Number.isFinite(row?.expiry) ? time(row.expiry, true) : "NO DATA", "chain", "DreamDEX indexed expiry") +
+    fact("Time left", Number.isFinite(row?.secondsLeft) ? secondsLeft(row.secondsLeft) : "NO DATA", "derived", "Indexed expiry minus local UTC clock") +
+    fact("Status", row?.status === 1 ? "1 · TRADING" : Number.isFinite(row?.status) && row.status >= 0 ? String(row.status) : "NO DATA", "chain", "Only on-chain status 1 permits writes") +
+    fact("Opening / strike", view ? fmt(view.opening.value, 2) : "NO DATA", "chain", view?.opening?.source) +
+    fact("Spot", view ? fmt(view.spot.value, 2) : "NO DATA", "chain", view ? view.spot.source + " · " + view.spot.at : "UNAVAILABLE") +
+    fact("Venue", row?.venueId ? short(row.venueId) : "UNAVAILABLE", "chain", "DreamDEX venue registry") + "</div>";
+}
+
+function renderBook(view, depth = 7) {
+  if (!view?.book) return empty("PENDING", "Awaiting a chain-derived market view.");
+  const asks = [...(view.book.yesAsks || [])].slice(0, depth).reverse();
+  const bids = [...(view.book.yesBids || [])].slice(0, depth);
+  if (!asks.length && !bids.length) return empty("EMPTY BOOK — awaiting genesis", "No materialized levels were returned by the live store.");
+  const maxSize = Math.max(1, ...asks.map((row) => Number(row.size)), ...bids.map((row) => Number(row.size)));
+  const level = (row, side) => '<div class="book-level ' + side + '" style="--depth:' +
+    Math.max(3, Number(row.size) / maxSize * 100) + '%" title="Chain event book · ' + escapeHtml(view.bookAt) +
+    '"><span>' + fmt(row.price, 3) + "</span><span>" + fmt(row.size, 3) + "</span></div>";
+  const bestAsk = view.book.yesAsks?.[0]?.price;
+  const bestBid = view.book.yesBids?.[0]?.price;
+  return '<div class="book"><div class="book-labels"><span>UP PRICE</span><span>SIZE</span></div>' +
+    join(asks.map((row) => level(row, "ask"))) + '<div class="book-touch"><span>TOUCH ' + badge("chain") +
+    "</span><strong>" + (Number.isFinite(bestBid) ? fmt(bestBid, 3) : "—") + " / " +
+    (Number.isFinite(bestAsk) ? fmt(bestAsk, 3) : "—") + "</strong></div>" +
+    join(bids.map((row) => level(row, "bid"))) + "</div>";
+}
+
+function renderFairValue(view) {
+  const fv = view?.fairValue;
+  if (!fv || !Number.isFinite(fv.value)) return empty("NO DATA", "Awaiting sufficient official price-feed history for a journaled estimate.");
+  const low = Math.max(0, Number(fv.band?.[0] ?? fv.value));
+  const high = Math.min(1, Number(fv.band?.[1] ?? fv.value));
+  return '<div class="fair-value"><div class="section-kicker"><span>REAL-TIME FAIR VALUE</span>' +
+    badge("model", fv.source + " · " + fv.at) + '</div><div class="fair-value-number">' + pct(fv.value) +
+    '</div><div class="band-track" style="--left:' + low * 100 + "%;--width:" + Math.max(1, (high - low) * 100) +
+    "%;--marker:" + fv.value * 100 + '%"><span class="band"></span><span class="marker"></span></div><p>Band ' +
+    fmt(low, 3) + "–" + fmt(high, 3) + " · σ " + Number(fv.sigma).toExponential(2) + " · " + fmt(fv.samples, 0) +
+    " official feed samples</p><p>P(close ≥ strike) under TEMPO’s driftless diffusion over live spot, on-chain opening, realized volatility, and time left. Estimate—not oracle fact.</p></div>";
+}
+
+function activityRows(records, limit = 30) {
+  if (!records.length) return empty("NO EVENTS YET", "The current journal window has no matching events.");
+  return join(records.slice(-limit).reverse().map((record, index) => {
+    const detail = recordDetail(record);
+    const hash = HASH.test(record.tx || "") ? record.tx : "";
+    const evidence = hash
+      ? '<button class="text-link mono" type="button" data-tx="' + escapeHtml(hash) + '">' + escapeHtml(short(hash)) + "</button>"
+      : badge(recordSource(record));
+    return '<div class="activity-row ' + (record.type === "fill" ? "fill" : "") + '" tabindex="0" data-row-index="' + index +
+      '" data-event-id="' + escapeHtml(record.eventId || "") + '"><time>' + escapeHtml(time(record.ts)) + '</time><span class="actor">' +
+      escapeHtml(record.agent || "FIRM") + "</span><span>" + escapeHtml(record.type) + '</span><span class="detail" title="' +
+      escapeHtml(detail) + '">' + escapeHtml(short(detail || record.marketId, 16, 5)) + "</span>" + evidence + "</div>";
+  }));
+}
+
+function settlements(rows, limit = 8) {
+  if (!rows?.length) return empty("NO DATA", "No finalized markets are present in the current settlement snapshot.");
+  return join(rows.slice(0, limit).map((row) => {
+    const url = safeHttpsUrl(row.oracleUrl);
+    const result = row.voided ? "VOID" : row.winningOutcome === 0 ? "UP" : row.winningOutcome === 1 ? "DOWN" : "PENDING";
+    return '<article class="settlement-row"><div><b>' + escapeHtml(row.asset) + " " + fmt(row.intervalSec / 60, 0) +
+      "m</b><span>" + result + " " + badge("chain") + "</span></div><small>" + time(row.expiry, true) + " · " +
+      escapeHtml(row.tradeCount ?? "NO DATA") + " trades · last " + (row.lastPrice === undefined ? "NO DATA" : fmt(row.lastPrice, 3)) +
+      "</small>" + (url ? '<a class="text-link" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">Oracle audit ↗</a>' :
+        '<span class="text-link">Oracle link unavailable</span>') + "</article>";
+  }));
+}
+
+function briefing() {
+  return '<article class="briefing" aria-live="polite"><div class="briefing-head"><span class="section-kicker" style="margin:0">OPERATOR BRIEFING ' +
+    badge("llm") + '</span><button class="button button-small button-ghost" id="ai-summary" type="button">Generate</button></div>' +
+    '<blockquote id="ai-narrative-text">Optional narration is generated only when requested. Journal facts remain authoritative.</blockquote>' +
+    '<small id="ai-narrative-meta">Nothing is sent until Generate · LLM does not control pricing, risk, or execution.</small></article>';
+}
+
+function renderDashboard() {
+  const markets = model.state?.markets || [];
+  if (!model.selected || !market(model.selected)) model.selected = (markets.find((row) => row.secondsLeft > 20 && row.view) || markets[0])?.marketId || null;
+  const selected = market(model.selected);
+  const agents = model.state?.agents || [];
+  const risk = model.state?.risk;
+  const genesis = agents.find((row) => row.name === "GENESIS") || agents[0];
+  const nearest = markets.filter((row) => row.secondsLeft > 0).sort((a, b) => a.secondsLeft - b.secondsLeft)[0];
+  const events = model.records.filter((row) => !["price", "market-state"].includes(row.type));
+  const births = model.records.filter((row) => row.type === "market-birth").length;
+  const actions = '<a class="button button-ghost" href="/markets" data-route>View all markets</a>' + btn("Settings", "data-open-settings");
+  const selectedContent = selected ? marketFacts(selected) + '<div class="market-core">' + renderBook(selected.view, 5) +
+    renderFairValue(selected.view) + '</div><div style="margin-top:var(--page-gap)">' + lifecycle(selected.lifecycle, true) + "</div>" :
+    empty("NO ACTIVE WINDOW", "No market is available for inspection.");
+  return '<section class="page dashboard">' + heading("LIVE COMMAND CENTER", "The autonomous firm, in evidence",
+    "Market state first. Agent action second. Risk and on-chain proof always visible.", actions) +
+    '<div class="dashboard-grid"><section class="panel venue-panel"><div class="panel-head"><h2>Venue pulse</h2><small>' +
+    fmt(markets.length, 0) + " WINDOWS · " + fmt(births, 0) + ' BIRTHS LOADED</small></div><div class="pulse-grid">' +
+    '<div class="pulse-stat"><span>TRADING WINDOWS ' + badge("chain") + "</span><b>" + fmt(markets.filter((row) => row.secondsLeft > 0 && row.status === 1).length, 0) +
+    '</b></div><div class="pulse-stat"><span>NEAREST EXPIRY ' + badge("derived") + "</span><b>" +
+    (nearest ? secondsLeft(nearest.secondsLeft) : "NO DATA") + '</b></div><div class="pulse-stat"><span>LIVE TAIL</span><b>' +
+    escapeHtml(model.stream) + '</b></div><div class="pulse-stat"><span>MANAGED CADENCES ' + badge("derived") + "</span><b>" +
+    fmt(new Set(markets.filter((row) => row.managed).map((row) => row.intervalSec)).size, 0) +
+    '</b></div></div><div class="market-list scroll-region">' + marketItems(markets) + "</div></section>" +
+    '<section class="panel market-preview"><div class="panel-head"><h2>' +
+    (selected ? escapeHtml(selected.asset) + " " + fmt(selected.intervalSec / 60, 0) + "m · " + escapeHtml(selected.lifecycle) : "Selected market") +
+    "</h2>" + (selected ? '<a class="text-link" href="' + marketPath(selected.marketId) + '" data-route>Inspect market ↗</a>' : "") +
+    '</div><div class="panel-body">' + selectedContent + "</div></section>" +
+    '<section class="panel"><div class="panel-head"><h2>Agents & risk</h2><small>ONE BOUNDARY · TWO POLICIES</small></div><div class="panel-body scroll-region"><div class="agent-stack">' +
+    (agents.length ? join(agents.map(agentCard)) : empty("NO DATA", "Agent state unavailable.")) + '</div><div class="drawer-divider"></div><div class="risk-bars">' +
+    riskBar("Peak window gross inventory", peakWindowInventory(genesis), risk?.maxGrossInventory) +
+    riskBar("Per-window open orders", null, risk?.maxOpenOrdersPerWindow) +
+    riskBar("Capital committed", null, risk?.firmCapitalCap) +
+    '</div></div></section><section class="panel"><div class="panel-head"><h2>Evidence stream</h2><a class="text-link" href="/history" data-route>Full history ↗</a></div>' +
+    '<div class="scroll-region"><div style="max-height:132px;overflow:auto">' + activityRows(events, 12) +
+    '</div><div class="panel-body" style="padding-top:8px"><div class="section-kicker"><span>LATEST SETTLEMENTS</span>' +
+    badge("chain") + "</div>" + settlements(model.state?.settlements || [], 2) + briefing() + "</div></div></section></div></section>";
+}
+
+function touch(row) {
+  const book = row.view?.book;
+  return { bid: book?.yesBids?.[0]?.price, ask: book?.yesAsks?.[0]?.price, empty: !book || (!book.yesBids?.length && !book.yesAsks?.length) };
+}
+
+function filteredMarkets() {
+  const f = model.filters;
+  let rows = [...(model.state?.markets || [])];
+  const query = f.marketQuery.trim().toLowerCase();
+  if (query) rows = rows.filter((row) => [row.asset, row.marketId, row.venueId, row.symbol, String(row.intervalSec / 60)].some((value) => String(value || "").toLowerCase().includes(query)));
+  if (f.asset !== "ALL") rows = rows.filter((row) => row.asset === f.asset);
+  if (f.interval !== "ALL") rows = rows.filter((row) => String(row.intervalSec) === f.interval);
+  if (f.marketStatus !== "ALL") rows = rows.filter((row) => {
+    const settlement = model.state?.settlements?.find((item) => item.marketId?.toLowerCase() === row.marketId.toLowerCase());
+    if (f.marketStatus === "LIVE") return row.status === 1 && row.secondsLeft > 0;
+    if (f.marketStatus === "NO_BOOK") return touch(row).empty;
+    if (f.marketStatus === "FINALIZED") return row.lifecycle === "SETTLE" || Boolean(settlement);
+    if (f.marketStatus === "VOID") return Boolean(settlement?.voided);
+    return row.lifecycle === f.marketStatus;
+  });
+  if (f.sort === "BIRTH") rows.sort((a, b) => b.expiry - a.expiry);
+  else if (f.sort === "ACTIVITY") rows.sort((a, b) => marketRecords(b.marketId).length - marketRecords(a.marketId).length);
+  else if (f.sort === "TOUCH") rows.sort((a, b) => Number(touch(b).bid ?? -1) - Number(touch(a).bid ?? -1));
+  else if (f.sort === "LIFECYCLE") rows.sort((a, b) => LIFE.indexOf(a.lifecycle) - LIFE.indexOf(b.lifecycle));
+  else rows.sort((a, b) => a.expiry - b.expiry);
+  return rows;
+}
+
+function selectOptions(values, formatter) {
+  return join(values.map((value) => '<option value="' + escapeHtml(value) + '">' + escapeHtml(formatter(value)) + "</option>"));
+}
+
+function renderMarkets() {
+  const rows = filteredMarkets();
+  const assets = [...new Set((model.state?.markets || []).map((row) => row.asset))];
+  const intervals = [...new Set((model.state?.markets || []).map((row) => row.intervalSec))].sort((a, b) => a - b);
+  const body = join(rows.map((row, index) => {
+    const book = touch(row);
+    const bookCell = book.empty ? "NO BOOK" : '<span class="touch-pair"><b class="up">' +
+      (Number.isFinite(book.bid) ? fmt(book.bid, 3) : "—") + '</b><b class="down">' +
+      (Number.isFinite(book.ask) ? fmt(book.ask, 3) : "—") + "</b></span>";
+    const fills = marketRecords(row.marketId).filter((record) => record.type === "fill").length;
+    return '<tr tabindex="0" data-row-index="' + index + '" data-market-row="' + escapeHtml(row.marketId) + '" data-inspect>' +
+      '<td><div class="cell-main"><span class="asset-mark">' + escapeHtml(row.asset.slice(0, 3)) +
+      '</span><span class="cell-stack"><b>' + escapeHtml(row.asset) + " " + fmt(row.intervalSec / 60, 0) +
+      'm</b><small>' + escapeHtml(short(row.marketId)) + "</small></span></div></td>" +
+      '<td><div class="cell-stack"><b>' + escapeHtml(row.lifecycle) + "</b><small>" + secondsLeft(row.secondsLeft) + " left</small></div></td>" +
+      "<td>" + bookCell + " " + badge("chain") + "</td>" +
+      '<td><div class="cell-stack"><b>' + (row.view ? fmt(row.view.opening.value, 2) : "NO DATA") + " " + badge("chain") +
+      "</b><small>spot " + (row.view ? fmt(row.view.spot.value, 2) : "NO DATA") + "</small></div></td>" +
+      '<td><div class="cell-stack"><b>' + (row.view ? pct(row.view.fairValue.value) : "NO DATA") + " " + badge("model") +
+      "</b><small>" + (row.view ? fmt(row.view.fairValue.band[0], 3) + "–" + fmt(row.view.fairValue.band[1], 3) : "UNAVAILABLE") + "</small></div></td>" +
+      '<td><div class="cell-stack"><b>' + fmt(fills, 0) + " " + badge("journal") + "</b><small>fills in loaded journal</small></div></td>" +
+      '<td><a class="button button-small button-ghost" href="' + marketPath(row.marketId) + '" data-route>Inspect</a></td></tr>';
+  }));
+  const table = body
+    ? '<table class="data-table"><thead><tr><th style="width:18%">Market</th><th style="width:13%">Lifecycle</th><th style="width:15%">UP touch</th><th style="width:16%">Anchor / spot</th><th style="width:16%">Fair value</th><th style="width:13%">Activity</th><th style="width:9%"></th></tr></thead><tbody>' + body + "</tbody></table>"
+    : empty("NO DATA", "No markets match the active filters.", btn("Clear filters", "data-clear-market-filters"));
+  const filters = '<div class="filter-bar"><label class="grow">Search<input id="market-search" type="search" value="' +
+    escapeHtml(model.filters.marketQuery) + '" placeholder="Asset, market ID, venue, interval…" /></label>' +
+    '<label>State<select id="market-status"><option value="ALL">All states</option><option value="LIVE">Live</option><option value="BIRTH">Birth</option><option value="GENESIS">Genesis</option><option value="REPRICE">Reprice</option><option value="ENDGAME">Endgame</option><option value="FINALIZED">Finalized</option><option value="VOID">Void</option><option value="NO_BOOK">No book</option></select></label>' +
+    '<label>Asset<select id="market-asset"><option value="ALL">All assets</option>' + selectOptions(assets, (value) => value) + "</select></label>" +
+    '<label>Interval<select id="market-interval"><option value="ALL">All intervals</option>' + selectOptions(intervals, (value) => fmt(value / 60, 0) + "m") + "</select></label>" +
+    '<label>Sort<select id="market-sort"><option value="EXPIRY">Nearest expiry</option><option value="BIRTH">Newest birth</option><option value="LIFECYCLE">Lifecycle</option><option value="TOUCH">UP touch</option><option value="ACTIVITY">Activity</option></select></label></div>';
+  return '<section class="page markets-page">' + heading("DREAMDEX EVENT CONTRACTS", "Markets",
+    "Live windows from the official registry, with chain-derived books and TEMPO estimates.",
+    btn("Refresh", "data-refresh") + '<span class="status-pill">UPDATED ' + (model.refreshAt ? time(model.refreshAt) : "UNAVAILABLE") + "</span>") +
+    filters + '<section class="panel"><div class="data-table-wrap">' + table + '</div></section>' +
+    '<section class="panel recent-finalized"><div class="panel-head"><h2>Recently finalized</h2><small>CHAIN-DERIVED SETTLEMENT SNAPSHOT</small></div><div class="panel-body">' +
+    settlements(model.state?.settlements || [], 8) + "</div></section></section>";
+}
+
+function sparkline(asset) {
+  const values = model.records.filter((row) => row.type === "price" && row.data?.asset === asset && Number.isFinite(Number(row.data?.price))).slice(-80).map((row) => Number(row.data.price));
+  if (values.length < 2) return empty("NO DATA", "Not enough official feed samples in the loaded journal window.");
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min || 1;
+  const points = values.map((value, index) => [index / (values.length - 1) * 100, 79 - (value - min) / span * 70]);
+  const line = join(points.map(([x, y], index) => (index ? "L" : "M") + x.toFixed(2) + "," + y.toFixed(2)));
+  return '<svg class="sparkline" viewBox="0 0 100 86" preserveAspectRatio="none" role="img" aria-label="' +
+    escapeHtml(asset) + ' official feed samples"><path class="area" d="' + line +
+    ' L100,86 L0,86 Z"></path><path class="line" d="' + line + '"></path></svg><small>' + values.length +
+    " official price-feed samples · range " + fmt(min, 2) + "–" + fmt(max, 2) + " " + badge("chain") + "</small>";
+}
+
+function proofTimeline(records, settlement) {
+  const types = ["market-birth", "decision", "risk-reject", "order-sent", "order-receipt", "fill", "settlement", "claim"];
+  const rows = records.filter((row) => types.includes(row.type)).slice(-12).reverse();
+  if (!rows.length && !settlement) return empty("NO EVENTS YET", "No lifecycle evidence is loaded for this market.");
+  return '<div class="proof-timeline">' + join(rows.map((row) =>
+    '<button class="proof-event" type="button" data-event-id="' + escapeHtml(row.eventId || "") + '"><b>' +
+    escapeHtml(row.type.toUpperCase()) + " " + badge(recordSource(row)) + "</b><small>" + escapeHtml(time(row.ts)) + " · " +
+    escapeHtml(row.agent || "FIRM") + "<br>" + escapeHtml(recordDetail(row) || short(row.tx || row.marketId)) + "</small></button>")) +
+    (settlement ? '<div class="proof-event"><b>SETTLEMENT ' + badge("chain") + "</b><small>" +
+      escapeHtml(settlement.voided ? "VOID" : settlement.winningOutcome === 0 ? "UP WON" : settlement.winningOutcome === 1 ? "DOWN WON" : "PENDING") +
+      "</small></div>" : "") + "</div>";
+}
+
+function renderMarketDetail(id) {
+  const row = market(id);
+  if (!row) return '<section class="page page-scroll">' + heading("MARKET INSPECTION", "Market unavailable",
+    "This market is not present in the current live snapshot.") + '<section class="panel">' +
+    empty("NOT FOUND", "Settled markets leave the live list. Use History or refresh the registry.",
+      '<a class="button button-ghost" href="/markets" data-route>Return to markets</a>') + "</section></section>";
+  model.selected = row.marketId;
+  const records = marketRecords(row.marketId);
+  const settlement = model.state?.settlements?.find((item) => item.marketId?.toLowerCase() === row.marketId.toLowerCase());
+  const agents = model.state?.agents || [];
+  const rejects = records.filter((record) => record.type === "risk-reject");
+  const marketContract = records.find((record) => /^0x[0-9a-f]{40}$/i.test(record.contractAddress || ""))?.contractAddress;
+  const explorer = marketContract ? explorerUrl("address", marketContract) : null;
+  const idLine = '<div class="detail-id"><span>' + escapeHtml(row.marketId) + '</span><button class="copy-button" data-copy="' +
+    escapeHtml(row.marketId) + '">Copy</button>' + (explorer ? '<a class="text-link" href="' + escapeHtml(explorer) +
+    '" target="_blank" rel="noopener noreferrer">Explorer ↗</a>' : "") + "</div>";
+  const header = '<header class="page-header"><div><div class="breadcrumb"><a href="/markets" data-route>Markets</a><span>/</span><span>' +
+    escapeHtml(row.asset) + " " + fmt(row.intervalSec / 60, 0) + "m</span>" + badge("chain") + "</div><h1>" +
+    escapeHtml(row.asset) + " " + fmt(row.intervalSec / 60, 0) + "m · " + escapeHtml(row.lifecycle) + "</h1>" + idLine +
+    '</div><div class="page-actions"><div class="detail-clock">' + secondsLeft(row.secondsLeft) +
+    '</div><button class="button button-primary" data-open-wallet>Trade IOC</button><a class="button button-ghost" href="/history?market=' +
+    encodeURIComponent(row.marketId) + '" data-route>Audit trail</a></div></header>';
+  return '<section class="page market-detail-page">' + header + '<div class="detail-grid">' +
+    '<section class="panel detail-book"><div class="panel-head"><h2>UP order book</h2><small>' +
+    (row.view?.bookAt ? utc(row.view.bookAt) : "PENDING") + " · " + badge("chain") +
+    '</small></div><div class="panel-body">' + renderBook(row.view, 12) + '<div class="drawer-divider"></div>' +
+    marketFacts(row) + '<div class="drawer-divider"></div><div class="section-kicker"><span>OFFICIAL PRICE FEED</span><span>' +
+    escapeHtml(row.asset) + "</span></div>" + sparkline(row.asset) + "</div></section>" +
+    '<section class="panel"><div class="panel-head"><h2>Fair-value engine</h2><small>ESTIMATE, NEVER ORACLE</small></div><div class="panel-body">' +
+    renderFairValue(row.view) + lifecycle(row.lifecycle, true) + "</div></section>" +
+    '<section class="panel"><div class="panel-head"><h2>Agents & risk decisions</h2><small>' + fmt(rejects.length, 0) +
+    ' REJECTS LOADED</small></div><div class="panel-body scroll-region"><div class="agent-stack">' +
+    join(agents.map(agentCard)) + '</div><div class="drawer-divider"></div>' +
+    (rejects.length ? activityRows(rejects, 6) : empty("NO DATA", "No risk rejection is loaded for this market. Policy limits remain active.")) +
+    "</div></section>" +
+    '<section class="panel detail-proof"><div class="panel-head"><h2>Lifecycle proof</h2><small>JOURNAL → CHAIN</small></div><div class="panel-body scroll-region">' +
+    proofTimeline(records, settlement) + '<div class="drawer-divider"></div><div class="section-kicker"><span>SETTLEMENT</span>' +
+    badge("chain") + "</div>" + (settlement ? settlements([settlement], 1) : empty("PENDING", "The market has not appeared in the finalized settlement snapshot.")) +
+    briefing() + "</div></section></div></section>";
+}
+
+function filteredHistory() {
+  const f = model.filters;
+  const marketParam = new URLSearchParams(location.search).get("market");
+  let rows = [...model.records];
+  if (marketParam) rows = rows.filter((row) => row.marketId?.toLowerCase() === marketParam.toLowerCase());
+  if (f.historyTab === "OPERATIONS") rows = rows.filter((row) => !["price", "market-state"].includes(row.type));
+  if (f.historyTab === "ORDERS") rows = rows.filter((row) => row.type.startsWith("order-"));
+  if (f.historyTab === "FILLS") rows = rows.filter((row) => row.type === "fill");
+  if (f.historyTab === "SETTLEMENTS") rows = rows.filter((row) => ["settlement", "claim"].includes(row.type));
+  if (f.historyTab === "RISK") rows = rows.filter((row) => row.type === "risk-reject");
+  if (f.historyTab === "JOURNAL") rows = rows.filter((row) => !row.tx);
+  if (f.historyWindow !== "ALL") {
+    const cutoff = Date.now() - Number(f.historyWindow) * 60 * 60 * 1000;
+    rows = rows.filter((row) => new Date(row.ts).valueOf() >= cutoff);
+  }
+  if (f.historyType !== "ALL") rows = rows.filter((row) => row.type === f.historyType);
+  if (f.historyAsset !== "ALL") rows = rows.filter((row) => (market(row.marketId)?.asset || row.data?.asset || row.symbol || "").includes(f.historyAsset));
+  if (f.historyInterval !== "ALL") rows = rows.filter((row) => String(market(row.marketId)?.intervalSec || row.data?.intervalSec || "") === f.historyInterval);
+  if (f.historyAgent !== "ALL") rows = rows.filter((row) => (row.agent || "FIRM") === f.historyAgent);
+  if (f.historySource !== "ALL") rows = rows.filter((row) => recordSource(row) === f.historySource);
+  if (f.historyStatus !== "ALL") rows = rows.filter((row) => recordStatus(row) === f.historyStatus);
+  const query = f.historyQuery.trim().toLowerCase();
+  if (query) rows = rows.filter((row) => JSON.stringify(row).toLowerCase().includes(query));
+  return rows;
+}
+
+function renderHistory() {
+  const records = filteredHistory();
+  const tabs = [["OPERATIONS", "Operations"], ["ALL", "All events"], ["ORDERS", "Orders"], ["FILLS", "Fills"], ["SETTLEMENTS", "Settlements"], ["RISK", "Risk decisions"], ["JOURNAL", "Journal only"]];
+  const agents = [...new Set(model.records.map((row) => row.agent || "FIRM"))].sort();
+  const eventTypes = [...new Set(model.records.map((row) => row.type).filter(Boolean))].sort();
+  const assets = [...new Set((model.state?.markets || []).map((row) => row.asset))].sort();
+  const intervals = [...new Set((model.state?.markets || []).map((row) => row.intervalSec))].sort((a, b) => a - b);
+  const rows = join(records.slice().reverse().map((record, index) => {
+    const status = recordStatus(record);
+    const source = recordSource(record);
+    const evidence = record.tx
+      ? '<button class="text-link mono" type="button" data-tx="' + escapeHtml(record.tx) + '">' + escapeHtml(short(record.tx)) + "</button>"
+      : '<button class="text-link" type="button" data-event-id="' + escapeHtml(record.eventId || "") + '">Inspect</button>';
+    return '<tr tabindex="0" data-row-index="' + index + '" data-event-id="' + escapeHtml(record.eventId || "") + '" data-inspect>' +
+      '<td><div class="cell-stack"><b>' + escapeHtml(time(record.ts)) + "</b><small>" + escapeHtml(utc(record.ts).slice(0, 10)) + "</small></div></td>" +
+      "<td>" + escapeHtml(record.agent || "FIRM") + '</td><td><div class="cell-stack"><b>' + escapeHtml(record.type) +
+      "</b><small>" + escapeHtml(short(record.decisionId, 8, 5)) + "</small></div></td>" +
+      '<td><div class="cell-stack"><b>' + escapeHtml(record.symbol || short(record.marketId)) + "</b><small>" +
+      escapeHtml(short(record.marketId)) + "</small></div></td><td>" +
+      escapeHtml(short(recordDetail(record), 22, 6)) + "</td><td>" + badge(source) + '</td><td><span class="event-status ' +
+      status + '"><i></i>' + escapeHtml(status.toUpperCase()) + "</span></td><td>" + evidence + "</td></tr>";
+  }));
+  const table = rows
+    ? '<table class="data-table"><thead><tr><th style="width:10%">UTC time</th><th style="width:9%">Actor</th><th style="width:12%">Event</th><th style="width:18%">Market</th><th style="width:19%">Decision / result</th><th style="width:12%">Source</th><th style="width:10%">Status</th><th style="width:10%">Evidence</th></tr></thead><tbody>' + rows + "</tbody></table>"
+    : empty("NO EVENTS YET", "No journal records match these filters.");
+  const tabBar = '<div class="segment-control history-tabs">' + join(tabs.map(([value, label]) =>
+    '<button class="' + (model.filters.historyTab === value ? "active" : "") + '" type="button" data-history-tab="' + value + '">' + label + "</button>")) + "</div>";
+  const filters = '<div class="filter-bar"><label class="grow">Search<input id="history-search" type="search" value="' +
+    escapeHtml(model.filters.historyQuery) + '" placeholder="Market, hash, reason, event…" /></label>' +
+    '<label>Agent<select id="history-agent"><option value="ALL">All actors</option>' + selectOptions(agents, (value) => value) + "</select></label>" +
+    '<label>Window<select id="history-window"><option value="ALL">Loaded window</option><option value="1">Last hour</option><option value="24">Last 24 hours</option><option value="168">Last 7 days</option></select></label>' +
+    '<label>Asset<select id="history-asset"><option value="ALL">All assets</option>' + selectOptions(assets, (value) => value) + "</select></label>" +
+    '<label>Interval<select id="history-interval"><option value="ALL">All intervals</option>' + selectOptions(intervals, (value) => fmt(value / 60, 0) + "m") + "</select></label>" +
+    '<label>Event type<select id="history-type"><option value="ALL">All event types</option>' + selectOptions(eventTypes, (value) => value) + "</select></label>" +
+    '<label>Provenance<select id="history-source"><option value="ALL">All sources</option><option value="chain">Chain facts</option><option value="model">Model estimates</option><option value="policy">Policy</option><option value="journal">Journal only</option></select></label>' +
+    '<label>Status<select id="history-status"><option value="ALL">All states</option><option value="confirmed">Confirmed</option><option value="pending">Pending</option><option value="rejected">Rejected</option><option value="failed">Failed</option><option value="journal">Journal</option></select></label></div>';
+  return '<section class="page history-page">' + heading("AUDITABLE BY DESIGN", "History",
+    "Every journal decision, risk gate, order, fill, and settlement in the loaded operational window.", btn("Refresh", "data-refresh")) +
+    "<div>" + tabBar + filters + '</div><section class="panel"><div class="data-table-wrap">' + table + "</div></section></section>";
+}
+
+async function ensureDocs() {
+  if (model.docs !== null) return;
   try {
-    return new Date(value * 1000).toISOString().slice(11, 19) + "Z";
+    const response = await fetch("/docs.html");
+    if (!response.ok) throw new Error("docs " + response.status);
+    const source = await response.text();
+    const parsed = new DOMParser().parseFromString(source, "text/html");
+    const article = parsed.querySelector(".doc-inner");
+    if (!article) throw new Error("documentation content missing");
+    article.querySelectorAll("script").forEach((node) => node.remove());
+    article.querySelectorAll('a[href="/"]').forEach((link) => link.setAttribute("href", "/dashboard"));
+    article.querySelectorAll("a[href]").forEach((link) => {
+      const href = link.getAttribute("href");
+      if (href?.startsWith("#")) link.setAttribute("href", "/docs" + href);
+    });
+    model.docs = article.innerHTML;
   } catch {
-    return "NO DATA";
+    model.docs = "";
   }
-};
+}
 
-let selected;
-let lastState;
-let records = [];
-const birthPulses = new Set();
+function docsToc() {
+  const host = document.createElement("div");
+  host.innerHTML = model.docs || "";
+  return [...host.querySelectorAll(".doc-section")].map((section) => ({
+    id: section.id,
+    title: section.dataset.title || section.querySelector("h2,h1")?.textContent || section.id,
+  }));
+}
 
-function renderWindows(markets = []) {
-  const host = $("window-list");
-  if (!markets.length) {
-    host.innerHTML = '<div class="empty">NO DATA</div>';
-    return;
+function renderDocs() {
+  if (model.docs === null) return '<section class="page">' + empty("Loading…", "Preparing the operator and developer reference.") + "</section>";
+  if (!model.docs) return '<section class="page">' + empty("UNAVAILABLE", "The bundled documentation could not be loaded.", btn("Retry", "data-retry-docs")) + "</section>";
+  const toc = docsToc();
+  return '<section class="page docs-page"><aside class="docs-sidebar-spa"><input class="docs-search" id="docs-search-spa" type="search" placeholder="Search docs…" />' +
+    '<nav class="docs-toc" aria-label="Documentation sections">' + join(toc.map((item) =>
+      '<a href="/docs#' + escapeHtml(item.id) + '" data-route>' + escapeHtml(item.title) + "</a>")) +
+    '</nav></aside><main class="docs-content-spa" id="docs-scroll"><div class="docs-article">' +
+    '<div class="boundary-banner"><span>◇</span><span>Technical claims below are scoped by cited repository evidence and report dates. Live observatory values come from the current engine snapshot.</span></div>' +
+    model.docs + "</div></main></section>";
+}
+
+function renderPricing() {
+  const enhanced = sessionStorage.getItem("tempo-pricing-mode") === "LLM";
+  const freeExtra = enhanced
+    ? ["User-triggered operator briefing", "Journal-grounded commentary", "Generated-at and source-window metadata", "Bring-your-own provider"]
+    : ["Deterministic reporting", "No narration dependency", "Identical pricing, risk, execution, and data"];
+  const cards = [
+    { status: "AVAILABLE NOW", name: "Free Explorer", copy: "For judges, traders, and builders observing the public firm.", price: "Free", cta: "Open observatory", href: "/dashboard", features: ["Public live observatory", "Market and settlement state", "Read-only risk and activity", "SDK, CLI, MCP, and docs", ...freeExtra] },
+    { status: "PLANNED", name: "Pro Operator", copy: "For teams operating their own bounded autonomous market firm.", price: "Planned", cta: "Track roadmap", href: "https://github.com/Kevincruz2005/Tempo/issues", features: ["Firm orchestration console", "Configurable policy profiles", "Operator alerts", "Advanced monitoring and API access"] },
+    { status: "PLANNED", name: "Enterprise / Venue", copy: "For venues and desks deploying opening-auction liquidity infrastructure.", price: "Custom", cta: "Project repository", href: "https://github.com/Kevincruz2005/Tempo", features: ["Dedicated deployment", "Custom risk controls", "Private monitoring", "Venue and compliance integrations"] },
+  ];
+  const cardHtml = join(cards.map((card, index) =>
+    '<article class="price-card ' + (index === 0 ? "featured" : "") + '"><span class="prov ' + (index === 0 ? "chain" : "derived") + '">' +
+    card.status + "</span><h2>" + card.name + "</h2><p>" + card.copy + '</p><div class="price">' + card.price +
+    (card.price === "Free" ? "<small> · forever</small>" : "") + '</div><a class="button ' + (index === 0 ? "button-primary" : "button-ghost") +
+    '" href="' + card.href + '" ' + (card.href.startsWith("/") ? "data-route" : 'target="_blank" rel="noopener noreferrer"') + ">" + card.cta + '</a><ul class="feature-list">' +
+    join(card.features.map((item) => "<li>" + escapeHtml(item) + "</li>")) + "</ul></article>"));
+  return '<section class="page pricing-page"><div class="pricing-inner">' +
+    heading("OBSERVE FREELY · OPERATE DELIBERATELY", "Infrastructure, not theater",
+      "The public observatory is available now. Operator and venue products are explicitly planned; no checkout or provisioning is implied.") +
+    '<div class="pricing-toggle" role="group" aria-label="Feature comparison"><button class="' + (!enhanced ? "active" : "") +
+    '" data-pricing-mode="STANDARD">Standard</button><button class="' + (enhanced ? "active" : "") +
+    '" data-pricing-mode="LLM">LLM-enhanced</button></div><div class="boundary-banner">' + badge("llm") + "<span>" +
+    (enhanced ? "Optional narration is shown in this comparison. It never changes market state, pricing, RiskEngine, or execution." :
+      "Standard mode contains the complete deterministic market, risk, execution, and evidence surface.") +
+    '</span></div><div class="pricing-grid">' + cardHtml + "</div></div></section>";
+}
+
+function renderRoute(options = {}) {
+  const host = $("main-content");
+  if (!host) return;
+  host.classList.toggle("live-refresh", !options.animate);
+  const oldScroll = options.preserve ? host.querySelector(".scroll-region, .data-table-wrap, .docs-content-spa")?.scrollTop || 0 : 0;
+  const route = path();
+  let html;
+  if (route === "/") html = renderLanding();
+  else if (route === "/dashboard") html = renderDashboard();
+  else if (route === "/markets") html = renderMarkets();
+  else if (route.startsWith("/markets/")) html = renderMarketDetail(decodeURIComponent(route.slice(9)));
+  else if (route === "/history") html = renderHistory();
+  else if (route === "/docs") html = renderDocs();
+  else if (route === "/pricing") html = renderPricing();
+  else html = '<section class="page page-scroll">' + heading("404", "Route not found", "The requested TEMPO surface does not exist.") +
+    '<a class="button button-primary" href="/dashboard" data-route>Open dashboard</a></section>';
+  host.innerHTML = html;
+  updateNavigation();
+  restoreSelects();
+  bindPage();
+  if (options.preserve) {
+    const scroller = host.querySelector(".scroll-region, .data-table-wrap, .docs-content-spa");
+    if (scroller) scroller.scrollTop = oldScroll;
   }
-  if (!selected || !markets.some((market) => market.marketId === selected)) {
-    selected = (markets.find((market) => market.secondsLeft > 20 && market.view) ?? markets.find((market) => market.secondsLeft > 20) ?? markets[0]).marketId;
+  if (route === "/docs" && location.hash) requestAnimationFrame(() => {
+    const id = location.hash.slice(1);
+    document.getElementById(id)?.scrollIntoView({ block: "start" });
+  });
+}
+
+function updateNavigation() {
+  const base = routeBase();
+  document.querySelectorAll(".primary-nav a").forEach((link) => link.classList.toggle("active", link.getAttribute("href") === base));
+  const title = base === "/" ? "Autonomous Opening Auction" : base.slice(1).replace(/^\w/, (letter) => letter.toUpperCase());
+  document.title = "TEMPO — " + title;
+}
+
+function restoreSelects() {
+  const values = {
+    "market-status": model.filters.marketStatus, "market-asset": model.filters.asset,
+    "market-interval": model.filters.interval, "market-sort": model.filters.sort,
+    "history-agent": model.filters.historyAgent, "history-source": model.filters.historySource,
+    "history-status": model.filters.historyStatus, "history-window": model.filters.historyWindow,
+    "history-asset": model.filters.historyAsset, "history-interval": model.filters.historyInterval,
+    "history-type": model.filters.historyType,
+  };
+  Object.entries(values).forEach(([id, value]) => { if ($(id)) $(id).value = value; });
+}
+
+function inputFilter(id, key) {
+  $(id)?.addEventListener("input", (event) => {
+    model.filters[key] = event.target.value;
+    renderRoute();
+    const field = $(id);
+    field?.focus();
+    field?.setSelectionRange?.(field.value.length, field.value.length);
+  });
+}
+function changeFilter(id, key) {
+  $(id)?.addEventListener("change", (event) => { model.filters[key] = event.target.value; renderRoute(); });
+}
+function bindPage() {
+  $("ai-summary")?.addEventListener("click", refreshNarrative);
+  inputFilter("market-search", "marketQuery");
+  inputFilter("history-search", "historyQuery");
+  changeFilter("market-status", "marketStatus");
+  changeFilter("market-asset", "asset");
+  changeFilter("market-interval", "interval");
+  changeFilter("market-sort", "sort");
+  changeFilter("history-agent", "historyAgent");
+  changeFilter("history-window", "historyWindow");
+  changeFilter("history-asset", "historyAsset");
+  changeFilter("history-interval", "historyInterval");
+  changeFilter("history-type", "historyType");
+  changeFilter("history-source", "historySource");
+  changeFilter("history-status", "historyStatus");
+  $("docs-search-spa")?.addEventListener("input", searchDocs);
+}
+
+function uiIsBusy() {
+  if (document.querySelector(".overlay:not([hidden]), .drawer-backdrop:not([hidden])")) return true;
+  const active = document.activeElement;
+  return Boolean(active && active !== document.body && active !== $("main-content") &&
+    active.matches("input, select, textarea, button, a, [data-inspect]"));
+}
+
+function scheduleLiveRender(delay = 80) {
+  if (model.liveRenderTimer !== null) return;
+  model.liveRenderTimer = window.setTimeout(() => {
+    model.liveRenderTimer = null;
+    if (!uiIsBusy() && ["/dashboard", "/history", "/markets"].includes(routeBase())) renderRoute({ preserve: true });
+  }, delay);
+}
+
+function navigate(href, replace = false) {
+  const url = new URL(href, location.origin);
+  if (url.origin !== location.origin) return;
+  history[replace ? "replaceState" : "pushState"](null, "", url.pathname + url.search + url.hash);
+  closeOverlays();
+  if (url.pathname === "/docs" && model.docs === null) void loadDocs();
+  else renderRoute({ animate: true });
+  $("main-content")?.focus({ preventScroll: true });
+}
+
+async function loadDocs() {
+  renderRoute();
+  await ensureDocs();
+  if (path() === "/docs") renderRoute();
+}
+
+function updateChrome() {
+  const state = model.state;
+  const net = $("pill-net");
+  if (net) {
+    net.className = "status-pill " + (state ? "online" : "offline");
+    net.innerHTML = '<i></i><span>' + escapeHtml(state?.live?.network?.toUpperCase() || "UNAVAILABLE") + "</span>";
   }
-  host.innerHTML = markets
-    .map(
-      (market) => `<button class="window ${market.marketId === selected ? "active" : ""} ${birthPulses.has(market.marketId) ? "birth" : ""}" data-id="${escapeHtml(market.marketId)}">
-        <span><b>${escapeHtml(market.asset)}</b> ${fmt(market.intervalSec / 60, 0)}m</span>
-        <span class="clock ${market.secondsLeft <= 20 ? "urgent" : ""}">${Math.max(0, market.secondsLeft)}s</span>
-        <small>${escapeHtml(market.lifecycle)} · ${escapeHtml(short(market.marketId))}</small>
-      </button>`,
-    )
-    .join("");
-  host.querySelectorAll("button").forEach((button) =>
-    button.addEventListener("click", () => {
-      selected = button.dataset.id;
-      render(lastState);
-    }),
-  );
+  if ($("pill-mode")) $("pill-mode").textContent = state ? (state.live.dryRun ? "DRY RUN" : "LIVE") : "UNAVAILABLE";
+  if ($("pill-tail")) $("pill-tail").textContent = model.stream;
+  if ($("footer-status")) $("footer-status").textContent = state ? "Engine snapshot " + time(state.at) + " · " + model.stream : "TEMPO engine unavailable";
+  const beacon = document.querySelector(".status-rail .live-beacon");
+  beacon?.classList.toggle("online", Boolean(state));
+  beacon?.classList.toggle("offline", !state);
+  const explorer = safeHttpsUrl(model.walletConfig?.explorerUrl);
+  if (explorer && $("footer-explorer")) $("footer-explorer").href = explorer;
 }
 
-function renderFirm(agents = []) {
-  $("firm").innerHTML = agents.length
-    ? agents
-        .map(
-          (agent) => `<article class="agent">
-            <div><b>${escapeHtml(agent.name)}</b><span class="status">${agent.readOnly ? "READ ONLY" : agent.dryRun ? "DRY RUN" : "LIVE"}</span></div>
-            <dl><dt>Capital · chain fact</dt><dd>${agent.collateral ? fmt(agent.collateral.human) : "UNAVAILABLE"}</dd>
-            <dt>Realized P&amp;L · derived</dt><dd title="real fills + on-chain settlements">${agent.readOnly ? "UNAVAILABLE" : fmt(agent.realizedPnl)}</dd>
-            <dt>Inventory · derived</dt><dd title="real live-tail fills">${agent.inventory ? Object.values(agent.inventory).reduce((sum, position) => sum + position.qtyUp + position.qtyDown, 0).toFixed(3) : "UNAVAILABLE"}</dd>
-            <dt>Working orders</dt><dd>${agent.readOnly ? "UNAVAILABLE" : fmt(agent.openOrders, 0)}</dd></dl>
-            <small>${agent.address ? escapeHtml(short(agent.address)) : "No signer configured"}</small>
-          </article>`,
-        )
-        .join("")
-    : '<div class="empty">NO DATA</div>';
+async function getJson(url) {
+  const response = await fetch(url, { headers: { Accept: "application/json" } });
+  const body = await response.json();
+  if (!response.ok) throw new Error(body?.error || url + " " + response.status);
+  return body;
 }
 
-function renderTape() {
-  const host = $("tape");
-  if (!records.length) {
-    host.innerHTML = '<div class="empty">NO DATA</div>';
-    return;
+async function refreshState(force = false) {
+  try {
+    const state = await getJson("/api/state");
+    if (!state?.live || !Array.isArray(state.markets) || !Array.isArray(state.agents) || !Array.isArray(state.settlements)) throw new Error("invalid state payload");
+    model.state = state;
+    model.refreshAt = state.at;
+    window.dispatchEvent(new CustomEvent("tempo:state", { detail: state }));
+    updateChrome();
+    if (force) renderRoute({ preserve: true });
+    else scheduleLiveRender();
+  } catch (error) {
+    model.state = null;
+    model.stream = "UNAVAILABLE";
+    updateChrome();
+    if (force) renderRoute();
+    toast("State unavailable · " + (error instanceof Error ? error.message : "request failed"));
   }
-  host.innerHTML = records
-    .slice(-80)
-    .reverse()
-    .map((record) => {
-      const rowClass = record.type === "fill" ? " fill" : "";
-      const timestamp = typeof record.ts === "string" ? record.ts.slice(11, 19) : "NO DATA";
-      const detail = record.tx ? short(record.tx) : record.data?.outcome ?? record.data?.lifecycle ?? "";
-      return `<div class="tape-row${rowClass}" title="${escapeHtml(record.source ?? "journal")}">
-        <time>${escapeHtml(timestamp)}</time><b>${escapeHtml(record.agent ?? "FIRM")}</b><span>${escapeHtml(record.type)}</span>
-        <small>${escapeHtml(detail)}</small>
-      </div>`;
-    })
-    .join("");
 }
 
-function renderBook(view) {
-  if (!view || (!view.book.yesBids.length && !view.book.yesAsks.length)) {
-    $("book").innerHTML = '<div class="empty">NO DATA · awaiting materialized levels</div>';
-    return;
+async function refreshJournal() {
+  try {
+    const body = await getJson("/api/journal?n=300");
+    model.records = Array.isArray(body.records) ? body.records : [];
+  } catch {
+    model.records = [];
   }
-  const asks = [...view.book.yesAsks].slice(0, 5).reverse();
-  const bids = view.book.yesBids.slice(0, 5);
-  $("book").innerHTML = [
-    ...asks.map((level) => `<div class="level ask" title="markets-sdk live tail · ${escapeHtml(view.bookAt)}"><span>${fmt(level.price, 3)}</span><b>${fmt(level.size, 3)}</b></div>`),
-    '<div class="touch">UP PRICE / SIZE</div>',
-    ...bids.map((level) => `<div class="level bid" title="markets-sdk live tail · ${escapeHtml(view.bookAt)}"><span>${fmt(level.price, 3)}</span><b>${fmt(level.size, 3)}</b></div>`),
-  ].join("");
-}
-
-function renderSettlements(settlements = []) {
-  $("settlements").innerHTML = settlements.length
-    ? settlements
-        .map((row) => {
-          const oracleUrl = safeHttpsUrl(row.oracleUrl);
-          return `<div class="settlement" title="${escapeHtml(row.source)}">
-            <div><b>${escapeHtml(row.asset)} ${fmt(row.intervalSec / 60, 0)}m</b><span>${row.voided ? "VOID" : row.winningOutcome === 0 ? "UP" : row.winningOutcome === 1 ? "DOWN" : "PENDING"}</span></div>
-            <small>${safeTime(row.expiry)} · ${escapeHtml(row.tradeCount ?? "NO DATA")} trades · ${row.lastPrice === undefined ? "NO DATA" : fmt(row.lastPrice, 3)}</small>
-            ${oracleUrl ? `<a href="${escapeHtml(oracleUrl)}" target="_blank" rel="noopener noreferrer">Oracle audit ↗</a>` : '<em>Oracle link unavailable</em>'}
-          </div>`;
-        })
-        .join("")
-    : '<div class="empty">NO DATA</div>';
-}
-
-function render(state) {
-  if (!state) return;
-  lastState = state;
-  window.dispatchEvent(new CustomEvent("tempo:state", { detail: state }));
-  $("pill-net").textContent = state.live.network.toUpperCase();
-  $("pill-mode").textContent = state.live.dryRun ? "DRY RUN" : "LIVE";
-  $("pill-tail").textContent = state.live.tailing ? "TAIL LIVE" : "POLL FALLBACK";
-  $("pill-uptime").textContent = `${state.live.uptimeSec}s`;
-  renderWindows(state.markets);
-  renderFirm(state.agents);
-  renderSettlements(state.settlements);
-  const market = state.markets.find((row) => row.marketId === selected);
-  $("window-title").firstChild.textContent = market ? `${market.asset} ${fmt(market.intervalSec / 60, 0)}m ` : "Select a window ";
-  $("window-sub").textContent = market ? `${market.lifecycle} · ${short(market.marketId)}` : "";
-  const view = market?.view;
-  $("facts").innerHTML = market
-    ? `<div title="DreamDEX indexer"><span>Expiry · fact</span><b>${safeTime(market.expiry)}</b></div>
-       <div title="derived from indexed expiry and local clock"><span>Time left · derived</span><b>${Math.max(0, market.secondsLeft)}s</b></div>
-       <div title="getMarketOnchain(marketId)"><span>Status · chain fact</span><b>${market.status < 0 ? "NO DATA" : market.status}</b></div>
-       <div title="${escapeHtml(view?.opening.source ?? "UNAVAILABLE")}"><span>Strike · fact</span><b>${view ? fmt(view.opening.value, 2) : "NO DATA"}</b></div>
-       <div title="${escapeHtml(view ? `${view.spot.source} · block ${view.spot.block ?? "NO DATA"} · ${view.spot.at}` : "UNAVAILABLE")}"><span>Spot · feed fact</span><b>${view ? fmt(view.spot.value, 2) : "NO DATA"}</b></div>
-       <div title="DreamDEX indexer"><span>Venue · fact</span><b>${escapeHtml(short(market.venueId))}</b></div>`
-    : '<div class="empty">NO DATA</div>';
-  renderBook(view);
-  $("fv-p").textContent = view && Number.isFinite(view.fairValue.value) ? `${fmt(view.fairValue.value * 100, 1)}%` : "NO DATA";
-  $("fv-p").title = view ? `${view.fairValue.source} · ${view.fairValue.at}` : "UNAVAILABLE";
-  $("fv-band").innerHTML = view && Number.isFinite(view.fairValue.value)
-    ? `<span style="left:${view.fairValue.band[0] * 100}%;width:${Math.max(1, (view.fairValue.band[1] - view.fairValue.band[0]) * 100)}%"></span>`
-    : "";
-  $("fv-meta").textContent = view && Number.isFinite(view.fairValue.value)
-    ? `band ${fmt(view.fairValue.band[0], 3)}–${fmt(view.fairValue.band[1], 3)} · σ ${view.fairValue.sigma.toExponential(2)} · ${view.fairValue.samples} feed samples`
-    : "Awaiting a journaled estimate for this window";
-}
-
-async function refresh() {
-  const response = await fetch("/api/state");
-  if (!response.ok) throw new Error(`state ${response.status}`);
-  render(await response.json());
 }
 
 async function refreshNarrative() {
-  const model = $("ai-narrative-model");
+  const button = $("ai-summary");
   const text = $("ai-narrative-text");
   const meta = $("ai-narrative-meta");
-  const button = $("ai-summary");
-  if (!model || !text || !meta || !button) return;
+  if (!button || !text || !meta) return;
   button.disabled = true;
   button.textContent = "Generating…";
-  model.textContent = "REQUESTING";
-  text.textContent = "Sending the current journal metrics to Gemini…";
-  meta.textContent = "AI commentary · one request started by you";
+  text.textContent = "Sending current journal metrics for optional narration…";
   try {
-    const response = await fetch("/api/narrative");
-    const body = await response.json();
-    if (!response.ok || body.status !== "READY" || typeof body.text !== "string") {
-      model.textContent = body.model ?? "UNAVAILABLE";
-      text.textContent = body.reason ?? "No Gemini briefing available.";
-      meta.textContent = "AI commentary · journal metrics remain authoritative";
-      return;
+    const body = await getJson("/api/narrative");
+    if (body.status !== "READY" || typeof body.text !== "string") {
+      text.textContent = body.reason || "LLM narration not configured — deterministic mode";
+      meta.textContent = "LLM COMMENTARY unavailable · journal metrics remain authoritative";
+    } else {
+      text.textContent = body.text;
+      meta.textContent = "LLM COMMENTARY · " + (body.model || "model") + " · " + (body.generatedAt || "generation time unavailable") + " · never controls execution";
     }
-    model.textContent = body.model ?? "GEMINI";
-    text.textContent = body.text;
-    meta.textContent = body.generatedAt ? `AI commentary · ${body.generatedAt} · journal metrics remain authoritative` : "AI commentary · journal metrics remain authoritative";
   } catch {
-    model.textContent = "UNAVAILABLE";
-    text.textContent = "Gemini briefing unavailable.";
-    meta.textContent = "AI commentary · journal metrics remain authoritative";
+    text.textContent = "LLM narration unavailable — deterministic mode";
+    meta.textContent = "Journal metrics remain authoritative.";
   } finally {
     button.disabled = false;
-    button.textContent = "Generate AI summary";
+    button.textContent = "Generate";
   }
 }
 
-async function bootstrap() {
-  try {
-    const journal = await fetch("/api/journal?n=80").then((response) => response.json());
-    records = journal.records ?? [];
-    renderTape();
-    await refresh();
-  } catch {
-    $("pill-tail").textContent = "UNAVAILABLE";
-  }
-  setInterval(() => void refresh().catch(() => ($("pill-tail").textContent = "UNAVAILABLE")), 2000);
-  $("ai-summary")?.addEventListener("click", () => void refreshNarrative());
+function startStream() {
+  model.eventSource?.close();
   const stream = new EventSource("/api/stream");
+  model.eventSource = stream;
+  stream.onopen = () => { model.stream = "TAIL LIVE"; updateChrome(); };
   stream.onmessage = (event) => {
     let record;
-    try {
-      record = JSON.parse(event.data);
-    } catch {
-      return;
-    }
+    try { record = JSON.parse(event.data); } catch { return; }
     if (!record || typeof record !== "object") return;
     if (record.type === "market-birth" && record.marketId) {
-      birthPulses.add(record.marketId);
-      setTimeout(() => birthPulses.delete(record.marketId), 1800);
+      model.births.add(record.marketId);
+      setTimeout(() => model.births.delete(record.marketId), 1900);
     }
-    records.push(record);
-    if (records.length > 200) records = records.slice(-120);
-    renderTape();
+    model.records.push(record);
+    if (model.records.length > 600) model.records.splice(0, model.records.length - 400);
+    if (["market-birth", "decision", "order-sent", "order-receipt", "order-cancelled", "fill", "risk-reject", "settlement", "claim", "error"].includes(record.type)) {
+      scheduleLiveRender(120);
+    }
   };
-  stream.onerror = () => ($("pill-tail").textContent = "POLL FALLBACK");
+  stream.onerror = () => { model.stream = "POLL FALLBACK"; updateChrome(); };
+}
+
+let overlayReturnFocus = null;
+function openOverlay(id, selector) {
+  const trigger = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  closeOverlays(false);
+  const overlay = $(id);
+  if (!overlay) return;
+  overlayReturnFocus = trigger;
+  overlay.hidden = false;
+  document.body.style.overflow = "hidden";
+  requestAnimationFrame(() => overlay.querySelector(selector || "button, input, select, [tabindex]")?.focus());
+}
+function closeOverlay(id) {
+  if ($(id)) $(id).hidden = true;
+  if (!document.querySelector(".overlay:not([hidden]), .drawer-backdrop:not([hidden])")) {
+    document.body.style.overflow = "";
+    overlayReturnFocus?.focus();
+    overlayReturnFocus = null;
+  }
+}
+function closeOverlays(restore = true) {
+  document.querySelectorAll(".overlay, .drawer-backdrop").forEach((node) => { node.hidden = true; });
+  document.body.style.overflow = "";
+  if (restore) overlayReturnFocus?.focus();
+  overlayReturnFocus = null;
+}
+function openWallet() { openOverlay("wallet-overlay", "#wallet-connect"); }
+function findRecord(id) { return model.records.find((row) => row.eventId === id); }
+
+function openProof(hash) {
+  if (!HASH.test(hash)) return;
+  const related = model.records.filter((row) => row.tx?.toLowerCase() === hash.toLowerCase());
+  const receipt = related.find((row) => row.type === "order-receipt") || related.at(-1);
+  const walletProof = model.walletProofs.get(hash.toLowerCase());
+  const status = walletProof?.status || (receipt ? recordStatus(receipt) : "not found");
+  const explorer = explorerUrl("tx", hash);
+  const actions = '<button class="copy-button" data-copy="' + escapeHtml(hash) + '">Copy hash</button>' +
+    (explorer ? '<a class="button button-small button-primary" href="' + escapeHtml(explorer) + '" target="_blank" rel="noopener noreferrer">Open explorer ↗</a>' : "");
+  $("proof-content").innerHTML = '<div class="drawer-section"><div class="section-kicker"><span>TRANSACTION</span>' + badge("chain") +
+    '</div><code class="full-hash">' + escapeHtml(hash) + '</code><div class="page-actions" style="margin-top:10px">' + actions +
+    '</div></div><div class="drawer-section"><h3>Verification state</h3><div class="drawer-grid"><div><span>Status</span><b>' +
+    escapeHtml(status.toUpperCase()) + '</b></div><div><span>Block</span><b>' + escapeHtml(receipt?.block || receipt?.data?.block || walletProof?.block || "UNAVAILABLE") +
+    '</b></div><div><span>Actor</span><b>' + escapeHtml(receipt?.agent || short(walletProof?.account) || "UNAVAILABLE") + '</b></div><div><span>Market</span><b>' +
+    escapeHtml(short(receipt?.marketId || walletProof?.marketId)) + '</b></div><div><span>Event time</span><b>' + escapeHtml(receipt ? utc(receipt.ts) : walletProof?.at ? utc(walletProof.at) : "UNAVAILABLE") +
+    '</b></div><div><span>Receipt result</span><b>' + escapeHtml(receipt?.data?.status || (walletProof ? status.toUpperCase() : receipt ? "CONFIRMED" : "NOT FOUND")) +
+    "</b></div></div>" + (!receipt && !walletProof ? empty("NOT FOUND", "This hash is outside the loaded journal window. Use the explorer for direct chain lookup.") : "") +
+    '</div><div class="drawer-section"><h3>Related evidence</h3>' + (related.length ? activityRows(related, 20) : empty("NO DATA")) + "</div>";
+  openOverlay("proof-overlay", ".close-button");
+}
+
+function openAudit(record) {
+  if (!record) return;
+  const related = record.decisionId ? model.records.filter((row) => row.decisionId === record.decisionId) : [];
+  const explorer = record.tx ? explorerUrl("tx", record.tx) : null;
+  const txActions = record.tx ? '<div class="page-actions" style="margin-top:12px"><button class="button button-small button-ghost" data-tx="' +
+    escapeHtml(record.tx) + '">Transaction proof</button>' + (explorer ? '<a class="button button-small button-primary" href="' +
+      escapeHtml(explorer) + '" target="_blank" rel="noopener noreferrer">Explorer ↗</a>' : "") + "</div>" : "";
+  $("audit-title").textContent = "Event inspection";
+  $("audit-content").innerHTML = '<div class="drawer-section"><div class="section-kicker"><span>' + escapeHtml(record.type.toUpperCase()) +
+    "</span>" + badge(recordSource(record)) + '</div><div class="drawer-grid"><div><span>Timestamp</span><b>' + escapeHtml(utc(record.ts)) +
+    '</b></div><div><span>Actor</span><b>' + escapeHtml(record.agent || "FIRM") + '</b></div><div><span>Market</span><b>' +
+    escapeHtml(short(record.marketId)) + '</b></div><div><span>Status</span><b>' + escapeHtml(recordStatus(record).toUpperCase()) +
+    '</b></div><div><span>Source</span><b>' + escapeHtml(record.source || "journal") + '</b></div><div><span>Decision ID</span><b>' +
+    escapeHtml(short(record.decisionId)) + "</b></div></div>" + txActions + '</div><div class="drawer-section"><h3>Sanitized event payload</h3><pre class="json-view">' +
+    escapeHtml(JSON.stringify(record, null, 2)) + '</pre></div><div class="drawer-section"><h3>Correlated decision sequence</h3>' +
+    (related.length ? activityRows(related, 30) : empty("NO DATA", "No correlated events are loaded for this decision ID.")) + "</div>";
+  openOverlay("audit-overlay", ".close-button");
+}
+
+function openAgent(name) {
+  const agent = model.state?.agents?.find((row) => row.name === name);
+  if (!agent) return;
+  const records = model.records.filter((row) => row.agent === name);
+  $("audit-title").textContent = name + " agent";
+  $("audit-content").innerHTML = '<div class="drawer-section"><div class="section-kicker"><span>AUTONOMOUS AGENT</span><span class="prov ' +
+    (agent.readOnly ? "derived" : "chain") + '">' + mode(agent) + '</span></div><div class="drawer-grid"><div><span>Address</span><b>' +
+    escapeHtml(agent.address || "No signer configured") + '</b></div><div><span>Collateral ' + badge("chain") + "</span><b>" +
+    (agent.collateral ? fmt(agent.collateral.human) : "UNAVAILABLE") + '</b></div><div><span>Realized P&amp;L ' + badge("derived") +
+    "</span><b>" + (agent.readOnly ? "UNAVAILABLE" : fmt(agent.realizedPnl)) + '</b></div><div><span>Inventory ' + badge("derived") +
+    "</span><b>" + (agent.inventory ? fmt(inventory(agent), 3) : "UNAVAILABLE") + '</b></div><div><span>Working orders ' + badge("chain") +
+    "</span><b>" + (agent.readOnly ? "UNAVAILABLE" : fmt(agent.openOrders, 0)) + '</b></div><div><span>Last action</span><b>' +
+    (agent.lastActionAt ? utc(agent.lastActionAt) : "NO DATA") + "</b></div></div></div>" +
+    '<div class="drawer-section"><h3>Policy boundary</h3><p class="settings-note">' +
+    (name === "GENESIS" ? "Liquidity-genesis maker: post-only two-sided quotes, inventory skew, adaptive spread, mandatory expiry." :
+      "Adversarial taker: independent estimate, edge threshold, IOC-only execution, bounded collateral.") +
+    ' Every plan passes the shared deterministic RiskEngine.</p></div><div class="drawer-section"><h3>Latest loaded activity</h3>' +
+    activityRows(records, 25) + "</div>";
+  openOverlay("audit-overlay", ".close-button");
+}
+
+function openRisk(label) {
+  const risk = model.state?.risk;
+  const rejects = model.records.filter((row) => row.type === "risk-reject");
+  $("audit-title").textContent = label + " policy";
+  $("audit-content").innerHTML = '<div class="drawer-section"><div class="section-kicker"><span>RISKENGINE CONTROLS</span>' + badge("policy") +
+    "</div>" + (risk ? '<div class="drawer-grid">' + join(Object.entries(risk).map(([key, value]) =>
+      "<div><span>" + escapeHtml(key) + "</span><b>" + escapeHtml(value) + "</b></div>")) + "</div>" :
+      empty("UNAVAILABLE", "Risk policy was not present in the snapshot.")) + '</div><div class="drawer-section"><h3>Recent rejection evidence</h3>' +
+    (rejects.length ? activityRows(rejects, 30) : empty("NO DATA", "No risk-reject event is loaded. This does not mean controls are disabled.")) + "</div>";
+  openOverlay("audit-overlay", ".close-button");
+}
+
+function toast(message) {
+  const node = document.createElement("div");
+  node.className = "toast";
+  node.textContent = message;
+  $("toast-region")?.append(node);
+  setTimeout(() => node.remove(), 3000);
+}
+async function copyText(value) {
+  try { await navigator.clipboard.writeText(value); toast("Copied to clipboard"); }
+  catch { toast("Clipboard unavailable"); }
+}
+
+function commandItems() {
+  const base = [
+    { label: "Open dashboard", detail: "1 · Live command center", href: "/dashboard" },
+    { label: "Browse markets", detail: "2 · Current DreamDEX windows", href: "/markets" },
+    { label: "Open history", detail: "3 · Journal and chain evidence", href: "/history" },
+    { label: "Search documentation", detail: "4 · SDK, security, operations", href: "/docs" },
+    { label: "View pricing", detail: "5 · Available and planned tiers", href: "/pricing" },
+    { label: "Open wallet", detail: "Client-signed human IOC", action: "wallet" },
+    { label: "Display settings", detail: "Density, refresh, motion", action: "settings" },
+    { label: "Keyboard shortcuts", detail: "Navigation and inspection", action: "shortcuts" },
+  ];
+  return base.concat((model.state?.markets || []).slice(0, 20).map((row) => ({
+    label: row.asset + " " + fmt(row.intervalSec / 60, 0) + "m · " + row.lifecycle,
+    detail: secondsLeft(row.secondsLeft) + " · " + short(row.marketId),
+    href: marketPath(row.marketId),
+  })));
+}
+
+function renderCommands() {
+  const query = $("command-search")?.value.trim().toLowerCase() || "";
+  const items = commandItems().filter((item) => !query || (item.label + " " + item.detail).toLowerCase().includes(query));
+  model.commandIndex = Math.max(0, Math.min(model.commandIndex, items.length - 1));
+  $("command-results").innerHTML = items.length ? join(items.map((item, index) =>
+    '<button class="command-result ' + (index === model.commandIndex ? "active" : "") +
+    '" type="button" data-command-index="' + index + '" data-command-href="' + escapeHtml(item.href || "") +
+    '" data-command-action="' + escapeHtml(item.action || "") + '"><span>' + escapeHtml(item.label) +
+    "</span><small>" + escapeHtml(item.detail) + "</small></button>")) : empty("NO DATA", "No command or market matches.");
+}
+
+function runCommand(node) {
+  const href = node?.dataset.commandHref;
+  const action = node?.dataset.commandAction;
+  if (href) navigate(href);
+  else if (action === "wallet") openWallet();
+  else if (action === "settings") openSettings();
+  else if (action === "shortcuts") openOverlay("shortcuts-overlay");
+}
+
+function loadSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("tempo-display-v1") || "{}");
+    if (["comfortable", "compact"].includes(saved.density)) model.settings.density = saved.density;
+    if ([2000, 5000, 10000].includes(Number(saved.refresh))) model.settings.refresh = Number(saved.refresh);
+    if (["ALL", "BTC", "ETH"].includes(saved.asset)) model.settings.asset = saved.asset;
+    if (saved.interval === "ALL" || (Number.isSafeInteger(Number(saved.interval)) && Number(saved.interval) > 0)) model.settings.interval = String(saved.interval);
+    model.settings.reducedMotion = Boolean(saved.reducedMotion);
+  } catch { /* Ignore corrupt display-only preferences. */ }
+  applySettings();
+}
+
+function applySettings() {
+  document.body.classList.toggle("compact", model.settings.density === "compact");
+  document.body.classList.toggle("reduced-motion", model.settings.reducedMotion);
+  model.filters.asset = model.settings.asset;
+  model.filters.interval = model.settings.interval;
+  clearInterval(model.refreshTimer);
+  model.refreshTimer = setInterval(() => void refreshState(), model.settings.refresh);
+}
+
+function openSettings() {
+  const intervals = [...new Set((model.state?.markets || []).map((row) => row.intervalSec))].sort((a, b) => a - b);
+  $("setting-interval").innerHTML = '<option value="ALL">All intervals</option>' + selectOptions(intervals, (value) => fmt(value / 60, 0) + "m");
+  if (model.settings.interval !== "ALL" && !intervals.map(String).includes(model.settings.interval)) model.settings.interval = "ALL";
+  $("setting-density").value = model.settings.density;
+  $("setting-refresh").value = String(model.settings.refresh);
+  $("setting-asset").value = model.settings.asset;
+  $("setting-interval").value = model.settings.interval;
+  $("setting-motion").checked = model.settings.reducedMotion;
+  $("settings-runtime").textContent = model.state ? (model.state.live.dryRun ? "DRY RUN" : "LIVE") + " · " + model.state.live.network : "UNAVAILABLE";
+  $("settings-wallet").textContent = $("wallet-state")?.textContent || "DISCONNECTED";
+  openOverlay("settings-overlay", "#setting-density");
+}
+
+function saveSettings() {
+  model.settings = {
+    density: $("setting-density").value,
+    refresh: Number($("setting-refresh").value),
+    asset: $("setting-asset").value,
+    interval: $("setting-interval").value,
+    reducedMotion: $("setting-motion").checked,
+  };
+  localStorage.setItem("tempo-display-v1", JSON.stringify(model.settings));
+  applySettings();
+  closeOverlay("settings-overlay");
+  renderRoute();
+  toast("Display settings saved");
+}
+
+function searchDocs(event) {
+  const query = event.target.value.trim().toLowerCase();
+  document.querySelectorAll(".docs-article .doc-section").forEach((section) => {
+    section.hidden = Boolean(query && !section.textContent.toLowerCase().includes(query));
+  });
+}
+
+function moveRows(direction) {
+  const rows = [...document.querySelectorAll("[data-row-index]")];
+  if (!rows.length) return;
+  model.rowIndex = Math.max(0, Math.min(rows.length - 1, model.rowIndex + direction));
+  rows.forEach((row, index) => row.classList.toggle("keyboard-active", index === model.rowIndex));
+  rows[model.rowIndex].focus({ preventScroll: true });
+  rows[model.rowIndex].scrollIntoView({ block: "nearest" });
+}
+
+function inspectRow() {
+  const row = document.querySelector(".keyboard-active");
+  if (!row) return;
+  if (row.dataset.marketRow) navigate(marketPath(row.dataset.marketRow));
+  else if (row.dataset.eventId) openAudit(findRecord(row.dataset.eventId));
+}
+
+function bindGlobal() {
+  document.addEventListener("click", (event) => {
+    const target = event.target.closest("a,button");
+    if (!target) {
+      const row = event.target.closest("[data-inspect]");
+      if (row?.dataset.marketRow) navigate(marketPath(row.dataset.marketRow));
+      else if (row?.dataset.eventId) openAudit(findRecord(row.dataset.eventId));
+      return;
+    }
+    const route = target.closest("[data-route]");
+    if (route) {
+      const href = route.getAttribute("href");
+      if (href?.startsWith("/")) { event.preventDefault(); navigate(href); }
+      return;
+    }
+    if (target.matches("[data-close]")) closeOverlay(target.dataset.close);
+    else if (target.matches("[data-open-wallet]") || target.id === "wallet-open") openWallet();
+    else if (target.id === "command-open") {
+      model.commandIndex = 0;
+      openOverlay("command-overlay", "#command-search");
+      $("command-search").value = "";
+      renderCommands();
+    } else if (target.matches("[data-open-settings]")) openSettings();
+    else if (target.matches("[data-refresh]")) void Promise.all([refreshJournal(), refreshState(true)]);
+    else if (target.matches("[data-select-market]")) { model.selected = target.dataset.selectMarket; renderRoute(); }
+    else if (target.matches("[data-market-row]")) navigate(marketPath(target.dataset.marketRow));
+    else if (target.matches("[data-history-tab]")) { model.filters.historyTab = target.dataset.historyTab; renderRoute(); }
+    else if (target.matches("[data-clear-market-filters]")) {
+      model.filters.marketQuery = ""; model.filters.marketStatus = "ALL"; model.filters.asset = "ALL"; model.filters.interval = "ALL"; renderRoute();
+    } else if (target.matches("[data-pricing-mode]")) { sessionStorage.setItem("tempo-pricing-mode", target.dataset.pricingMode); renderRoute(); }
+    else if (target.matches("[data-copy]")) void copyText(target.dataset.copy);
+    else if (target.matches("[data-tx]")) openProof(target.dataset.tx);
+    else if (target.matches("[data-event-id]")) openAudit(findRecord(target.dataset.eventId));
+    else if (target.matches("[data-agent]")) openAgent(target.dataset.agent);
+    else if (target.matches("[data-risk]")) openRisk(target.dataset.risk);
+    else if (target.matches("[data-command-index]")) runCommand(target);
+    else if (target.matches("[data-retry-docs]")) { model.docs = null; void loadDocs(); }
+  });
+  window.addEventListener("popstate", () => path() === "/docs" && model.docs === null ? void loadDocs() : renderRoute({ animate: true }));
+  document.addEventListener("keydown", (event) => {
+    const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName);
+    if (event.key === "Escape") closeOverlays();
+    if (event.key === "Tab") {
+      const overlay = document.querySelector(".overlay:not([hidden]), .drawer-backdrop:not([hidden])");
+      const focusable = overlay ? [...overlay.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')].filter((node) => !node.hidden) : [];
+      if (focusable.length) {
+        const first = focusable[0];
+        const last = focusable.at(-1);
+        if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      }
+    }
+    if (event.key === "?" && !typing) { event.preventDefault(); openOverlay("shortcuts-overlay"); }
+    if (event.key === "/" && !typing) {
+      event.preventDefault();
+      if (path() === "/markets") $("market-search")?.focus();
+      else if (path() === "/history") $("history-search")?.focus();
+      else if (path() === "/docs") $("docs-search-spa")?.focus();
+      else { openOverlay("command-overlay", "#command-search"); renderCommands(); }
+    }
+    if (!typing && /^[1-7]$/.test(event.key)) {
+      const routes = ["/", "/dashboard", "/markets", "/history", "/docs", "/pricing", "/dashboard"];
+      navigate(routes[Number(event.key) - 1]);
+    }
+    if (!typing && event.key.toLowerCase() === "j") moveRows(1);
+    if (!typing && event.key.toLowerCase() === "k") moveRows(-1);
+    if (!typing && event.key === "Enter") inspectRow();
+    if (!$("command-overlay")?.hidden) {
+      const items = [...document.querySelectorAll(".command-result")];
+      if (event.key === "ArrowDown") { event.preventDefault(); model.commandIndex = Math.min(items.length - 1, model.commandIndex + 1); renderCommands(); }
+      if (event.key === "ArrowUp") { event.preventDefault(); model.commandIndex = Math.max(0, model.commandIndex - 1); renderCommands(); }
+      if (event.key === "Enter" && document.activeElement?.id === "command-search") {
+        event.preventDefault();
+        runCommand(document.querySelector('.command-result[data-command-index="' + model.commandIndex + '"]'));
+      }
+    }
+  });
+  $("command-search")?.addEventListener("input", () => { model.commandIndex = 0; renderCommands(); });
+  $("settings-save")?.addEventListener("click", saveSettings);
+  document.querySelectorAll(".overlay, .drawer-backdrop").forEach((overlay) => overlay.addEventListener("mousedown", (event) => {
+    if (event.target === overlay) closeOverlay(overlay.id);
+  }));
+  const walletState = $("wallet-state");
+  if (walletState) new MutationObserver(() => {
+    const state = walletState.textContent || "Wallet";
+    $("wallet-top-state").textContent = state === "CONNECTED" ? "Connected" : "Wallet";
+    $("wallet-open").classList.toggle("connected", state === "CONNECTED");
+  }).observe(walletState, { childList: true, subtree: true, characterData: true });
+  window.addEventListener("tempo:wallet-receipt", (event) => {
+    const hash = event.detail?.hash;
+    if (HASH.test(hash || "")) {
+      const status = ["pending", "confirmed", "failed"].includes(event.detail?.status) ? event.detail.status : "pending";
+      model.walletProofs.set(hash.toLowerCase(), { ...event.detail, status, at: new Date().toISOString() });
+      if (status === "confirmed") {
+        toast("Wallet transaction confirmed on Somnia");
+      } else if (status === "pending") toast("Transaction submitted · receipt pending");
+      else toast("Transaction failed or reverted");
+    }
+  });
+  window.addEventListener("tempo:wallet-complete", (event) => {
+    const hash = event.detail?.hashes?.at(-1);
+    if (HASH.test(hash || "")) openProof(hash);
+  });
+}
+
+async function bootstrap() {
+  loadSettings();
+  bindGlobal();
+  renderRoute({ animate: true });
+  const results = await Promise.allSettled([
+    getJson("/api/wallet/config"),
+    getJson("/api/journal?n=300"),
+    getJson("/api/state"),
+    path() === "/docs" ? ensureDocs() : Promise.resolve(),
+  ]);
+  if (results[0].status === "fulfilled") model.walletConfig = results[0].value;
+  if (results[1].status === "fulfilled") model.records = Array.isArray(results[1].value.records) ? results[1].value.records : [];
+  if (results[2].status === "fulfilled") {
+    const state = results[2].value;
+    if (state?.live && Array.isArray(state.markets) && Array.isArray(state.agents) && Array.isArray(state.settlements)) {
+      model.state = state;
+      model.refreshAt = state.at;
+      window.dispatchEvent(new CustomEvent("tempo:state", { detail: state }));
+    }
+  }
+  updateChrome();
+  renderRoute();
+  if (!new URLSearchParams(location.search).has("snapshot")) startStream();
 }
 
 void bootstrap();

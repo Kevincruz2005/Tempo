@@ -1,4 +1,4 @@
-import { mkdtempSync, mkdirSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -36,6 +36,29 @@ const healthy = (): ReadinessResult => ({
 });
 
 describe("health and readiness boundary", () => {
+  it("serves the application shell for every public UI route and market deep link", async () => {
+    const staticRoot = mkdtempSync(join(tmpdir(), "tempo-static-"));
+    roots.push(staticRoot);
+    writeFileSync(join(staticRoot, "index.html"), "<!doctype html><title>TEMPO SHELL</title>");
+    const server = new TempoServer(fakeFirm(async () => healthy()), 0, staticRoot);
+    servers.push(server);
+    await server.start();
+    const routes = [
+      "/",
+      "/dashboard",
+      "/markets",
+      "/history",
+      "/docs",
+      "/pricing",
+      `/markets/0x${"a".repeat(64)}`,
+    ];
+    for (const route of routes) {
+      const response = await request(server, route);
+      expect(response.status).toBe(200);
+      expect(await response.text()).toContain("TEMPO SHELL");
+    }
+  });
+
   it("returns a deterministic health body without dependency or secret data", async () => {
     const server = new TempoServer(fakeFirm(async () => healthy()), 0, tmpdir());
     servers.push(server);
@@ -77,4 +100,3 @@ describe("health and readiness boundary", () => {
     expect((await request(server, "/health", { method: "POST" })).status).toBe(405);
   });
 });
-
