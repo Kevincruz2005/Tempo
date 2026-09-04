@@ -56,6 +56,7 @@ describe("multipage observatory UI contract", () => {
     expect(css).toContain("dashboard-grid.agents-minimized.evidence-minimized");
     expect(css).toContain("writing-mode: vertical-rl");
     expect(css).toContain("right-expanded.agents-minimized .agents-risk-panel");
+    expect(css).toContain("right-expanded:not(.agents-minimized).evidence-minimized");
     expect(css).toContain("grid-template-columns: 48px minmax(0, 1fr) 48px");
     expect(app).toContain("theme-light");
     expect(html).toContain("white / purple / blue");
