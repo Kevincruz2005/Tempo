@@ -42,7 +42,7 @@ describe("multipage observatory UI contract", () => {
     expect(html).toContain('class="skip-link"');
     expect(html).toContain("/assets/tempo-logo.png");
     expect(html).toContain('id="theme-toggle"');
-    expect(app).toContain('dashboard: { venue: false, agents: false, evidence: true }');
+    expect(app).toContain('dashboard: { venue: true, agents: true, evidence: true }');
     expect(app).toContain('data-toggle-panel');
     expect(app).toContain("GENESIS EXPANDED");
     expect(app).toContain('model.dashboard[key === "agents" ? "evidence" : "agents"] = true');

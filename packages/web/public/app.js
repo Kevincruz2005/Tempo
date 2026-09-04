@@ -18,7 +18,7 @@ const model = {
   rowIndex: -1,
   births: new Set(),
   walletProofs: new Map(),
-  dashboard: { venue: false, agents: false, evidence: true },
+  dashboard: { venue: true, agents: true, evidence: true },
   filters: {
     marketQuery: "", marketStatus: "ALL", asset: "ALL", interval: "ALL", sort: "EXPIRY",
     historyTab: "OPERATIONS", historyQuery: "", historyAgent: "ALL", historySource: "ALL", historyStatus: "ALL",
