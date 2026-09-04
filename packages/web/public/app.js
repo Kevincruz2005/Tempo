@@ -1078,6 +1078,9 @@ function bindGlobal() {
             model.dashboard.agents = false;
             model.dashboard.evidence = true;
           }
+        } else if (key === "agents" && !opening) {
+          model.dashboard.agents = true;
+          model.dashboard.evidence = false;
         } else {
           model.dashboard[key] = !opening;
         }

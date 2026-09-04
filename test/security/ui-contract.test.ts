@@ -51,6 +51,7 @@ describe("multipage observatory UI contract", () => {
     expect(app).toContain('key === "agents" && minimized ? "↓"');
     expect(app).toContain('key === "evidence" && minimized ? "↑"');
     expect(app).toContain("model.dashboard.agents = false");
+    expect(app).toContain('key === "agents" && !opening');
     expect(app).toContain("model.dashboard.evidence = true");
     expect(css).toContain("dashboard-grid.venue-minimized");
     expect(css).toContain("dashboard-grid.agents-minimized.evidence-minimized");
