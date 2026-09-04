@@ -45,6 +45,9 @@ describe("multipage observatory UI contract", () => {
     expect(app).toContain('dashboard: { venue: false, agents: false, evidence: true }');
     expect(app).toContain('data-toggle-panel');
     expect(app).toContain("GENESIS EXPANDED");
+    expect(app).toContain('model.dashboard[key === "agents" ? "evidence" : "agents"] = true');
+    expect(css).toContain("dashboard-grid.venue-minimized");
+    expect(css).toContain("dashboard-grid.agents-minimized.evidence-minimized");
     expect(app).toContain("theme-light");
     expect(html).toContain("white / purple / blue");
     expect(css).toContain("@keyframes edge-flow");

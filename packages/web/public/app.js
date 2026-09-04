@@ -270,7 +270,9 @@ function briefing() {
 }
 
 function panelToggle(key, minimized) {
-  return '<button class="panel-toggle" type="button" data-toggle-panel="' + key + '" aria-expanded="' + (!minimized) + '" aria-label="' + (minimized ? "Expand " : "Minimize ") + key + ' panel">' + (minimized ? "Expand" : "Minimize") + '</button>';
+  const left = key === "venue";
+  const arrow = minimized ? (left ? "→" : "←") : (left ? "←" : "→");
+  return '<button class="panel-toggle" type="button" data-toggle-panel="' + key + '" aria-expanded="' + (!minimized) + '" aria-label="' + (minimized ? "Expand " : "Minimize ") + key + ' panel"><span class="toggle-arrow" aria-hidden="true">' + arrow + '</span><span class="toggle-text">' + (minimized ? "Expand" : "Minimize") + '</span></button>';
 }
 
 function renderDashboard() {
@@ -1062,7 +1064,11 @@ function bindGlobal() {
     } else if (target.matches("[data-toggle-panel]")) {
       const key = target.dataset.togglePanel;
       if (Object.prototype.hasOwnProperty.call(model.dashboard, key)) {
-        model.dashboard[key] = !model.dashboard[key];
+        const opening = model.dashboard[key];
+        model.dashboard[key] = !opening;
+        if (opening && (key === "agents" || key === "evidence")) {
+          model.dashboard[key === "agents" ? "evidence" : "agents"] = true;
+        }
         renderRoute({ preserve: true });
       }
     } else if (target.matches("[data-open-settings]")) openSettings();
