@@ -18,7 +18,7 @@ const model = {
   rowIndex: -1,
   births: new Set(),
   walletProofs: new Map(),
-  dashboard: { venue: true, agents: true, evidence: true },
+  dashboard: { venue: true, right: true, agents: false, evidence: true },
   filters: {
     marketQuery: "", marketStatus: "ALL", asset: "ALL", interval: "ALL", sort: "EXPIRY",
     historyTab: "OPERATIONS", historyQuery: "", historyAgent: "ALL", historySource: "ALL", historyStatus: "ALL",
@@ -287,10 +287,21 @@ function renderDashboard() {
   const births = model.records.filter((row) => row.type === "market-birth").length;
   const actions = '<a class="button button-ghost" href="/markets" data-route>View all markets</a>' + btn("Settings", "data-open-settings");
   const dash = model.dashboard;
-  const gridClass = "dashboard-grid" + (dash.venue ? " venue-minimized" : "") + (dash.agents ? " agents-minimized" : "") + (dash.evidence ? " evidence-minimized" : "");
+  const gridClass = "dashboard-grid" + (dash.venue ? " venue-minimized" : "") + (dash.right ? " right-minimized" : "") + (dash.agents ? " agents-minimized" : "") + (dash.evidence ? " evidence-minimized" : "");
   const selectedContent = selected ? marketFacts(selected) + '<div class="market-core">' + renderBook(selected.view, 5) +
     renderFairValue(selected.view) + '</div><div style="margin-top:var(--page-gap)">' + lifecycle(selected.lifecycle, true) + "</div>" :
     empty("NO ACTIVE WINDOW", "No market is available for inspection.");
+  const agentsPanel = '<section class="panel agents-risk-panel ' + (dash.agents ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Agents & risk</h2><small>GENESIS EXPANDED · ONE BOUNDARY · TWO POLICIES</small></div>' + panelToggle("agents", dash.agents) + '</div><div class="agents-risk-body panel-body scroll-region"><div class="agent-stack">' +
+    (agents.length ? join(agents.map(agentCard)) : empty("NO DATA", "Agent state unavailable.")) + '</div><div class="drawer-divider"></div><div class="risk-bars">' +
+    riskBar("Peak window gross inventory", peakWindowInventory(genesis), risk?.maxGrossInventory) +
+    riskBar("Per-window open orders", null, risk?.maxOpenOrdersPerWindow) +
+    riskBar("Capital committed", null, risk?.firmCapitalCap) +
+    '</div></div></section>';
+  const evidencePanel = '<section class="panel evidence-panel ' + (dash.evidence ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Evidence stream</h2><a class="text-link" href="/history" data-route>Full history ↗</a></div>' + panelToggle("evidence", dash.evidence) + '</div>' +
+    '<div class="evidence-body"><div class="scroll-region"><div style="max-height:132px;overflow:auto">' + activityRows(events, 12) +
+    '</div><div class="panel-body" style="padding-top:8px"><div class="section-kicker"><span>LATEST SETTLEMENTS</span>' +
+    badge("chain") + "</div>" + settlements(model.state?.settlements || [], 2) + briefing() + "</div></div></div></section>";
+  const rightPanels = dash.right ? '<section class="panel right-rail panel-minimized"><div class="panel-head"><div class="panel-head-title"><h2>Right panels</h2><small>AGENTS · EVIDENCE</small></div>' + panelToggle("right", true) + '</div></section>' : agentsPanel + evidencePanel;
   return '<section class="page dashboard">' + heading("LIVE COMMAND CENTER", "The autonomous firm, in evidence",
     "Market state first. Agent action second. Risk and on-chain proof always visible.", actions) +
     '<div class="' + gridClass + '"><section class="panel venue-panel ' + (dash.venue ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Venue pulse</h2><small>' +
@@ -305,15 +316,7 @@ function renderDashboard() {
     (selected ? escapeHtml(selected.asset) + " " + fmt(selected.intervalSec / 60, 0) + "m · " + escapeHtml(selected.lifecycle) : "Selected market") +
     "</h2>" + (selected ? '<a class="text-link" href="' + marketPath(selected.marketId) + '" data-route>Inspect market ↗</a>' : "") +
     '</div><div class="panel-body">' + selectedContent + "</div></section>" +
-    '<section class="panel agents-risk-panel ' + (dash.agents ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Agents & risk</h2><small>GENESIS EXPANDED · ONE BOUNDARY · TWO POLICIES</small></div>' + panelToggle("agents", dash.agents) + '</div><div class="agents-risk-body panel-body scroll-region"><div class="agent-stack">' +
-    (agents.length ? join(agents.map(agentCard)) : empty("NO DATA", "Agent state unavailable.")) + '</div><div class="drawer-divider"></div><div class="risk-bars">' +
-    riskBar("Peak window gross inventory", peakWindowInventory(genesis), risk?.maxGrossInventory) +
-    riskBar("Per-window open orders", null, risk?.maxOpenOrdersPerWindow) +
-    riskBar("Capital committed", null, risk?.firmCapitalCap) +
-    '</div></div></section><section class="panel evidence-panel ' + (dash.evidence ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Evidence stream</h2><a class="text-link" href="/history" data-route>Full history ↗</a></div>' + panelToggle("evidence", dash.evidence) + '</div>' +
-    '<div class="evidence-body"><div class="scroll-region"><div style="max-height:132px;overflow:auto">' + activityRows(events, 12) +
-    '</div><div class="panel-body" style="padding-top:8px"><div class="section-kicker"><span>LATEST SETTLEMENTS</span>' +
-    badge("chain") + "</div>" + settlements(model.state?.settlements || [], 2) + briefing() + "</div></div></div></section></div></section>";
+    rightPanels + '</div></section>';
 }
 
 function touch(row) {
@@ -1065,9 +1068,12 @@ function bindGlobal() {
       const key = target.dataset.togglePanel;
       if (Object.prototype.hasOwnProperty.call(model.dashboard, key)) {
         const opening = model.dashboard[key];
-        if (opening && (key === "agents" || key === "evidence")) {
-          model.dashboard.agents = false;
-          model.dashboard.evidence = false;
+        if (key === "right") {
+          model.dashboard.right = !opening;
+          if (opening) {
+            model.dashboard.agents = false;
+            model.dashboard.evidence = true;
+          }
         } else {
           model.dashboard[key] = !opening;
         }
