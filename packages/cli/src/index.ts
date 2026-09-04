@@ -85,7 +85,7 @@ async function main(): Promise<void> {
           const bal = await ex.collateralBalance().catch(() => null);
           out(`maker balance:  ${bal ? `${fmt(bal.human, 2)} collateral` : "read failed"}`);
         }
-      });
+      }, Boolean(cfg.keys.maker ?? cfg.keys.taker));
       break;
     }
 

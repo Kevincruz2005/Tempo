@@ -9,10 +9,11 @@ import {
   SomniaMarkets,
   ORDER_TYPE,
   isBinaryMarket,
+  binaryModuleReadAbi,
   type UnifiedMarket,
   type PlaceOrderResult,
 } from "@somnia-chain/markets-sdk";
-import { erc20Abi, createPublicClient, createWalletClient, http, type Address, type PublicClient, type WalletClient } from "viem";
+import { erc20Abi, createPublicClient, createWalletClient, getAddress, parseAbi, http, type Address, type PublicClient, type WalletClient } from "viem";
 import { somniaMainnet, somniaShannon, defineChain } from "@somnia-chain/markets-sdk/chains";
 import type { TempoConfig } from "./config.js";
 import { TempoError } from "./errors.js";
@@ -292,6 +293,49 @@ export class TempoExchange {
   }
 
   async onchain(marketId: string): Promise<OnchainMarket> {
+    if (this.cfg.addresses.binaryModule) {
+      try {
+        const moduleAddr = getAddress(this.cfg.addresses.binaryModule);
+        const rec = (await this.publicClient.readContract({
+          address: moduleAddr,
+          abi: binaryModuleReadAbi,
+          functionName: "markets",
+          args: [marketId as `0x${string}`],
+        })) as unknown as readonly [unknown, unknown, unknown, string, unknown, unknown, unknown, unknown, string, string, bigint, bigint, unknown, bigint];
+        const marketAddress = getAddress(rec[8]);
+        const pool = getAddress(rec[9]);
+        const yesId = BigInt(rec[10]);
+        const noId = BigInt(rec[11]);
+        const m = {
+          address: marketAddress,
+          abi: parseAbi([
+            "function outcomeToken() view returns (address)",
+            "function status() view returns (uint8)",
+            "function isResolved() view returns (bool)",
+            "function isVoided() view returns (bool)",
+          ]),
+        };
+        const [outcomeToken, status, isResolved, isVoided] = await Promise.all([
+          this.publicClient.readContract({ ...m, functionName: "outcomeToken" }),
+          this.publicClient.readContract({ ...m, functionName: "status" }),
+          this.publicClient.readContract({ ...m, functionName: "isResolved" }),
+          this.publicClient.readContract({ ...m, functionName: "isVoided" }),
+        ]);
+        return {
+          status: Number(status),
+          pool: String(pool),
+          marketAddress: String(marketAddress),
+          outcomeToken: String(outcomeToken),
+          yesId,
+          noId,
+          isResolved: Boolean(isResolved),
+          isVoided: Boolean(isVoided),
+          decimals: undefined,
+        };
+      } catch {
+        // Fall back to sdk client below
+      }
+    }
     const oc = await this.sdk.client.getMarketOnchain(marketId as `0x${string}`);
     return {
       status: Number(oc.status),
@@ -309,7 +353,21 @@ export class TempoExchange {
 
   async bookParams(pool: string): Promise<BookParams> {
     const decimals = await this.collateralDecimals();
-    const p = await this.sdk.client.getBinaryBookParams(pool as `0x${string}`);
+    let p: { tickSize: bigint; lotSize: bigint; minQuantity?: bigint };
+    try {
+      const poolAddr = getAddress(pool);
+      const abi = parseAbi([
+        "function getOrderBookParameters() view returns (uint256 tickSize, uint256 minQuantity, uint256 lotSize)",
+      ]);
+      const [tickSize, minQuantity, lotSize] = (await this.publicClient.readContract({
+        address: poolAddr,
+        abi,
+        functionName: "getOrderBookParameters",
+      })) as unknown as readonly [bigint, bigint, bigint];
+      p = { tickSize, minQuantity, lotSize };
+    } catch {
+      p = await this.sdk.client.getBinaryBookParams(pool as `0x${string}`);
+    }
     return {
       tickSize: p.tickSize,
       lotSize: p.lotSize,
@@ -362,8 +420,10 @@ export class TempoExchange {
   async spotHistory(asset: string, opts: { limit?: number; from?: number; to?: number } = {}): Promise<Array<{ price: number; ts: number }>> {
     const pts = await this.sdk.client.fetchPriceHistory(asset, opts);
     return (pts ?? []).map((p: unknown) => {
-      const row = p as { price: number; timestamp?: number };
-      return { price: Number(row.price), ts: Number(row.timestamp ?? 0) };
+      const row = p as { price: number; timestamp?: number; blockTimestamp?: number };
+      const sec = Number(row.blockTimestamp ?? row.timestamp ?? 0);
+      const ts = sec > 0 && sec < 1e11 ? sec * 1000 : sec;
+      return { price: Number(row.price), ts };
     });
   }
 
@@ -373,11 +433,19 @@ export class TempoExchange {
     if (!addr) throw new TempoError("NO_KEY", "no address for outcome balance");
     const decimals = await this.collateralDecimals();
     const id = outcome === "UP" ? onchain.yesId : onchain.noId;
-    const raw = await this.sdk.client.getOutcomeBalance({
-      outcomeToken: onchain.outcomeToken as `0x${string}`,
-      account: addr,
-      id,
-    });
+    let raw: bigint;
+    try {
+      const outcomeToken = getAddress(onchain.outcomeToken);
+      const abi = parseAbi(["function balanceOf(address account, uint256 id) view returns (uint256)"]);
+      raw = (await this.publicClient.readContract({
+        address: outcomeToken,
+        abi,
+        functionName: "balanceOf",
+        args: [getAddress(addr), id],
+      })) as bigint;
+    } catch {
+      raw = 0n;
+    }
     return Number(raw) / 10 ** decimals;
   }
 

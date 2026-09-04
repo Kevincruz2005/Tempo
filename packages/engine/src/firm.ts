@@ -41,7 +41,7 @@ const OPENING_TTL_MISSING_MS = 2000;
 const LIVE_TAIL_START_TIMEOUT_MS = 15_000;
 
 /** Only windows of these cadences are actively managed (display shows all). */
-const MANAGED_CADENCES = new Set([60, 300, 900, 3600]);
+const MANAGED_CADENCES = new Set([60, 300, 900, 3600, 14400, 86400]);
 
 interface ManagedMarket extends BinaryMarketInfo {
   managed: boolean;
@@ -256,9 +256,9 @@ export class Firm {
       setInterval(() => void this.refreshAgentState(), 10_000),
     );
     this.discoveryHandle = this.timers[1];
-    void this.sweepClaims();
     void this.refreshAgentState();
     void this.refreshSettlements();
+    setTimeout(() => void this.sweepClaims(), 5_000);
     this.timers.push(setInterval(() => void this.refreshSettlements(), 30_000));
   }
 
@@ -403,12 +403,11 @@ export class Firm {
   // -- the cycle -------------------------------------------------------------
 
   private async cycle(trigger: "event" | "heartbeat"): Promise<void> {
-    if (!this.running || this.cycleRunning || this.claimSweepRunning) return;
+    if (!this.running || this.cycleRunning) return;
     this.cycleRunning = true;
     try {
       const nowSec = Date.now() / 1000;
       for (const m of this.markets.values()) {
-        if (!m.managed) continue;
         const secondsLeft = m.expiry - nowSec;
         if (nowSec * 1000 - m.lastDecisionAt < DECISION_INTERVAL_MS) continue;
         m.lastDecisionAt = nowSec * 1000;
@@ -549,6 +548,9 @@ export class Firm {
         });
         return;
       }
+
+      // Quoting and directional orders are strictly scoped to managed cadences
+      if (!m.managed) return;
 
       // GENESIS (maker)
       if (!this.agentState.GENESIS.readOnly) {
@@ -889,11 +891,11 @@ export class Firm {
         try {
           const batches: Awaited<ReturnType<TempoExchange["claims"]>>[] = [];
           const longCadences = [...this.managedCadences].filter((cadence) => cadence >= 3600).sort((a, b) => b - a);
-          for (const intervalSec of longCadences) batches.push(await ex.claims(60, { intervalSec }));
-          batches.push(await ex.claims(60));
+          for (const intervalSec of longCadences) batches.push(await ex.claims(8, { intervalSec }));
+          batches.push(await ex.claims(8));
           const claimable = [...new Map(batches.flat().map((claim) => [claim.marketId, claim])).values()];
           for (const c of claimable) {
-            const oc = await this.onchain(c.marketId, true);
+            const oc = await this.onchain(c.marketId, false);
             if (!oc.isResolved && !oc.isVoided) continue;
             const balances = await Promise.all([
               ex.outcomeBalance(oc, "UP"),
