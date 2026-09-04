@@ -275,8 +275,8 @@ function panelToggle(key, minimized) {
   return '<button class="panel-toggle" type="button" data-toggle-panel="' + key + '" aria-expanded="' + (!minimized) + '" aria-label="' + (minimized ? "Expand " : "Minimize ") + key + ' panel"><span class="toggle-arrow" aria-hidden="true">' + arrow + '</span><span class="toggle-text">' + (minimized ? "Expand" : "Minimize") + '</span></button>';
 }
 
-function rightDockClose() {
-  return '<button class="panel-toggle right-dock-close" type="button" data-toggle-panel="right" aria-expanded="true" aria-label="Close right panel"><span class="toggle-arrow" aria-hidden="true">→</span><span class="toggle-text">Close right panel</span></button>';
+function rightTab(key, label) {
+  return '<button class="right-tab" type="button" data-toggle-panel="' + key + '" aria-expanded="false" aria-label="Open ' + label + '"><span class="toggle-arrow" aria-hidden="true">←</span><span class="toggle-text">' + label + '</span></button>';
 }
 
 function renderDashboard() {
@@ -295,7 +295,7 @@ function renderDashboard() {
   const selectedContent = selected ? marketFacts(selected) + '<div class="market-core">' + renderBook(selected.view, 5) +
     renderFairValue(selected.view) + '</div><div style="margin-top:var(--page-gap)">' + lifecycle(selected.lifecycle, true) + "</div>" :
     empty("NO ACTIVE WINDOW", "No market is available for inspection.");
-  const agentsPanel = '<section class="panel agents-risk-panel ' + (dash.agents ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Agents & risk</h2><small>GENESIS EXPANDED · ONE BOUNDARY · TWO POLICIES</small></div><div class="panel-head-actions">' + panelToggle("agents", dash.agents) + rightDockClose() + '</div></div><div class="agents-risk-body panel-body scroll-region"><div class="agent-stack">' +
+  const agentsPanel = '<section class="panel agents-risk-panel ' + (dash.agents ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Agents & risk</h2><small>GENESIS EXPANDED · ONE BOUNDARY · TWO POLICIES</small></div>' + panelToggle("agents", dash.agents) + '</div><div class="agents-risk-body panel-body scroll-region"><div class="agent-stack">' +
     (agents.length ? join(agents.map(agentCard)) : empty("NO DATA", "Agent state unavailable.")) + '</div><div class="drawer-divider"></div><div class="risk-bars">' +
     riskBar("Peak window gross inventory", peakWindowInventory(genesis), risk?.maxGrossInventory) +
     riskBar("Per-window open orders", null, risk?.maxOpenOrdersPerWindow) +
@@ -305,7 +305,7 @@ function renderDashboard() {
     '<div class="evidence-body"><div class="scroll-region"><div style="max-height:132px;overflow:auto">' + activityRows(events, 12) +
     '</div><div class="panel-body" style="padding-top:8px"><div class="section-kicker"><span>LATEST SETTLEMENTS</span>' +
     badge("chain") + "</div>" + settlements(model.state?.settlements || [], 2) + briefing() + "</div></div></div></section>";
-  const rightPanels = dash.right ? '<section class="panel right-rail panel-minimized"><div class="panel-head"><div class="panel-head-title"><h2>Right panels</h2><small>AGENTS · EVIDENCE</small></div>' + panelToggle("right", true) + '</div></section>' : agentsPanel + evidencePanel;
+  const rightPanels = dash.right ? '<section class="panel right-rail"><div class="right-rail-tabs">' + rightTab("agents", "Agents & risk") + rightTab("evidence", "Evidence stream") + '</div></section>' : agentsPanel + evidencePanel;
   return '<section class="page dashboard">' + heading("LIVE COMMAND CENTER", "The autonomous firm, in evidence",
     "Market state first. Agent action second. Risk and on-chain proof always visible.", actions) +
     '<div class="' + gridClass + '"><section class="panel venue-panel ' + (dash.venue ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Venue pulse</h2><small>' +
@@ -1072,15 +1072,16 @@ function bindGlobal() {
       const key = target.dataset.togglePanel;
       if (Object.prototype.hasOwnProperty.call(model.dashboard, key)) {
         const opening = model.dashboard[key];
-        if (key === "right") {
-          model.dashboard.right = !opening;
-          if (opening) {
-            model.dashboard.agents = false;
+        if (key === "agents" || key === "evidence") {
+          if (model.dashboard.right || opening) {
+            model.dashboard.right = false;
+            model.dashboard.agents = key !== "agents";
+            model.dashboard.evidence = key !== "evidence";
+          } else {
+            model.dashboard.right = true;
+            model.dashboard.agents = true;
             model.dashboard.evidence = true;
           }
-        } else if (key === "agents" && !opening) {
-          model.dashboard.agents = true;
-          model.dashboard.evidence = false;
         } else {
           model.dashboard[key] = !opening;
         }
