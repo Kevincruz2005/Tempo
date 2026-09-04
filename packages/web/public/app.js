@@ -26,6 +26,7 @@ const model = {
   },
   settings: { density: "comfortable", refresh: 2000, asset: "ALL", interval: "ALL", theme: "light", reducedMotion: false },
 };
+model.dashboard.lifecycle = true;
 
 function join(parts) { return parts.join(""); }
 function fmt(value, digits = 2) {
@@ -287,7 +288,7 @@ function briefing() {
 
 function panelToggle(key, minimized) {
   const left = key === "venue";
-  const arrow = key === "agents" && minimized ? "↓" : key === "evidence" && minimized ? "↑" : minimized ? (left ? "→" : "←") : (left ? "←" : "→");
+  const arrow = key === "lifecycle" ? (minimized ? "↑" : "↓") : key === "agents" && minimized ? "↓" : key === "evidence" && minimized ? "↑" : minimized ? (left ? "→" : "←") : (left ? "←" : "→");
   return '<button class="panel-toggle" type="button" data-toggle-panel="' + key + '" aria-expanded="' + (!minimized) + '" aria-label="' + (minimized ? "Expand " : "Minimize ") + key + ' panel"><span class="toggle-arrow" aria-hidden="true">' + arrow + '</span><span class="toggle-text">' + (minimized ? "Expand" : "Minimize") + '</span></button>';
 }
 
@@ -295,7 +296,7 @@ function rightTab(key, label) {
   return '<button class="right-tab" type="button" data-toggle-panel="' + key + '" aria-expanded="false" aria-label="Open ' + label + '"><span class="toggle-arrow" aria-hidden="true">←</span><span class="toggle-text">' + label + '</span></button>';
 }
 
-function dashboardLifecycle(selected) {
+function dashboardLifecycle(selected, minimized = false) {
   const current = selected?.lifecycle || "BIRTH";
   const currentIndex = LIFE.indexOf(current);
   const assetName = selected ? escapeHtml(selected.asset) + " " + fmt(selected.intervalSec / 60, 0) + "m" : "AWAITING SELECTION";
@@ -325,15 +326,21 @@ function dashboardLifecycle(selected) {
     '</a>';
   });
 
-  return '<section class="panel dashboard-lifecycle-panel" aria-label="Market lifecycle progress">' +
+  const panelClass = "panel dashboard-lifecycle-panel" + (minimized ? " panel-minimized" : "");
+  const subtitle = minimized
+    ? '01 BIRTH → 08 ROLL · ' + assetName + ' · OPTIONAL LIFECYCLE DOCK'
+    : '01 BIRTH → 08 ROLL · ' + assetName + ' · CONTINUOUS CYCLE';
+
+  return '<section class="' + panelClass + '" aria-label="Market lifecycle progress">' +
     '<div class="panel-head dashboard-lifecycle-head">' +
       '<div class="panel-head-title">' +
         '<h2>Market lifecycle progress</h2>' +
-        '<small>01 BIRTH → 08 ROLL · ' + assetName + ' · CONTINUOUS CYCLE</small>' +
+        '<small>' + subtitle + '</small>' +
       '</div>' +
       '<div class="dashboard-lifecycle-actions">' +
         '<span class="status-pill ' + (selected ? 'pill-active' : '') + '"><span>ACTIVE: ' + escapeHtml(current) + '</span></span>' +
         auditLink +
+        panelToggle("lifecycle", minimized) +
       '</div>' +
     '</div>' +
     '<div class="dashboard-lifecycle-track">' + join(steps) + '</div>' +
@@ -352,7 +359,7 @@ function renderDashboard() {
   const births = model.records.filter((row) => row.type === "market-birth").length;
   const actions = '<a class="button button-ghost" href="/markets" data-route>View all markets</a>' + btn("Settings", "data-open-settings");
   const dash = model.dashboard;
-  const gridClass = "dashboard-grid" + (dash.venue ? " venue-minimized" : "") + (dash.right ? " right-minimized" : " right-expanded") + (dash.agents ? " agents-minimized" : "") + (dash.evidence ? " evidence-minimized" : "");
+  const gridClass = "dashboard-grid" + (dash.venue ? " venue-minimized" : "") + (dash.right ? " right-minimized" : " right-expanded") + (dash.agents ? " agents-minimized" : "") + (dash.evidence ? " evidence-minimized" : "") + (dash.lifecycle ? " lifecycle-minimized" : " lifecycle-expanded");
   const selectedContent = selected ? marketFacts(selected) + '<div class="market-core">' + renderBook(selected.view, 5) +
     renderFairValue(selected.view) + '</div>' :
     empty("NO ACTIVE WINDOW", "No market is available for inspection.");
@@ -367,7 +374,7 @@ function renderDashboard() {
     '</div><div class="panel-body" style="padding-top:8px"><div class="section-kicker"><span>LATEST SETTLEMENTS</span>' +
     badge("chain") + "</div>" + settlements(model.state?.settlements || [], 2) + briefing() + "</div></div></div></section>";
   const rightPanels = dash.right ? '<section class="panel right-rail"><div class="right-rail-tabs">' + rightTab("agents", "Agents & risk") + rightTab("evidence", "Evidence stream") + '</div></section>' : agentsPanel + evidencePanel;
-  return '<section class="page dashboard">' + heading("LIVE COMMAND CENTER", "The autonomous firm, in evidence",
+  return '<section class="page dashboard ' + (dash.lifecycle ? "lifecycle-minimized" : "lifecycle-expanded") + '">' + heading("LIVE COMMAND CENTER", "The autonomous firm, in evidence",
     "Market state first. Agent action second. Risk and on-chain proof always visible.", actions) +
     '<div class="' + gridClass + '"><section class="panel venue-panel ' + (dash.venue ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Venue pulse</h2><small>' +
     fmt(markets.length, 0) + " WINDOWS · " + fmt(births, 0) + ' BIRTHS LOADED</small></div>' + panelToggle("venue", dash.venue) + '</div><div class="venue-panel-body"><div class="pulse-grid">' +
@@ -382,7 +389,7 @@ function renderDashboard() {
     "</h2>" + (selected ? '<a class="text-link" href="' + marketPath(selected.marketId) + '" data-route>Inspect market ↗</a>' : "") +
     '</div><div class="panel-body">' + selectedContent + "</div></section>" +
     rightPanels + '</div>' +
-    dashboardLifecycle(selected) +
+    dashboardLifecycle(selected, dash.lifecycle) +
     '</section>';
 }
 
