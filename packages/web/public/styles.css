@@ -671,6 +671,7 @@ body.theme-light { --flow-a: #8b5cf6; --flow-b: #2672e8; }
 /* Dashboard panel controls and expansion behavior. */
 .panel-head-title { min-width: 0; display: grid; gap: 4px; }
 .panel-head-title small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-head-actions { display: flex; align-items: center; justify-content: flex-end; gap: 7px; flex-wrap: wrap; }
 .panel-toggle { min-height: 32px; padding: 0 10px; border: 1px solid var(--line-bright); border-radius: 6px; color: var(--text-soft); background: var(--surface-raised); font-size: 11px; font-weight: 750; }
 .panel-toggle:hover { color: var(--text); border-color: var(--accent-line); background: var(--accent-soft); }
 .panel-minimized > :not(.panel-head) { display: none !important; }
@@ -726,6 +727,7 @@ body.theme-dark .brand-logo img, body.theme-dark .reactor-core img { filter: gra
 .dashboard-grid .panel-minimized .panel-head-title small { display: none; }
 .dashboard-grid .panel-minimized .panel-head-title h2 { font-size: 13px; letter-spacing: .07em; }
 .dashboard-grid .panel-minimized .panel-toggle { min-width: 36px; width: 36px; min-height: 36px; padding: 0; }
+.dashboard-grid .panel-minimized .panel-head-actions { flex-direction: column; }
 .dashboard-grid .panel-minimized .toggle-text { display: none; }
 .dashboard-grid .panel-minimized .toggle-arrow { font-size: 22px; }
 .dashboard-grid.agents-minimized:not(.evidence-minimized) .agents-risk-panel,

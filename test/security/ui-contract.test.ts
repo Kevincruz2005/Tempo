@@ -46,6 +46,7 @@ describe("multipage observatory UI contract", () => {
     expect(app).toContain('data-toggle-panel');
     expect(app).toContain("GENESIS EXPANDED");
     expect(app).toContain('panelToggle("right", true)');
+    expect(app).toContain("function rightDockClose()");
     expect(app).toContain("model.dashboard.right = !opening");
     expect(app).toContain("model.dashboard.agents = false");
     expect(app).toContain("model.dashboard.evidence = true");
