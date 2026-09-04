@@ -279,6 +279,10 @@ function rightTab(key, label) {
   return '<button class="right-tab" type="button" data-toggle-panel="' + key + '" aria-expanded="false" aria-label="Open ' + label + '"><span class="toggle-arrow" aria-hidden="true">←</span><span class="toggle-text">' + label + '</span></button>';
 }
 
+function rightDockClose() {
+  return '<button class="panel-toggle right-dock-close" type="button" data-toggle-panel="right" aria-expanded="true" aria-label="Close right panel"><span class="toggle-arrow" aria-hidden="true">→</span><span class="toggle-text">Close right panel</span></button>';
+}
+
 function renderDashboard() {
   const markets = model.state?.markets || [];
   if (!model.selected || !market(model.selected)) model.selected = (markets.find((row) => row.secondsLeft > 20 && row.view) || markets[0])?.marketId || null;
@@ -295,7 +299,7 @@ function renderDashboard() {
   const selectedContent = selected ? marketFacts(selected) + '<div class="market-core">' + renderBook(selected.view, 5) +
     renderFairValue(selected.view) + '</div><div style="margin-top:var(--page-gap)">' + lifecycle(selected.lifecycle, true) + "</div>" :
     empty("NO ACTIVE WINDOW", "No market is available for inspection.");
-  const agentsPanel = '<section class="panel agents-risk-panel ' + (dash.agents ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Agents & risk</h2><small>GENESIS EXPANDED · ONE BOUNDARY · TWO POLICIES</small></div>' + panelToggle("agents", dash.agents) + '</div><div class="agents-risk-body panel-body scroll-region"><div class="agent-stack">' +
+  const agentsPanel = '<section class="panel agents-risk-panel ' + (dash.agents ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Agents & risk</h2><small>GENESIS EXPANDED · ONE BOUNDARY · TWO POLICIES</small></div><div class="panel-head-actions">' + panelToggle("agents", dash.agents) + rightDockClose() + '</div></div><div class="agents-risk-body panel-body scroll-region"><div class="agent-stack">' +
     (agents.length ? join(agents.map(agentCard)) : empty("NO DATA", "Agent state unavailable.")) + '</div><div class="drawer-divider"></div><div class="risk-bars">' +
     riskBar("Peak window gross inventory", peakWindowInventory(genesis), risk?.maxGrossInventory) +
     riskBar("Per-window open orders", null, risk?.maxOpenOrdersPerWindow) +
