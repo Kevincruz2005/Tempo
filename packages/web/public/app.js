@@ -1075,7 +1075,7 @@ function bindGlobal() {
         if (key === "right") {
           model.dashboard.right = !opening;
           if (opening) {
-            model.dashboard.agents = true;
+            model.dashboard.agents = false;
             model.dashboard.evidence = true;
           }
         } else {
