@@ -62,6 +62,10 @@ describe("multipage observatory UI contract", () => {
     expect(html).toContain("white / purple / blue");
     expect(css).toContain("@keyframes edge-flow");
     expect(css).toContain("var(--flow-a)");
+    expect(css).toContain("Judge-facing final polish");
+    expect(css).toContain("grid-template-columns: repeat(8, minmax(112px, 1fr))");
+    expect(css).toContain(".fair-value .section-kicker");
+    expect(css).toContain("@keyframes judge-edge-flow");
     expect(app).toContain("scheduleLiveRender");
     expect(css).toContain(".page-host.live-refresh .page");
   });
