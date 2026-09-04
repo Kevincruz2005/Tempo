@@ -40,6 +40,10 @@ describe("multipage observatory UI contract", () => {
     expect(css).toContain("@media (max-width: 620px)");
     expect(css).toContain("@media (prefers-reduced-motion: reduce)");
     expect(html).toContain('class="skip-link"');
+    expect(html).toContain("/assets/tempo-logo.png");
+    expect(html).toContain('id="theme-toggle"');
+    expect(app).toContain("theme-light");
+    expect(html).toContain("white / purple / blue");
     expect(app).toContain("scheduleLiveRender");
     expect(css).toContain(".page-host.live-refresh .page");
   });

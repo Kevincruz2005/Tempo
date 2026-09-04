@@ -23,7 +23,7 @@ const model = {
     historyTab: "OPERATIONS", historyQuery: "", historyAgent: "ALL", historySource: "ALL", historyStatus: "ALL",
     historyWindow: "ALL", historyAsset: "ALL", historyInterval: "ALL", historyType: "ALL",
   },
-  settings: { density: "comfortable", refresh: 2000, asset: "ALL", interval: "ALL", reducedMotion: false },
+  settings: { density: "comfortable", refresh: 2000, asset: "ALL", interval: "ALL", theme: "dark", reducedMotion: false },
 };
 
 function join(parts) { return parts.join(""); }
@@ -951,6 +951,7 @@ function loadSettings() {
     if ([2000, 5000, 10000].includes(Number(saved.refresh))) model.settings.refresh = Number(saved.refresh);
     if (["ALL", "BTC", "ETH"].includes(saved.asset)) model.settings.asset = saved.asset;
     if (saved.interval === "ALL" || (Number.isSafeInteger(Number(saved.interval)) && Number(saved.interval) > 0)) model.settings.interval = String(saved.interval);
+    if (["dark", "light"].includes(saved.theme)) model.settings.theme = saved.theme;
     model.settings.reducedMotion = Boolean(saved.reducedMotion);
   } catch { /* Ignore corrupt display-only preferences. */ }
   applySettings();
@@ -959,6 +960,12 @@ function loadSettings() {
 function applySettings() {
   document.body.classList.toggle("compact", model.settings.density === "compact");
   document.body.classList.toggle("reduced-motion", model.settings.reducedMotion);
+  document.body.classList.toggle("theme-light", model.settings.theme === "light");
+  document.body.classList.toggle("theme-dark", model.settings.theme !== "light");
+  if ($("theme-label")) $("theme-label").textContent = model.settings.theme === "light" ? "Dark" : "Light";
+  if ($("theme-icon")) $("theme-icon").textContent = model.settings.theme === "light" ? "☾" : "☀";
+  if ($("theme-toggle")) $("theme-toggle").setAttribute("aria-label", "Switch to " + (model.settings.theme === "light" ? "dark" : "light") + " theme");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", model.settings.theme === "light" ? "#f6f7ff" : "#050505");
   model.filters.asset = model.settings.asset;
   model.filters.interval = model.settings.interval;
   clearInterval(model.refreshTimer);
@@ -973,6 +980,7 @@ function openSettings() {
   $("setting-refresh").value = String(model.settings.refresh);
   $("setting-asset").value = model.settings.asset;
   $("setting-interval").value = model.settings.interval;
+  $("setting-theme").value = model.settings.theme;
   $("setting-motion").checked = model.settings.reducedMotion;
   $("settings-runtime").textContent = model.state ? (model.state.live.dryRun ? "DRY RUN" : "LIVE") + " · " + model.state.live.network : "UNAVAILABLE";
   $("settings-wallet").textContent = $("wallet-state")?.textContent || "DISCONNECTED";
@@ -985,6 +993,7 @@ function saveSettings() {
     refresh: Number($("setting-refresh").value),
     asset: $("setting-asset").value,
     interval: $("setting-interval").value,
+    theme: $("setting-theme").value,
     reducedMotion: $("setting-motion").checked,
   };
   localStorage.setItem("tempo-display-v1", JSON.stringify(model.settings));
@@ -1039,6 +1048,10 @@ function bindGlobal() {
       openOverlay("command-overlay", "#command-search");
       $("command-search").value = "";
       renderCommands();
+    } else if (target.id === "theme-toggle") {
+      model.settings.theme = model.settings.theme === "light" ? "dark" : "light";
+      localStorage.setItem("tempo-display-v1", JSON.stringify(model.settings));
+      applySettings();
     } else if (target.matches("[data-open-settings]")) openSettings();
     else if (target.matches("[data-refresh]")) void Promise.all([refreshJournal(), refreshState(true)]);
     else if (target.matches("[data-select-market]")) { model.selected = target.dataset.selectMarket; renderRoute(); }
