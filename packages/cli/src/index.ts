@@ -376,12 +376,23 @@ async function main(): Promise<void> {
       out(`journal records (7d): ${recs.length}, carrying tx hashes: ${txRecords.length}`);
       const chain = cfg.network === "testnet" ? somniaShannon : somniaMainnet;
       const client = createPublicClient({ chain, transport: http(cfg.endpoints.rpcUrl) });
+      const archiveUrl = cfg.network === "testnet" ? "https://api.infra.testnet.somnia.network" : "https://api.infra.mainnet.somnia.network";
+      const archiveClient = cfg.endpoints.rpcUrl !== archiveUrl ? createPublicClient({ chain, transport: http(archiveUrl) }) : null;
       const hashes = [...new Set(txRecords.map((r) => r.tx!))];
       let ok = 0;
       let fail = 0;
       for (const h of hashes.slice(0, 50)) {
         try {
-          const receipt = await client.getTransactionReceipt({ hash: h as `0x${string}` });
+          let receipt;
+          try {
+            receipt = await client.getTransactionReceipt({ hash: h as `0x${string}` });
+          } catch (e) {
+            if (archiveClient) {
+              receipt = await archiveClient.getTransactionReceipt({ hash: h as `0x${string}` });
+            } else {
+              throw e;
+            }
+          }
           ok++;
           out(`  ${h} block=${receipt.blockNumber} status=${receipt.status}`);
         } catch (e) {
