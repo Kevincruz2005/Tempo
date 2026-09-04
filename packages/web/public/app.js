@@ -380,8 +380,7 @@ function renderDashboard() {
     fmt(markets.length, 0) + " WINDOWS · " + fmt(births, 0) + ' BIRTHS LOADED</small></div>' + panelToggle("venue", dash.venue) + '</div><div class="venue-panel-body"><div class="pulse-grid">' +
     '<div class="pulse-stat"><span>TRADING WINDOWS ' + badge("chain") + "</span><b>" + fmt(markets.filter((row) => row.secondsLeft > 0 && row.status === 1).length, 0) +
     '</b></div><div class="pulse-stat"><span>NEAREST EXPIRY ' + badge("derived") + "</span><b>" +
-    (nearest ? secondsLeft(nearest.secondsLeft) : "NO DATA") + '</b></div><div class="pulse-stat"><span>LIVE TAIL</span><b>' +
-    escapeHtml(model.stream) + '</b></div><div class="pulse-stat"><span>MANAGED CADENCES ' + badge("derived") + "</span><b>" +
+    (nearest ? secondsLeft(nearest.secondsLeft) : "NO DATA") + '</b></div><div class="pulse-stat"><span>MANAGED CADENCES ' + badge("derived") + "</span><b>" +
     fmt(new Set(markets.filter((row) => row.managed).map((row) => row.intervalSec)).size, 0) +
     '</b></div></div><div class="market-list scroll-region">' + marketItems(markets) + "</div></div></section>" +
     '<section class="panel market-preview"><div class="panel-head"><h2>' +
@@ -787,8 +786,7 @@ function updateChrome() {
     net.innerHTML = '<i></i><span>' + escapeHtml(state?.live?.network?.toUpperCase() || "UNAVAILABLE") + "</span>";
   }
   if ($("pill-mode")) $("pill-mode").textContent = state ? (state.live.dryRun ? "DRY RUN" : "LIVE") : "UNAVAILABLE";
-  if ($("pill-tail")) $("pill-tail").textContent = model.stream;
-  if ($("footer-status")) $("footer-status").textContent = state ? "Engine snapshot " + time(state.at) + " · " + model.stream : "TEMPO engine unavailable";
+  if ($("footer-status")) $("footer-status").textContent = state ? "Engine snapshot " + time(state.at) : "TEMPO engine unavailable";
   const beacon = document.querySelector(".status-rail .live-beacon");
   beacon?.classList.toggle("online", Boolean(state));
   beacon?.classList.toggle("offline", !state);
