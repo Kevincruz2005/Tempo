@@ -21,8 +21,8 @@
   <br /><br />
 
   <a href="https://github.com/Kevincruz2005/Tempo">🐙 GitHub Repository</a> •
-  <a href="#-verified-on-chain-proof--transactions">📜 On-Chain Proof</a> •
-  <a href="#-system-architecture">🏛️ Architecture</a> •
+  <a href="#verified-on-chain-proof--transactions">📜 On-Chain Proof</a> •
+  <a href="#system-architecture">🏛️ Architecture</a> •
   <a href="SUBMISSION.md">📋 Hackathon Submission</a> •
   <a href="docs/DESIGN.md">📐 Design Document</a> •
   <a href="test/reports/">📑 Evidence Reports</a>
@@ -33,28 +33,29 @@
 
 ## 📑 Table of Contents
 
-1. [Executive Summary & The Problem](#-executive-summary--the-problem)
-2. [The Novelty: Autonomous Opening Auction](#-the-novelty-autonomous-opening-auction)
-3. [Competitive Differentiation Matrix](#-competitive-differentiation-matrix)
-4. [Foundational Thesis: Why Somnia, DreamDEX, AI & MCP?](#-foundational-thesis-why-somnia-dreamdex-ai--mcp)
-5. [Live Operational Metrics & Ground Truth](#-live-operational-metrics--ground-truth)
-6. [The 8-Stage Autonomous Lifecycle](#-the-8-stage-autonomous-lifecycle)
-7. [The Dual-Agent Firm Architecture (GENESIS & VECTOR)](#-the-dual-agent-firm-architecture-genesis--vector)
-8. [Mathematical Pricing & Brier Calibration Model](#-mathematical-pricing--brier-calibration-model)
-9. [System Architecture](#-system-architecture)
-10. [Verified On-Chain Proof & Transactions](#-verified-on-chain-proof--transactions)
-11. [Developer Surface: CLI, SDK, MCP & Web Observatory](#-developer-surface-cli-sdk-mcp--web-observatory)
-12. [Non-Custodial Connect Wallet & Pre-Sign Safety](#-non-custodial-connect-wallet--pre-sign-safety)
-13. [Security Hardening, Zero-Mock Policy & Risk Controls](#-security-hardening-zero-mock-policy--risk-controls)
-14. [Installation, Configuration & Runbook](#%EF%B8%8F-installation-configuration--runbook)
-15. [Failure Handling & Operational Resilience](#-failure-handling--operational-resilience)
-16. [Known Limitations](#-known-limitations)
-17. [Business & Ecosystem Impact (Judging Alignment)](#-business--ecosystem-impact-judging-alignment)
-18. [Roadmap & Future Vision](#-roadmap--future-vision)
-19. [Evidence Index & Verification Links](#-evidence-index--verification-links)
+1. [Executive Summary & The Problem](#executive-summary--the-problem)
+2. [The Novelty: Autonomous Opening Auction](#the-novelty-autonomous-opening-auction)
+3. [Competitive Differentiation Matrix](#competitive-differentiation-matrix)
+4. [Foundational Thesis: Why Somnia, DreamDEX, AI & MCP?](#foundational-thesis-why-somnia-dreamdex-ai--mcp)
+5. [Live Operational Metrics & Ground Truth](#live-operational-metrics--ground-truth)
+6. [The 8-Stage Autonomous Lifecycle](#the-8-stage-autonomous-lifecycle)
+7. [The Dual-Agent Firm Architecture (GENESIS & VECTOR)](#the-dual-agent-firm-architecture-genesis--vector)
+8. [Mathematical Pricing & Brier Calibration Model](#mathematical-pricing--brier-calibration-model)
+9. [System Architecture](#system-architecture)
+10. [Verified On-Chain Proof & Transactions](#verified-on-chain-proof--transactions)
+11. [Developer Surface: CLI, SDK, MCP & Web Observatory](#developer-surface-cli-sdk-mcp--web-observatory)
+12. [Non-Custodial Connect Wallet & Pre-Sign Safety](#non-custodial-connect-wallet--pre-sign-safety)
+13. [Security Hardening, Zero-Mock Policy & Risk Controls](#security-hardening-zero-mock-policy--risk-controls)
+14. [Installation, Configuration & Runbook](#installation-configuration--runbook)
+15. [Failure Handling & Operational Resilience](#failure-handling--operational-resilience)
+16. [Known Limitations](#known-limitations)
+17. [Business & Ecosystem Impact (Judging Alignment)](#business--ecosystem-impact-judging-alignment)
+18. [Roadmap & Future Vision](#roadmap--future-vision)
+19. [Evidence Index & Verification Links](#evidence-index--verification-links)
 
 ---
 
+<a id="executive-summary--the-problem"></a>
 ## 💡 Executive Summary & The Problem
 
 DreamDEX deploys rolling prediction market windows across high-velocity crypto assets (BTC, ETH) spanning durations from 60 seconds to 24 hours. Each window is born with:
@@ -88,6 +89,7 @@ It is an autonomous agent firm that attends the birth of every window, anchors i
 
 ---
 
+<a id="the-novelty-autonomous-opening-auction"></a>
 ## 🌟 The Novelty: Autonomous Opening Auction
 
 TEMPO is not another quoting bot that sits on top of an existing market. **TEMPO creates the market.** It introduces four new financial and agentic primitives:
@@ -99,6 +101,7 @@ TEMPO is not another quoting bot that sits on top of an existing market. **TEMPO
 
 ---
 
+<a id="competitive-differentiation-matrix"></a>
 ## 🥊 Competitive Differentiation Matrix
 
 | Feature / Dimension | Bot-Kit `ec-maker` (Baseline) | Standard Polling Bots | Human Market Makers | **TEMPO Autonomous Firm** |
@@ -107,7 +110,7 @@ TEMPO is not another quoting bot that sits on top of an existing market. **TEMPO
 | **Fair Value Calculation** | Mid of existing book (falls back to `0.50` when empty) | Static hardcoded mid or basic moving average | Subjective human charting | **Driftless diffusion ($\Phi$) over oracle spot vs on-chain strike** |
 | **Market Role** | Quotes markets that already have prices | Secondary liquidity taker | Discretionary trader | **Creates the market at birth (Liquidity Genesis)** |
 | **Inventory Requirement** | Pre-mints complete sets (locks up inventory capital) | Holds single-sided risk | High balance sheet commitment | **Zero inventory: resting dual-side buys mint pairs upon execution** |
-| **Endgame Handling** | Quotes fixed spread until timeout | Stalls or leaves stale quotes exposed | Panics or exits early | **Spread tightens with $\sqrt{	au}$; quotes skew toward certainty** |
+| **Endgame Handling** | Quotes fixed spread until timeout | Stalls or leaves stale quotes exposed | Panics or exits early | **Spread tightens with $\sqrt{\tau}$; quotes skew toward certainty** |
 | **Settlement & Roll** | Basic claim sweep | Manual claim or ignored | Manual claim and re-entry | **Automated resolution observer, void-aware claims, auto-roll** |
 | **Learning & Calibration** | None | None | Subjective review | **Brier-loss score optimization; deterministic bounded epochs** |
 | **Verifiability & Audit** | Console logs only | Centralized database logs | Trading ledger statements | **Typed immutable journal + CLI `tempo verify` checking on-chain RPC** |
@@ -117,32 +120,17 @@ TEMPO is not another quoting bot that sits on top of an existing market. **TEMPO
 
 ---
 
+<a id="foundational-thesis-why-somnia-dreamdex-ai--mcp"></a>
 ## 🔴 Foundational Thesis: Why Somnia, DreamDEX, AI & MCP?
 
 TEMPO's architecture is tightly coupled to its technological environment. None of its components are interchangeable.
 
 ```mermaid
 flowchart LR
-    Somnia["⚡ Somnia L1
-• ~100ms blocks
-• Negligible gas
-• somnia_watch reactivity
-• Sub-second finality"] 
-    DreamDEX["📊 DreamDEX CLOB
-• On-chain strike anchor
-• ERC-6909 outcome pairs
-• Zero-inventory mint
-• Keeperless settlement"]
-    AI["🧠 Calibrated Math
-• Driftless diffusion
-• Brier score optimization
-• Zero LLM in hot path
-• Auditable parameters"]
-    MCP["🔌 Agent Surface
-• 12 MCP tools
-• Non-custodial risk gate
-• Stdio streaming
-• Claude Desktop ready"]
+    Somnia["⚡ Somnia L1<br/>• ~100ms blocks<br/>• Negligible gas<br/>• somnia_watch reactivity<br/>• Sub-second finality"]
+    DreamDEX["📊 DreamDEX CLOB<br/>• On-chain strike anchor<br/>• ERC-6909 outcome pairs<br/>• Zero-inventory mint<br/>• Keeperless settlement"]
+    AI["🧠 Calibrated Math<br/>• Driftless diffusion<br/>• Brier score optimization<br/>• Zero LLM in hot path<br/>• Auditable parameters"]
+    MCP["🔌 Agent Surface<br/>• 12 MCP tools<br/>• Non-custodial risk gate<br/>• Stdio streaming<br/>• Claude Desktop ready"]
 
     Somnia --> TEMPO["⚡ TEMPO Autonomous Firm ⚡"]
     DreamDEX --> TEMPO
@@ -169,7 +157,7 @@ Binary outcome event contracts with discrete expiries, guaranteed settlement bou
 ### 4. Why AI & Calibration? (And why NO LLM in the Hot Path)
 - **Zero LLMs in the Execution Path**: Somnia's 100ms block cadence makes remote LLM API calls (200ms–2,000ms latency, rate limits, non-deterministic formatting) completely unusable for trade decisions. 
 - **Driftless Diffusion Engine**: The real-time pricing engine uses closed-form mathematical diffusion ($\Phi$), computing fair value in microseconds.
-- **Self-Grading Calibration Loop**: Every resolved window grades the firm's pre-expiry probability against on-chain outcome facts using the **Brier score**. A bounded temperature-calibration loop adjusts volatility multipliers and taker edge within strict $[0.5	imes, 2.0	imes]$ operator boundaries.
+- **Self-Grading Calibration Loop**: Every resolved window grades the firm's pre-expiry probability against on-chain outcome facts using the **Brier score**. A bounded temperature-calibration loop adjusts volatility multipliers and taker edge within strict $[0.5x, 2.0x]$ operator boundaries.
 - **Cold-Path AI Narrative**: An optional LLM generates natural language governance reports derived strictly from journal facts, explicitly labeled `AI NARRATIVE`.
 
 ### 5. Why Model Context Protocol (MCP)?
@@ -177,6 +165,7 @@ Provides 12 standardized, schema-validated MCP tools allowing external autonomou
 
 ---
 
+<a id="live-operational-metrics--ground-truth"></a>
 ## 📊 Live Operational Metrics & Ground Truth
 
 All figures below are derived from verified journal records and on-chain receipts on Somnia Shannon testnet (Chain ID `50312`). Nothing is simulated; nothing is mocked.
@@ -202,6 +191,7 @@ All figures below are derived from verified journal records and on-chain receipt
 
 ---
 
+<a id="the-8-stage-autonomous-lifecycle"></a>
 ## 🔄 The 8-Stage Autonomous Lifecycle
 
 TEMPO manages every event contract through an immutable 8-stage state machine:
@@ -229,7 +219,7 @@ TEMPO manages every event contract through an immutable 8-stage state machine:
 2. **ANCHOR**: The appraiser computes the opening fair value from the official oracle feed ($S_t$) versus the on-chain opening price ($K$) before any counterparty book exists.
 3. **GENESIS**: GENESIS places resting buy orders on both Up at $(p - \delta)$ and Down at $((1 - p) - \delta)$. The protocol mints a complete pair when crossed, requiring zero initial outcome tokens.
 4. **REPRICE**: Microsecond reaction loop. When the underlying oracle price ticks, time decays, or inventory skews, GENESIS cancels and replaces quotes within the same block era.
-5. **ENDGAME**: As expiration nears, spread tightens proportionally to $\sqrt{	au}$ while quotes skew toward the high-probability outcome.
+5. **ENDGAME**: As expiration nears, spread tightens proportionally to $\sqrt{\tau}$ while quotes skew toward the high-probability outcome.
 6. **LOCK**: At expiration ($t = T$), all quoting halts. Any remaining open orders are purged.
 7. **SETTLE**: Somnia's on-chain reactivity delivers oracle answers to `BinarySettlement`. The market moves to status `Finalized`.
 8. **CLAIM**: TEMPO observes finalization, determines the winning outcome (or handles voided markets at 50/50 payout), and redeems collateral tokens on-chain.
@@ -237,6 +227,7 @@ TEMPO manages every event contract through an immutable 8-stage state machine:
 
 ---
 
+<a id="the-dual-agent-firm-architecture-genesis--vector"></a>
 ## 🤖 The Dual-Agent Firm Architecture (GENESIS & VECTOR)
 
 TEMPO operates as a bona fide autonomous trading firm composed of two distinct agents with separate wallets, separate private keys, and adversarial economic objectives.
@@ -252,24 +243,15 @@ flowchart TD
         
         subgraph GENESIS_Agent["GENESIS (Liquidity Maker)"]
             G_Key["Key: TEMPO_KEY_MAKER"]
-            G_Policy["Policy: Post-Only Two-Sided Quotes
-Inventory Skew Adjustment
-Endgame Compression"]
+            G_Policy["Policy: Post-Only Two-Sided Quotes<br/>Inventory Skew Adjustment<br/>Endgame Compression"]
         end
 
         subgraph VECTOR_Agent["VECTOR (Adversarial Taker)"]
             V_Key["Key: TEMPO_KEY_TAKER"]
-            V_Policy["Policy: Independent Fair Value
-IOC Cross Only When Edge > Threshold
-Zero Resting Risk"]
+            V_Policy["Policy: Independent Fair Value<br/>IOC Cross Only When Edge > Threshold<br/>Zero Resting Risk"]
         end
 
-        Risk["Deterministic RiskEngine
-• Probability bounds [0.01, 0.99]
-• Net/Gross inventory caps
-• Collateral limits
-• Mandatory order expiry
-• Tick/Lot grid compliance"]
+        Risk["Deterministic RiskEngine<br/>• Probability bounds [0.01, 0.99]<br/>• Net/Gross inventory caps<br/>• Collateral limits<br/>• Mandatory order expiry<br/>• Tick/Lot grid compliance"]
     end
 
     CoreEngine --> G_Policy
@@ -284,14 +266,14 @@ Zero Resting Risk"]
 - **Role**: Establishes and maintains continuous two-sided liquidity.
 - **Order Type**: Exclusively `Post-Only`. If market conditions shift such that an order would cross the spread, the transaction fails safe (`PostOnlyWouldCross`) and immediately triggers a re-quote.
 - **Inventory Management**: Dynamically shifts bid/ask spreads based on inventory skew:
-  $$\Delta_{	ext{skew}} = -\gamma \cdot rac{q_{	ext{net}}}{q_{	ext{max}}}$$
+  $$\Delta_{\text{skew}} = -\gamma \cdot \frac{q_{\text{net}}}{q_{\text{max}}}$$
 - **Capital Discipline**: Allocates capital across active windows based on time-to-expiry and realized volatility.
 
 ### 2. VECTOR (Adversarial Arbitrage Taker)
 - **Role**: Disciplines the order book and tests GENESIS's quotes against external price shifts.
 - **Order Type**: Exclusively `Immediate-or-Cancel (IOC)`. Never leaves passive orders resting on the book.
 - **Trigger**: Crosses the spread only when the book's best offer deviates from its independent fair-value estimate by more than the calibrated edge threshold:
-  $$	ext{Edge} = |p_{	ext{book}} - p_{	ext{fair}}| > \delta_{	ext{calibrated}}$$
+  $$\text{Edge} = |p_{\text{book}} - p_{\text{fair}}| > \delta_{\text{calibrated}}$$
 - **Safety**: Rejects trades if available liquidity or price slippage violates configured risk parameters.
 
 ### 3. The Deterministic Risk Engine
@@ -305,32 +287,33 @@ Every write action from both agents, the CLI, the web wallet, and the MCP server
 
 ---
 
+<a id="mathematical-pricing--brier-calibration-model"></a>
 ## 🧠 Mathematical Pricing & Brier Calibration Model
 
 ### 1. Continuous Driftless Diffusion Model
 Event contracts settle binary payouts based on whether the final oracle price is above or below the opening strike:
-$$	ext{Payoff} = egin{cases} 1 & 	ext{if } S_T \ge K \ 0 & 	ext{if } S_T < K \end{cases}$$
+$$\text{Payoff} = \begin{cases} 1 & \text{if } S_T \ge K \\ 0 & \text{if } S_T < K \end{cases}$$
 
-Under a driftless geometric Brownian motion assumption over short ephemeral horizons ($S_t = K e^{\sigma W_t - rac{1}{2}\sigma^2 t}$), the risk-neutral probability that the contract expires in the money is given by the standard Black-76 binary option formula:
+Under a driftless geometric Brownian motion assumption over short ephemeral horizons ($S_t = K e^{\sigma W_t - \frac{1}{2}\sigma^2 t}$), the risk-neutral probability that the contract expires in the money is given by the standard Black-76 binary option formula:
 
-$$p(	ext{Up}) = \Phi\left( rac{\ln(S_t / K)}{\sigma \sqrt{	au}} ight)$$
+$$p(\text{Up}) = \Phi\left( \frac{\ln(S_t / K)}{\sigma \sqrt{\tau}} \right)$$
 
 Where:
 - $S_t$: Current spot price from the official Somnia price feed.
 - $K$: On-chain opening strike price registered at market birth.
 - $\sigma$: Realized annualized volatility computed from price history ticks.
-- $	au$: Time remaining until expiration, expressed in annualized units ($rac{T - t}{365 	imes 86400}$).
+- $\tau$: Time remaining until expiration, expressed in annualized units ($\frac{T - t}{365 \times 86400}$).
 - $\Phi(z)$: Cumulative standard normal distribution function:
-  $$\Phi(z) = rac{1}{\sqrt{2\pi}} \int_{-\infty}^z e^{-rac{u^2}{2}} \, du$$
+  $$\Phi(z) = \frac{1}{\sqrt{2\pi}} \int_{-\infty}^z e^{-\frac{u^2}{2}} \, du$$
 
 ### 2. Brier Score Self-Grading Mechanism
 Rather than relying on uncalibrated model outputs, TEMPO continuously evaluates its probability estimates against ground truth on-chain settlements using the strictly proper **Brier Score**:
 
-$$BS = rac{1}{N} \sum_{i=1}^N \left( \hat{p}_i - y_i ight)^2$$
+$$BS = \frac{1}{N} \sum_{i=1}^N \left( \hat{p}_i - y_i \right)^2$$
 
 Where:
 - $\hat{p}_i \in [0, 1]$ is the last model probability estimate recorded before expiry.
-- $y_i \in \{0, 1\}$ is the actual on-chain settlement result ($1 = 	ext{Up wins}$, $0 = 	ext{Down wins}$).
+- $y_i \in \{0, 1\}$ is the actual on-chain settlement result ($1 = \text{Up wins}$, $0 = \text{Down wins}$).
 - Voids are excluded from scoring.
 
 *A Brier score of `0.0` denotes perfect predictive calibration; `0.25` is equivalent to an uninformed coin-flip; `> 0.25` represents pathological miscalibration.*
@@ -340,14 +323,15 @@ Where:
 ### 3. Closed-Loop Brier Calibration Loop
 After every settlement sweep, TEMPO runs a deterministic calibration epoch over a rolling window of the last 30 scored markets:
 1. Calculates aggregate Brier Score and mean directional calibration error:
-   $$	ext{Bias} = rac{1}{N} \sum_{i=1}^N (\hat{p}_i - y_i)$$
+   $$\text{Bias} = \frac{1}{N} \sum_{i=1}^N (\hat{p}_i - y_i)$$
 2. Evaluates temperature adjustments for two bounded parameters:
    - **$\sigma$-Multiplier**: Widens or narrows the fair-value probability distribution based on empirical forecast volatility.
    - **Taker Edge Threshold ($\delta$)**: Tunes VECTOR's crossing sensitivity based on realized fill profitability.
-3. **Hard Mathematical Clamps**: Parameter changes are restricted to a maximum step per epoch and clamped strictly to **$[0.5	imes, 2.0	imes]$** of operator defaults.
+3. **Hard Mathematical Clamps**: Parameter changes are restricted to a maximum step per epoch and clamped strictly to **$[0.5x, 2.0x]$** of operator defaults.
 
 ---
 
+<a id="system-architecture"></a>
 ## 🏛️ System Architecture
 
 ```mermaid
@@ -399,6 +383,7 @@ Every market calculation, risk check, transaction encoding, and verification rul
 
 ---
 
+<a id="verified-on-chain-proof--transactions"></a>
 ## ✅ Verified On-Chain Proof & Transactions
 
 ### DreamDEX Protocol Deployments (Somnia Shannon Testnet 50312)
@@ -432,6 +417,7 @@ Every transaction below is real, indexed on Somnia Shannon testnet, and independ
 
 ---
 
+<a id="developer-surface-cli-sdk-mcp--web-observatory"></a>
 ## 🧰 Developer Surface: CLI, SDK, MCP & Web Observatory
 
 TEMPO exposes four purpose-built interfaces sharing the identical TypeScript core.
@@ -560,6 +546,7 @@ Served locally at `http://127.0.0.1:7333`, the web observatory provides an indus
 
 ---
 
+<a id="non-custodial-connect-wallet--pre-sign-safety"></a>
 ## 🔒 Non-Custodial Connect Wallet & Pre-Sign Safety
 
 TEMPO includes a fully non-custodial web wallet flow built to adhere to institutional security standards:
@@ -589,6 +576,7 @@ TEMPO includes a fully non-custodial web wallet flow built to adhere to institut
 
 ---
 
+<a id="security-hardening-zero-mock-policy--risk-controls"></a>
 ## 🛡️ Security Hardening, Zero-Mock Policy & Risk Controls
 
 ### 1. Zero-Mock Policy & Provenance Model
@@ -614,6 +602,7 @@ TEMPO enforces an uncompromising Zero-Mock policy across the entire system. Ever
 
 ---
 
+<a id="installation-configuration--runbook"></a>
 ## 🛠️ Installation, Configuration & Runbook
 
 ### Prerequisites
@@ -688,6 +677,7 @@ To run TEMPO with live transaction signing on Somnia Shannon testnet:
 
 ---
 
+<a id="failure-handling--operational-resilience"></a>
 ## 🚨 Failure Handling & Operational Resilience
 
 TEMPO is designed for autonomous fault tolerance. During live 24-hour testnet operations, the system absorbed **996 operational errors without a single firm crash**:
@@ -704,6 +694,7 @@ TEMPO is designed for autonomous fault tolerance. During live 24-hour testnet op
 
 ---
 
+<a id="known-limitations"></a>
 ## ⚠️ Known Limitations
 
 In accordance with our zero-mock transparency policy, we explicitly document current system limitations:
@@ -714,6 +705,7 @@ In accordance with our zero-mock transparency policy, we explicitly document cur
 
 ---
 
+<a id="business--ecosystem-impact-judging-alignment"></a>
 ## 📈 Business & Ecosystem Impact (Judging Alignment)
 
 TEMPO directly aligns with the Somnia × DreamDEX Hackathon evaluation criteria:
@@ -745,6 +737,7 @@ TEMPO directly aligns with the Somnia × DreamDEX Hackathon evaluation criteria:
 
 ---
 
+<a id="roadmap--future-vision"></a>
 ## 🗺️ Roadmap & Future Vision
 
 - [x] **Phase 1: Core Lifecycle & Prototyping** (Completed)
@@ -766,6 +759,7 @@ TEMPO directly aligns with the Somnia × DreamDEX Hackathon evaluation criteria:
 
 ---
 
+<a id="evidence-index--verification-links"></a>
 ## 🔗 Evidence Index & Verification Links
 
 - **Repository**: [https://github.com/Kevincruz2005/Tempo](https://github.com/Kevincruz2005/Tempo)
