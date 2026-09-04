@@ -714,3 +714,33 @@ body.theme-dark .brand-logo img, body.theme-dark .reactor-core img { filter: gra
   .toggle-arrow { font-size: 21px; }
   .dashboard-grid.agents-minimized.evidence-minimized { grid-template-columns: 1fr; }
 }
+
+/* Fully minimized panels become slim directional rails so the market fills the center. */
+.dashboard-grid.venue-minimized { grid-template-columns: 48px minmax(0, 1fr) 48px; }
+.dashboard-grid.agents-minimized.evidence-minimized { grid-template-columns: 48px minmax(0, 1fr) 48px; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); }
+.dashboard-grid.venue-minimized .venue-panel,
+.dashboard-grid.agents-minimized.evidence-minimized .agents-risk-panel,
+.dashboard-grid.agents-minimized.evidence-minimized .evidence-panel { min-width: 48px; }
+.dashboard-grid .panel-minimized .panel-head { min-height: 0; height: 100%; flex-direction: column; justify-content: space-between; gap: 12px; padding: 14px 5px; }
+.dashboard-grid .panel-minimized .panel-head-title { writing-mode: vertical-rl; transform: rotate(180deg); align-items: center; gap: 9px; }
+.dashboard-grid .panel-minimized .panel-head-title small { display: none; }
+.dashboard-grid .panel-minimized .panel-head-title h2 { font-size: 13px; letter-spacing: .07em; }
+.dashboard-grid .panel-minimized .panel-toggle { min-width: 36px; width: 36px; min-height: 36px; padding: 0; }
+.dashboard-grid .panel-minimized .toggle-text { display: none; }
+.dashboard-grid .panel-minimized .toggle-arrow { font-size: 22px; }
+.dashboard-grid.agents-minimized:not(.evidence-minimized) .agents-risk-panel,
+.dashboard-grid.evidence-minimized:not(.agents-minimized) .evidence-panel { width: 48px; justify-self: end; }
+
+@media (max-width: 900px) {
+  .dashboard-grid.venue-minimized { grid-template-columns: 48px minmax(0, 1fr) 1fr; }
+  .dashboard-grid.agents-minimized.evidence-minimized { grid-template-columns: 48px minmax(0, 1fr) 48px; }
+}
+@media (max-width: 620px) {
+  .dashboard-grid.venue-minimized, .dashboard-grid.agents-minimized.evidence-minimized { grid-template-columns: 1fr; }
+  .dashboard-grid .panel-minimized .panel-head { height: auto; min-height: 58px; flex-direction: row; padding: 10px 12px; }
+  .dashboard-grid .panel-minimized .panel-head-title { writing-mode: horizontal-tb; transform: none; align-items: start; }
+  .dashboard-grid .panel-minimized .panel-head-title small { display: block; }
+  .dashboard-grid .panel-minimized .panel-toggle { width: auto; min-width: 38px; }
+  .dashboard-grid.agents-minimized:not(.evidence-minimized) .agents-risk-panel,
+  .dashboard-grid.evidence-minimized:not(.agents-minimized) .evidence-panel { width: auto; justify-self: stretch; }
+}
