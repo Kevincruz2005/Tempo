@@ -1065,9 +1065,11 @@ function bindGlobal() {
       const key = target.dataset.togglePanel;
       if (Object.prototype.hasOwnProperty.call(model.dashboard, key)) {
         const opening = model.dashboard[key];
-        model.dashboard[key] = !opening;
         if (opening && (key === "agents" || key === "evidence")) {
-          model.dashboard[key === "agents" ? "evidence" : "agents"] = true;
+          model.dashboard.agents = false;
+          model.dashboard.evidence = false;
+        } else {
+          model.dashboard[key] = !opening;
         }
         renderRoute({ preserve: true });
       }
