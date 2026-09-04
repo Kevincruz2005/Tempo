@@ -731,6 +731,21 @@ body.theme-dark .brand-logo img, body.theme-dark .reactor-core img { filter: gra
 .dashboard-grid.agents-minimized:not(.evidence-minimized) .agents-risk-panel,
 .dashboard-grid.evidence-minimized:not(.agents-minimized) .evidence-panel { width: 48px; justify-self: end; }
 
+/* Keep the center market panel expanded whenever a side panel opens. */
+@media (min-width: 901px) {
+  .dashboard-grid.venue-minimized {
+    grid-template-columns: 48px minmax(0, 1fr) minmax(270px, 1fr);
+  }
+
+  .dashboard-grid:not(.venue-minimized).agents-minimized.evidence-minimized {
+    grid-template-columns: minmax(210px, .78fr) minmax(0, 1fr) 48px;
+  }
+
+  .dashboard-grid.venue-minimized.agents-minimized.evidence-minimized {
+    grid-template-columns: 48px minmax(0, 1fr) 48px;
+  }
+}
+
 @media (max-width: 900px) {
   .dashboard-grid.venue-minimized { grid-template-columns: 48px minmax(0, 1fr) 1fr; }
   .dashboard-grid.agents-minimized.evidence-minimized { grid-template-columns: 48px minmax(0, 1fr) 48px; }
