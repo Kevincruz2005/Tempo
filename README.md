@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/Somnia%20L1-100ms%20blocks-7B3FE4?style=for-the-badge" alt="Somnia">
   <img src="https://img.shields.io/badge/DreamDEX-Event%20Contracts-FF6B35?style=for-the-badge" alt="DreamDEX">
   <img src="https://img.shields.io/badge/Node.js-%E2%89%A520-green?style=for-the-badge&logo=node.js" alt="Node">
-  <img src="https://img.shields.io/badge/tests-2%2C107%20passing-brightgreen?style=for-the-badge" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-2%2C114%20passing-brightgreen?style=for-the-badge" alt="Tests">
   <img src="https://img.shields.io/badge/mocked%20values-0-brightgreen?style=for-the-badge" alt="Zero Mock">
 
   <br />
@@ -58,7 +58,7 @@
 | Transaction verification sample | **31/31 unique transaction hashes from the funded validation sample verified on-chain, 0 failures** (`tempo verify`) |
 | Historical 2026-09-02 snapshot across 3 scored markets | **Brier 0.0723** · 100% directional |
 | Operational errors journaled | **996 — firm crashes: 0** |
-| Automated tests | **2,107 passing** (17 files) |
+| Automated tests | **2,114 passing** (18 files) |
 | Security | `npm audit`: **0 vulnerabilities** · CycloneDX SBOM · SHA256 checksums |
 | Mocked economic values | **0** — audited |
 
@@ -269,7 +269,7 @@ Live windows · materialized books · fair-value band · firm roster · activity
 │   ├── cli/               # tempo CLI — 15 command families / 16 subcommands
 │   ├── mcp/               # @tempo/mcp — 12 MCP tools for external AI agents
 │   └── web/public/        # single-screen observatory + docs page
-├── test/                  # 2,107 tests: unit · sdk · integration · contract ·
+├── test/                  # 2,114 tests: unit · sdk · integration · contract ·
 │   │                      #   e2e · failure · security · economic · cli · reports/
 ├── docs/                  # DESIGN · RECONNAISSANCE · SECURITY · research corpus
 ├── release/               # SDK tarballs · CycloneDX SBOMs · SHA256SUMS
@@ -290,7 +290,7 @@ cd Tempo
 npm install
 cp .env.example .env
 
-npm test                  # 2,107 tests — includes live read-only venue checks
+npm test                  # 2,114 tests — includes live read-only venue checks
 npm run firm              # dry-run firm + observatory → http://localhost:7333
 ```
 
