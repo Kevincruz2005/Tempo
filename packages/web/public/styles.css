@@ -667,3 +667,31 @@ body.theme-light { --flow-a: #8b5cf6; --flow-b: #2672e8; }
   .agent-meta div span, .drawer-grid span, .fact > span { font-size: 10px; }
   .agent-meta div b, .drawer-grid b, .fact > b { font-size: 14px; }
 }
+
+/* Dashboard panel controls and expansion behavior. */
+.panel-head-title { min-width: 0; display: grid; gap: 4px; }
+.panel-head-title small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.panel-toggle { min-height: 32px; padding: 0 10px; border: 1px solid var(--line-bright); border-radius: 6px; color: var(--text-soft); background: var(--surface-raised); font-size: 11px; font-weight: 750; }
+.panel-toggle:hover { color: var(--text); border-color: var(--accent-line); background: var(--accent-soft); }
+.panel-minimized > :not(.panel-head) { display: none !important; }
+.dashboard-grid.agents-minimized { grid-template-rows: auto minmax(0, 1fr); }
+.dashboard-grid.evidence-minimized { grid-template-rows: minmax(0, 1fr) auto; }
+.dashboard-grid.venue-minimized { grid-template-columns: minmax(165px, .42fr) minmax(450px, 1.8fr) minmax(270px, 1fr); }
+.dashboard-grid.venue-minimized .venue-panel-body { display: none; }
+.dashboard-grid .agents-risk-body, .dashboard-grid .evidence-body { min-height: 0; }
+.agent-meta div span, .drawer-grid span, .fact > span { font-size: 12px; }
+.agent-meta div b, .drawer-grid b, .fact > b { font-size: 17px; }
+.panel-body { font-size: 14px; }
+.panel-toggle { position: relative; z-index: 3; }
+
+@media (max-width: 900px) {
+  .dashboard-grid.venue-minimized { grid-template-columns: 1fr 1fr; }
+  .dashboard-grid.venue-minimized .venue-panel { grid-column: auto; grid-row: auto; }
+}
+@media (max-width: 620px) {
+  .panel-toggle { min-height: 34px; font-size: 12px; }
+  .dashboard-grid.agents-minimized, .dashboard-grid.evidence-minimized { grid-template-rows: auto; }
+  .dashboard-grid.venue-minimized { grid-template-columns: 1fr; }
+  .agent-meta div span, .drawer-grid span, .fact > span { font-size: 11px; }
+  .agent-meta div b, .drawer-grid b, .fact > b { font-size: 15px; }
+}

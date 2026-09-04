@@ -18,6 +18,7 @@ const model = {
   rowIndex: -1,
   births: new Set(),
   walletProofs: new Map(),
+  dashboard: { venue: false, agents: false, evidence: true },
   filters: {
     marketQuery: "", marketStatus: "ALL", asset: "ALL", interval: "ALL", sort: "EXPIRY",
     historyTab: "OPERATIONS", historyQuery: "", historyAgent: "ALL", historySource: "ALL", historyStatus: "ALL",
@@ -268,6 +269,10 @@ function briefing() {
     '<small id="ai-narrative-meta">Nothing is sent until Generate · LLM does not control pricing, risk, or execution.</small></article>';
 }
 
+function panelToggle(key, minimized) {
+  return '<button class="panel-toggle" type="button" data-toggle-panel="' + key + '" aria-expanded="' + (!minimized) + '" aria-label="' + (minimized ? "Expand " : "Minimize ") + key + ' panel">' + (minimized ? "Expand" : "Minimize") + '</button>';
+}
+
 function renderDashboard() {
   const markets = model.state?.markets || [];
   if (!model.selected || !market(model.selected)) model.selected = (markets.find((row) => row.secondsLeft > 20 && row.view) || markets[0])?.marketId || null;
@@ -279,32 +284,34 @@ function renderDashboard() {
   const events = model.records.filter((row) => !["price", "market-state"].includes(row.type));
   const births = model.records.filter((row) => row.type === "market-birth").length;
   const actions = '<a class="button button-ghost" href="/markets" data-route>View all markets</a>' + btn("Settings", "data-open-settings");
+  const dash = model.dashboard;
+  const gridClass = "dashboard-grid" + (dash.venue ? " venue-minimized" : "") + (dash.agents ? " agents-minimized" : "") + (dash.evidence ? " evidence-minimized" : "");
   const selectedContent = selected ? marketFacts(selected) + '<div class="market-core">' + renderBook(selected.view, 5) +
     renderFairValue(selected.view) + '</div><div style="margin-top:var(--page-gap)">' + lifecycle(selected.lifecycle, true) + "</div>" :
     empty("NO ACTIVE WINDOW", "No market is available for inspection.");
   return '<section class="page dashboard">' + heading("LIVE COMMAND CENTER", "The autonomous firm, in evidence",
     "Market state first. Agent action second. Risk and on-chain proof always visible.", actions) +
-    '<div class="dashboard-grid"><section class="panel venue-panel"><div class="panel-head"><h2>Venue pulse</h2><small>' +
-    fmt(markets.length, 0) + " WINDOWS · " + fmt(births, 0) + ' BIRTHS LOADED</small></div><div class="pulse-grid">' +
+    '<div class="' + gridClass + '"><section class="panel venue-panel ' + (dash.venue ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Venue pulse</h2><small>' +
+    fmt(markets.length, 0) + " WINDOWS · " + fmt(births, 0) + ' BIRTHS LOADED</small></div>' + panelToggle("venue", dash.venue) + '</div><div class="venue-panel-body"><div class="pulse-grid">' +
     '<div class="pulse-stat"><span>TRADING WINDOWS ' + badge("chain") + "</span><b>" + fmt(markets.filter((row) => row.secondsLeft > 0 && row.status === 1).length, 0) +
     '</b></div><div class="pulse-stat"><span>NEAREST EXPIRY ' + badge("derived") + "</span><b>" +
     (nearest ? secondsLeft(nearest.secondsLeft) : "NO DATA") + '</b></div><div class="pulse-stat"><span>LIVE TAIL</span><b>' +
     escapeHtml(model.stream) + '</b></div><div class="pulse-stat"><span>MANAGED CADENCES ' + badge("derived") + "</span><b>" +
     fmt(new Set(markets.filter((row) => row.managed).map((row) => row.intervalSec)).size, 0) +
-    '</b></div></div><div class="market-list scroll-region">' + marketItems(markets) + "</div></section>" +
+    '</b></div></div><div class="market-list scroll-region">' + marketItems(markets) + "</div></div></section>" +
     '<section class="panel market-preview"><div class="panel-head"><h2>' +
     (selected ? escapeHtml(selected.asset) + " " + fmt(selected.intervalSec / 60, 0) + "m · " + escapeHtml(selected.lifecycle) : "Selected market") +
     "</h2>" + (selected ? '<a class="text-link" href="' + marketPath(selected.marketId) + '" data-route>Inspect market ↗</a>' : "") +
     '</div><div class="panel-body">' + selectedContent + "</div></section>" +
-    '<section class="panel"><div class="panel-head"><h2>Agents & risk</h2><small>ONE BOUNDARY · TWO POLICIES</small></div><div class="panel-body scroll-region"><div class="agent-stack">' +
+    '<section class="panel agents-risk-panel ' + (dash.agents ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Agents & risk</h2><small>GENESIS EXPANDED · ONE BOUNDARY · TWO POLICIES</small></div>' + panelToggle("agents", dash.agents) + '</div><div class="agents-risk-body panel-body scroll-region"><div class="agent-stack">' +
     (agents.length ? join(agents.map(agentCard)) : empty("NO DATA", "Agent state unavailable.")) + '</div><div class="drawer-divider"></div><div class="risk-bars">' +
     riskBar("Peak window gross inventory", peakWindowInventory(genesis), risk?.maxGrossInventory) +
     riskBar("Per-window open orders", null, risk?.maxOpenOrdersPerWindow) +
     riskBar("Capital committed", null, risk?.firmCapitalCap) +
-    '</div></div></section><section class="panel"><div class="panel-head"><h2>Evidence stream</h2><a class="text-link" href="/history" data-route>Full history ↗</a></div>' +
-    '<div class="scroll-region"><div style="max-height:132px;overflow:auto">' + activityRows(events, 12) +
+    '</div></div></section><section class="panel evidence-panel ' + (dash.evidence ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Evidence stream</h2><a class="text-link" href="/history" data-route>Full history ↗</a></div>' + panelToggle("evidence", dash.evidence) + '</div>' +
+    '<div class="evidence-body"><div class="scroll-region"><div style="max-height:132px;overflow:auto">' + activityRows(events, 12) +
     '</div><div class="panel-body" style="padding-top:8px"><div class="section-kicker"><span>LATEST SETTLEMENTS</span>' +
-    badge("chain") + "</div>" + settlements(model.state?.settlements || [], 2) + briefing() + "</div></div></section></div></section>";
+    badge("chain") + "</div>" + settlements(model.state?.settlements || [], 2) + briefing() + "</div></div></div></section></div></section>";
 }
 
 function touch(row) {
@@ -1052,6 +1059,12 @@ function bindGlobal() {
       model.settings.theme = model.settings.theme === "light" ? "dark" : "light";
       localStorage.setItem("tempo-display-v1", JSON.stringify(model.settings));
       applySettings();
+    } else if (target.matches("[data-toggle-panel]")) {
+      const key = target.dataset.togglePanel;
+      if (Object.prototype.hasOwnProperty.call(model.dashboard, key)) {
+        model.dashboard[key] = !model.dashboard[key];
+        renderRoute({ preserve: true });
+      }
     } else if (target.matches("[data-open-settings]")) openSettings();
     else if (target.matches("[data-refresh]")) void Promise.all([refreshJournal(), refreshState(true)]);
     else if (target.matches("[data-select-market]")) { model.selected = target.dataset.selectMarket; renderRoute(); }
