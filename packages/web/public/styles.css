@@ -760,6 +760,28 @@ body.theme-dark .brand-logo img, body.theme-dark .reactor-core img { filter: gra
   width: auto;
   min-width: 38px;
 }
+.dashboard-grid.right-expanded.agents-minimized:not(.evidence-minimized) .agents-risk-panel {
+  width: auto;
+  justify-self: stretch;
+}
+.dashboard-grid.right-expanded.agents-minimized:not(.evidence-minimized) .agents-risk-panel .panel-head {
+  height: auto;
+  min-height: 58px;
+  flex-direction: row;
+  padding: 10px 12px;
+}
+.dashboard-grid.right-expanded.agents-minimized:not(.evidence-minimized) .agents-risk-panel .panel-head-title {
+  writing-mode: horizontal-tb;
+  transform: none;
+  align-items: start;
+}
+.dashboard-grid.right-expanded.agents-minimized:not(.evidence-minimized) .agents-risk-panel .panel-head-title small {
+  display: block;
+}
+.dashboard-grid.right-expanded.agents-minimized:not(.evidence-minimized) .agents-risk-panel .panel-toggle {
+  width: auto;
+  min-width: 38px;
+}
 
 /* Keep the center market panel expanded whenever a side panel opens. */
 @media (min-width: 901px) {
