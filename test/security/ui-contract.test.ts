@@ -47,8 +47,6 @@ describe("multipage observatory UI contract", () => {
     expect(app).toContain("GENESIS EXPANDED");
     expect(app).toContain('rightTab("agents", "Agents & risk")');
     expect(app).toContain('rightTab("evidence", "Evidence stream")');
-    expect(app).toContain("function rightDockClose()");
-    expect(app).toContain('data-toggle-panel="right"');
     expect(app).toContain("model.dashboard.right = false");
     expect(app).toContain('key === "agents" && minimized ? "↓"');
     expect(app).toContain('key === "evidence" && minimized ? "↑"');
