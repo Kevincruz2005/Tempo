@@ -14,7 +14,7 @@
   <a href="https://somnia.network/"><img src="https://img.shields.io/badge/Somnia%20L1-100ms%20blocks-7B3FE4?style=for-the-badge" alt="Somnia"></a>
   <a href="https://dreamdex.io/"><img src="https://img.shields.io/badge/DreamDEX-Event%20Contracts-FF6B35?style=for-the-badge" alt="DreamDEX"></a>
   <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-%E2%89%A520-green?style=for-the-badge&logo=node.js" alt="Node"></a>
-  <a href="test/reports/readme-audit-20260905.md"><img src="https://img.shields.io/badge/tests-2%2C116%20passing-brightgreen?style=for-the-badge" alt="Tests"></a>
+  <a href="test/reports/readme-audit-20260905.md"><img src="https://img.shields.io/badge/tests-2%2C117%20passing-brightgreen?style=for-the-badge" alt="Tests"></a>
   <a href="test/reports/zero-mock-audit.md"><img src="https://img.shields.io/badge/mocked%20values-0-brightgreen?style=for-the-badge" alt="Zero Mock"></a>
   <a href="test/reports/security.md"><img src="https://img.shields.io/badge/security-0%20vulnerabilities-brightgreen?style=for-the-badge" alt="Security"></a>
 
@@ -37,7 +37,7 @@
 2. [The Novelty: Autonomous Opening Auction](#the-novelty-autonomous-opening-auction)
 3. [Competitive Differentiation Matrix](#competitive-differentiation-matrix)
 4. [Foundational Thesis: Why Somnia, DreamDEX, AI & MCP?](#foundational-thesis-why-somnia-dreamdex-ai--mcp)
-5. [Live Operational Metrics & Ground Truth](#live-operational-metrics--ground-truth)
+5. [Verified Historical Metrics & Ground Truth](#verified-historical-metrics--ground-truth)
 6. [The 9-Stage Autonomous Lifecycle](#the-9-stage-autonomous-lifecycle)
 7. [The Dual-Agent Firm Architecture (GENESIS & VECTOR)](#the-dual-agent-firm-architecture-genesis--vector)
 8. [Mathematical Pricing & Brier Calibration Model](#mathematical-pricing--brier-calibration-model)
@@ -166,12 +166,12 @@ Provides 12 standardized, schema-validated MCP tools allowing external autonomou
 
 ---
 
-<a id="live-operational-metrics--ground-truth"></a>
-## 📊 Live Operational Metrics & Ground Truth
+<a id="verified-historical-metrics--ground-truth"></a>
+## 📊 Verified Historical Metrics & Ground Truth
 
-Operational figures below are derived from the dated journal and on-chain receipts on Somnia Shannon testnet (Chain ID `50312`); quality figures come from deterministic settlement scoring, and repository-quality figures come from the linked checks. No metric is synthetic.
+The figures below are verified observations from the September 5, 2026 Somnia Shannon testnet snapshot (Chain ID `50312`). They are historical evidence, not current live counters, projections, or claims about current mainnet performance. Repository-quality figures are labeled separately. No economic metric is synthetic.
 
-| Metric | Live Value | Provenance & Evidence Link |
+| Metric | Verified Value | Provenance & Evidence Link |
 |:---|:---|:---|
 | **Operating Network** | **Somnia Shannon Testnet (50312)** | [`test/reports/live-read-20260902.md`](test/reports/live-read-20260902.md) |
 | **Active Venue** | **DreamDEX Binary Event Contracts** | [`test/reports/contract-live.md`](test/reports/contract-live.md) |
@@ -185,7 +185,7 @@ Operational figures below are derived from the dated journal and on-chain receip
 | **Brier Score Calibration** | **0.0561 across 18 scored markets** | [`test/reports/business-impact-20260905.md`](test/reports/business-impact-20260905.md) |
 | **Directional Forecasting Accuracy** | **94.4%** (17/18) | [`test/reports/business-impact-20260905.md`](test/reports/business-impact-20260905.md) |
 | **Venue Trading / Settlement Fees** | **0% / 0%** | [`docs/sources/raw/dreamdex-trading_event-contracts.md`](docs/sources/raw/dreamdex-trading_event-contracts.md) |
-| **Automated Test Suite** | **2,117 tests passing** (18 test files) | [`test/reports/readme-audit-20260905.md`](test/reports/readme-audit-20260905.md) |
+| **Automated Test Suite** | **2,117 current tests passing** (18 test files) | [`test/reports/readme-audit-20260905.md`](test/reports/readme-audit-20260905.md) |
 | **Economic Invariant Matrix** | **2,048 cases tested** (6 & 18 decimals) | [`test/reports/offline-20260903.md`](test/reports/offline-20260903.md) |
 | **Security Vulnerabilities** | **0 vulnerabilities** (`npm audit`) | [`test/reports/security.md`](test/reports/security.md) |
 | **Mocked Economic Values** | **0 mocked values** | [`test/reports/zero-mock-audit.md`](test/reports/zero-mock-audit.md) |
@@ -911,9 +911,9 @@ The final Azure and local validation included:
 
 The official Somnia testnet RPC is used by Azure. A public Thirdweb fallback was rate-limited during signer balance checks, so the deployment was moved to the official endpoint and the full signer-aware CLI matrix then passed.
 
-### LLM boundary
+### LLM Usage
 
-LLM narration is a cold-path reporting feature only. It receives journal-derived statistics and cannot price, approve risk, sign, or execute transactions. If the configured provider rejects a request—for example, Gemini rejected the Azure VM location—the deterministic report remains available and no data is fabricated. The trading hot path remains deterministic and on-chain/evidence-first.
+LLMs are used for optional cold-path reporting and human-readable analysis generated from verified journal and settlement data. Core pricing, risk enforcement, order execution, wallet signing, settlement, and claims remain deterministic and evidence-driven. If an LLM provider is unavailable, the deterministic report remains available and no data is fabricated.
 
 ---
 
