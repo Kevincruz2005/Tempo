@@ -53,6 +53,19 @@ ROLL       successor window appears → back to BIRTH
 - **Keeperless settlement** — DreamDEX resolves windows by delivering oracle answers to market contracts *through Somnia's on-chain reactivity*. TEMPO's settlement observation is native, not bolted on.
 - Remove Somnia and TEMPO loses its reaction speed, its economics, and its settlement rail. This is not a generic EVM bot.
 
+### Somnia Ecosystem Stack & Resources Leveraged
+
+| Category | Resource / Component | How TEMPO Uses It |
+|:---|:---|:---|
+| **L1 Blockchain** | **Somnia L1 (Shannon 50312 & Mainnet 5031)** | Ultra-high throughput (~100ms blocks), sub-second finality, and negligible execution gas for high-frequency quoting. |
+| **RPC & Node APIs** | **`https://api.infra.testnet.somnia.network`** | Primary JSON-RPC node infrastructure for state inspection, signer balances, order broadcasting, and health probing. |
+| **Reactivity Primitives** | **`somnia_watch` & `realtime_sendRawTransaction`** | Streaming log tailing for microsecond fill detection; single round-trip write/receipt validation avoiding pending-state limbo. |
+| **Protocol Contracts** | **DreamDEX Suite (CREATE3 Deployed)** | Direct on-chain interaction with `BinaryMarketsModule`, `MarketsCore` (CLOB), `BinarySettlement`, `OutcomeToken6909`, and `CollateralRouter`. |
+| **Oracle Layer** | **`OracleHub` & Somnia Price Feeds** | Official Somnia spot price feeds (ETH/USD, BTC/USD) and oracle hub for fair-value driftless diffusion ($\Phi$) and settlement scoring. |
+| **Protocol SDK** | **`@somnia-chain/markets-sdk`** | Type-safe contract interfaces, order encoding, balance checks, and multi-tier exchange abstraction inside `TempoExchange`. |
+| **Tokens & Collateral** | **`STT` (Native) & `tUSDC` (Collateral)** | Somnia native token (`STT`) for gas execution; testnet ERC-20 collateral (`0x70a8...25d8E`) for pair-minting and order settlement. |
+| **Data & Explorer** | **Somnia Shannon Explorer & Envio Indexer** | Ledger verification (`shannon-explorer.somnia.network`) and indexed window discovery with direct RPC failover. |
+
 **Why DreamDEX Event Contracts (load-bearing):** the mechanism *is* the product — the on-chain opening price as anchor, mint-a-pair zero-inventory quoting, mandatory order expiry as a built-in dead-man's switch for autonomous agents, the `Finalized` claim flow, oracle-settled rolling windows. Delete Event Contracts and there is no birth to attend.
 
 ## Verifiable Trading Intelligence
