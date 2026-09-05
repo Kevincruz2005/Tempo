@@ -1563,3 +1563,287 @@ body.theme-light .dash-life-head .dash-life-status {
   background: rgba(0,0,0,.05);
 }
 
+/* Full-width navigation chrome. Neutral tokens intentionally keep palette decisions open. */
+.topbar {
+  --nav-bg: #f7f7f5;
+  --nav-surface: #e7e7e3;
+  --nav-surface-strong: #242424;
+  --nav-line: #d4d4cf;
+  --nav-text: #202020;
+  --nav-muted: #747470;
+  --nav-inverse: #fafaf8;
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(210px, 1fr) auto auto;
+  align-items: center;
+  gap: clamp(24px, 3vw, 48px);
+  padding: 0 clamp(24px, 2.25vw, 32px);
+  border: 0;
+  border-bottom: 1px solid var(--nav-line);
+  background: var(--nav-bg);
+  color: var(--nav-text);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.topbar .brand {
+  gap: 11px;
+  color: var(--nav-text);
+}
+
+.topbar .brand-logo {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  border: 1px solid var(--nav-line);
+  background: var(--nav-surface);
+  box-shadow: none;
+}
+
+.topbar .brand-logo::after {
+  border-color: rgba(32, 32, 32, .2);
+}
+
+.topbar .brand-logo img {
+  filter: grayscale(1) contrast(1.12);
+}
+
+.topbar .brand-copy {
+  line-height: 1;
+}
+
+.topbar .brand-copy strong {
+  color: var(--nav-text);
+  font-size: 16px;
+  font-weight: 780;
+  letter-spacing: .21em;
+}
+
+.topbar .brand-copy small {
+  margin-top: 5px;
+  color: var(--nav-muted);
+  font: 650 8px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .12em;
+}
+
+.topbar .primary-nav {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: clamp(20px, 2vw, 30px);
+  height: 100%;
+}
+
+.topbar .primary-nav a {
+  position: relative;
+  height: 100%;
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 0 0;
+  color: var(--nav-muted);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.topbar .primary-nav a:hover {
+  color: var(--nav-text);
+  background: transparent;
+}
+
+.topbar .primary-nav a.active {
+  color: var(--nav-text);
+  font-weight: 720;
+}
+
+.topbar .primary-nav a.active::after {
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 2px 2px 0 0;
+  background: var(--nav-text);
+  box-shadow: none;
+}
+
+.topbar .system-cluster {
+  gap: 6px;
+}
+
+.topbar .status-pill {
+  min-height: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 10px;
+  border: 1px solid var(--nav-line);
+  border-radius: 999px;
+  color: var(--nav-muted);
+  background: transparent;
+  box-shadow: none;
+  font: 680 9px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: .055em;
+  white-space: nowrap;
+}
+
+.topbar .status-pill b {
+  font: inherit;
+}
+
+.topbar .status-pill-filled.status-pill-network {
+  border-color: var(--nav-surface);
+  color: var(--nav-text);
+  background: var(--nav-surface);
+}
+
+.topbar .status-pill-primary {
+  border-color: var(--nav-surface-strong);
+  color: var(--nav-inverse);
+  background: var(--nav-surface-strong);
+}
+
+.topbar .status-pill-control:hover {
+  border-color: var(--nav-muted);
+  color: var(--nav-text);
+  background: transparent;
+}
+
+.topbar .status-pill-primary:hover {
+  border-color: #000;
+  color: var(--nav-inverse);
+  background: #000;
+}
+
+.topbar .status-pill i,
+.topbar .wallet-dot {
+  width: 5px;
+  height: 5px;
+  background: currentColor;
+  box-shadow: none;
+}
+
+.topbar .status-pill.online i,
+.topbar .wallet-trigger.connected .wallet-dot {
+  background: currentColor;
+  box-shadow: 0 0 0 2px rgba(32, 32, 32, .12);
+  animation: none;
+}
+
+.topbar .status-pill.offline i {
+  background: var(--nav-muted);
+}
+
+body.theme-light .topbar,
+body.theme-light .topbar .status-pill {
+  box-shadow: none;
+}
+
+body.theme-dark .topbar {
+  --nav-bg: #111;
+  --nav-surface: #303030;
+  --nav-surface-strong: #ededeb;
+  --nav-line: #393939;
+  --nav-text: #f2f2ef;
+  --nav-muted: #999995;
+  --nav-inverse: #171717;
+  background: var(--nav-bg);
+}
+
+body.theme-dark .topbar .brand-logo {
+  background: var(--nav-surface);
+}
+
+body.theme-dark .topbar .brand-logo::after {
+  border-color: rgba(255, 255, 255, .24);
+}
+
+body.theme-dark .topbar .status-pill-primary:hover {
+  border-color: #fff;
+  background: #fff;
+}
+
+@media (max-width: 1160px) {
+  .topbar {
+    grid-template-columns: auto 1fr auto;
+    gap: 22px;
+    padding-inline: 22px;
+  }
+
+  .topbar .primary-nav {
+    gap: 18px;
+  }
+
+  .topbar .desktop-status {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 940px) {
+  :root {
+    --header-height: 64px;
+  }
+
+  .app-shell {
+    grid-template-rows: var(--header-height) minmax(calc(100dvh - var(--header-height) - var(--footer-height)), auto) var(--footer-height);
+  }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    grid-template-columns: 1fr auto;
+    padding-inline: 18px;
+  }
+
+  .topbar .primary-nav {
+    display: none;
+  }
+
+  .topbar .brand-copy small {
+    display: block;
+  }
+
+  .topbar .wallet-trigger span:last-child {
+    display: inline;
+  }
+}
+
+@media (max-width: 620px) {
+  :root {
+    --header-height: 60px;
+  }
+
+  .topbar {
+    gap: 10px;
+    padding-inline: 12px;
+  }
+
+  .topbar .brand-logo {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+  }
+
+  .topbar .brand-copy {
+    display: none;
+  }
+
+  .topbar .system-cluster {
+    gap: 4px;
+  }
+
+  .topbar .status-pill {
+    min-height: 26px;
+    height: 26px;
+    padding-inline: 8px;
+    font-size: 8px;
+  }
+
+  .topbar .status-pill-control b,
+  .topbar .wallet-trigger span:last-child {
+    display: none;
+  }
+}

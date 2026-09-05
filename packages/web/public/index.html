@@ -4,9 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="description" content="TEMPO — the autonomous opening auction for DreamDEX Event Contracts on Somnia." />
-  <meta name="theme-color" content="#f6f7ff" />
+  <meta name="theme-color" content="#f2f1ec" />
   <title>TEMPO — Autonomous Opening Auction</title>
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/ui-v2.css" />
 </head>
 <body class="theme-light">
   <a class="skip-link" href="#main-content">Skip to content</a>
@@ -18,19 +19,20 @@
         <span class="brand-copy"><strong>TEMPO</strong><small>MARKETS IN MOTION</small></span>
       </a>
       <nav class="primary-nav" aria-label="Primary navigation">
-        <a href="/dashboard" data-route>Dashboard</a>
+        <a href="/dashboard" data-route>Observatory</a>
         <a href="/markets" data-route>Markets</a>
         <a href="/history" data-route>History</a>
         <a href="/docs" data-route>Docs</a>
-        <a href="/pricing" data-route>Pricing</a>
+        <a href="/protocol" data-route>Protocol</a>
       </nav>
       <div class="system-cluster" aria-label="System status">
-        <span class="status-pill" id="pill-net"><i></i><span>CONNECTING</span></span>
-        <span class="status-pill desktop-status" id="pill-mode">—</span>
-        <button class="icon-button" id="theme-toggle" type="button" aria-label="Switch to dark theme"><span id="theme-icon" aria-hidden="true">☾</span><b id="theme-label">Dark</b></button>
-        <button class="icon-button wallet-trigger" id="wallet-open" type="button" aria-label="Open wallet" aria-haspopup="dialog">
-          <span class="wallet-dot" aria-hidden="true"></span><span id="wallet-top-state">Wallet</span>
+        <span class="status-pill status-pill-filled status-pill-network" id="pill-net"><i></i><span>CONNECTING</span></span>
+        <button class="status-pill status-pill-outline status-pill-control command-trigger" id="command-open" type="button" aria-label="Open command menu"><span aria-hidden="true">⌕</span><b>Search</b></button>
+        <button class="status-pill status-pill-outline status-pill-control" id="theme-toggle" type="button" aria-label="Switch to dark theme"><span id="theme-icon" aria-hidden="true">☾</span><b id="theme-label">Dark</b></button>
+        <button class="status-pill status-pill-filled status-pill-primary status-pill-control wallet-trigger" id="wallet-open" type="button" aria-label="Connect wallet" aria-haspopup="dialog">
+          <span class="wallet-dot" aria-hidden="true"></span><span id="wallet-top-state">Connect Wallet</span>
         </button>
+        <button class="menu-trigger" id="menu-open" type="button" aria-label="Open navigation" aria-haspopup="dialog" aria-expanded="false"><span></span><span></span></button>
       </div>
     </header>
 
@@ -42,11 +44,27 @@
       <div><span class="live-beacon"></span><span id="footer-status">Connecting to TEMPO engine</span></div>
       <nav aria-label="System links">
         <a href="https://github.com/Kevincruz2005/Tempo" target="_blank" rel="noopener noreferrer">Repository</a>
-        <a id="footer-explorer" href="https://shannon-explorer.somnia.network" target="_blank" rel="noopener noreferrer">Somnia Explorer</a>
+        <a id="footer-explorer" target="_blank" rel="noopener noreferrer" hidden>Network Explorer</a>
         <a href="/docs#security" data-route>Security</a>
         <span class="zero-mock">ZERO MOCKED VALUES</span>
       </nav>
     </footer>
+  </div>
+
+  <div class="mobile-menu" id="mobile-menu" hidden>
+    <div class="mobile-menu-head">
+      <span class="eyebrow">TEMPO / NAVIGATION</span>
+      <button class="close-button" id="menu-close" type="button" aria-label="Close navigation">×</button>
+    </div>
+    <nav aria-label="Mobile navigation">
+      <a href="/" data-route><span>01</span>Overview</a>
+      <a href="/dashboard" data-route><span>02</span>Observatory</a>
+      <a href="/markets" data-route><span>03</span>Markets</a>
+      <a href="/history" data-route><span>04</span>History</a>
+      <a href="/docs" data-route><span>05</span>Docs</a>
+      <a href="/protocol" data-route><span>06</span>Protocol</a>
+    </nav>
+    <div class="mobile-menu-foot"><span id="mobile-menu-network">NETWORK · CONNECTING</span><span>ZERO MOCKED VALUES</span></div>
   </div>
 
   <div class="overlay" id="command-overlay" hidden>
@@ -58,9 +76,9 @@
     </section>
   </div>
 
-  <div class="drawer-backdrop" id="wallet-overlay" hidden>
-    <aside class="side-drawer wallet-drawer" role="dialog" aria-modal="true" aria-labelledby="wallet-title">
-      <div class="dialog-head"><div><span class="eyebrow">HUMAN EXECUTION</span><h2 id="wallet-title">Wallet & IOC order</h2></div><button class="close-button" data-close="wallet-overlay" aria-label="Close wallet panel">×</button></div>
+  <div class="drawer-backdrop wallet-modal-backdrop" id="wallet-overlay" hidden>
+    <aside class="side-drawer wallet-drawer wallet-modal" role="dialog" aria-modal="true" aria-labelledby="wallet-title">
+      <div class="dialog-head"><div><span class="eyebrow">WALLET CONNECTION</span><h2 id="wallet-title">Connect wallet</h2></div><button class="close-button" data-close="wallet-overlay" aria-label="Close wallet panel">×</button></div>
       <div class="trust-callout"><span class="shield-icon">◇</span><div><b>Client-signed. Chain-gated.</b><small>TEMPO never receives your private key. Every prepared order is checked against live status and RiskEngine before wallet confirmation.</small></div></div>
       <section class="wallet-panel" id="wallet-panel">
         <div class="wallet-head"><b>Connection</b><span id="wallet-state">DISCONNECTED</span></div>
@@ -78,9 +96,9 @@
           <label>Window<select id="wallet-market"></select></label>
           <div class="field-pair">
             <label>Outcome<select id="wallet-side"><option value="UP">UP</option><option value="DOWN">DOWN</option></select></label>
-            <label>Size<input id="wallet-size" type="number" min="0.001" step="0.001" value="1" inputmode="decimal" /></label>
+            <label>Size<input id="wallet-size" type="number" min="0" inputmode="decimal" placeholder="Enter size" /></label>
           </div>
-          <label>IOC limit<input id="wallet-price" type="number" min="0.001" max="0.999" step="0.001" value="0.5" inputmode="decimal" /></label>
+          <label>IOC limit<input id="wallet-price" type="number" min="0" max="1" inputmode="decimal" placeholder="Enter limit price" /></label>
           <button class="button button-primary" id="wallet-prepare" type="button">Review IOC</button>
           <button class="button button-primary" id="wallet-confirm" type="button" hidden>Confirm in wallet</button>
           <button class="button button-ghost" id="wallet-cancel" type="button" hidden>Cancel review</button>
@@ -110,9 +128,9 @@
       <div class="settings-grid">
         <label>Density<select id="setting-density"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label>
         <label>Refresh interval<select id="setting-refresh"><option value="2000">2 seconds</option><option value="5000">5 seconds</option><option value="10000">10 seconds</option></select></label>
-        <label>Default asset<select id="setting-asset"><option value="ALL">All assets</option><option value="BTC">BTC</option><option value="ETH">ETH</option></select></label>
+        <label>Default asset<select id="setting-asset"><option value="ALL">All assets</option></select></label>
         <label>Default cadence<select id="setting-interval"><option value="ALL">All intervals</option></select></label>
-        <label>Theme<select id="setting-theme"><option value="light">Light · white / purple / blue</option><option value="dark">Dark · black / white</option></select></label>
+        <label>Theme<select id="setting-theme"><option value="light">Light · warm neutral</option><option value="dark">Dark · charcoal neutral</option></select></label>
         <label class="toggle-row"><input id="setting-motion" type="checkbox" /><span>Reduce non-essential motion</span></label>
       </div>
       <div class="settings-truth"><span>Runtime <b id="settings-runtime">UNAVAILABLE</b></span><span>Wallet <b id="settings-wallet">DISCONNECTED</b></span></div>

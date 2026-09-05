@@ -16,3 +16,5 @@ packages/core/dist/
 coverage/
 *.log
 .DS_Store
+ui_update
+env

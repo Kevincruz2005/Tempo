@@ -18,6 +18,7 @@ const model = {
   rowIndex: -1,
   births: new Set(),
   walletProofs: new Map(),
+  loaded: { state: false, journal: false, wallet: false },
   dashboard: { venue: true, right: true, agents: true, evidence: true },
   filters: {
     marketQuery: "", marketStatus: "ALL", asset: "ALL", interval: "ALL", sort: "EXPIRY",
@@ -123,36 +124,62 @@ function lifecycle(current, compact) {
 
 function renderLanding() {
   const markets = model.state?.markets || [];
-  const selected = markets.find((row) => row.secondsLeft > 0 && row.view) || markets[0];
+  const selected = markets.find((row) => row.secondsLeft > 0 && row.view) || markets.find((row) => row.secondsLeft > 0);
   if (selected) model.selected = selected.marketId;
   const receipts = model.records.filter((row) => row.type === "order-receipt" && HASH.test(row.tx || "")).length;
-  const settlements = model.state?.settlements?.length || 0;
-  const mode = model.state ? (model.state.live.dryRun ? "DRY RUN" : "LIVE") : "UNAVAILABLE";
+  const settlementsCount = model.state?.settlements?.length;
+  const mode = model.state ? (model.state.live.dryRun ? "DRY RUN" : "LIVE WRITES") : "UNAVAILABLE";
+  const network = model.walletConfig?.chainName || model.state?.live?.network || "UNAVAILABLE";
+  const chainId = model.walletConfig?.chainId;
+  const trading = markets.filter((row) => row.status === 1 && row.secondsLeft > 0).length;
   const selectedLink = selected
-    ? '<a class="button button-ghost" href="' + marketPath(selected.marketId) + '" data-route>Follow ' + escapeHtml(selected.asset) + " " + fmt(selected.intervalSec / 60, 0) + "m window</a>"
+    ? '<a class="button button-ghost" href="' + marketPath(selected.marketId) + '" data-route>Inspect active window ↗</a>'
     : '<span class="button button-ghost" aria-disabled="true">NO ACTIVE WINDOW</span>';
-  return '<section class="page landing"><div class="landing-inner"><div class="hero"><div class="hero-copy">' +
-    '<span class="eyebrow">AUTONOMOUS OPENING AUCTION · SOMNIA</span><h1>Every event contract begins with an <em>empty book.</em></h1>' +
-    '<p class="hero-lede">TEMPO is the autonomous opening-auction and market-making layer for DreamDEX Event Contracts—anchoring each window, managing its endgame, and leaving verifiable evidence behind.</p>' +
-    '<div class="hero-actions"><a class="button button-primary" href="/dashboard" data-route>Open observatory ↗</a>' +
-    '<button class="button button-ghost" type="button" data-open-wallet>Connect wallet</button></div>' +
-    '<div class="hero-network"><span class="live-beacon ' + (model.state ? "online" : "offline") + '"></span><span>' +
-    escapeHtml(model.walletConfig?.chainName || "Somnia network") + " · Chain " + escapeHtml(model.walletConfig?.chainId || "UNAVAILABLE") + " · " + escapeHtml(mode) + "</span></div></div>" +
-    '<div class="hero-visual" aria-label="Animated TEMPO lifecycle reactor"><div class="reactor"><span class="reactor-ring"></span><span class="reactor-ring"></span><span class="reactor-ring"></span>' +
-    '<div class="reactor-core"><img src="/assets/tempo-logo.png" alt="" /></div><span class="orbit-label one">ON-CHAIN BIRTH</span><span class="orbit-label two">FAIR VALUE</span>' +
-    '<span class="orbit-label three">RISK GATE</span><span class="orbit-label four">VERIFIED SETTLEMENT</span></div></div></div>' +
-    lifecycle(selected?.lifecycle || "BIRTH", false) +
-    '<div class="landing-proof"><article class="proof-card"><b>Market birth</b><p>Rolling DreamDEX windows are discovered from the official venue surface and keyed by market ID.</p></article>' +
-    '<article class="proof-card"><b>Autonomous liquidity</b><p>GENESIS and VECTOR apply independent policies over live inputs, with every write bounded by RiskEngine.</p></article>' +
-    '<article class="proof-card"><b>Verifiable execution</b><p>Journal records, transaction hashes, settlements, and oracle links keep the operating trail inspectable.</p></article>' +
-    '<div class="evidence-strip"><div><strong>' + fmt(markets.length, 0) + '</strong><span>MARKETS IN CURRENT SNAPSHOT · ' + badge("chain") + "</span></div>" +
-    '<div><strong>' + fmt(model.records.length, 0) + '</strong><span>SESSION EVENTS LOADED · ' + badge("journal") + "</span></div>" +
-    '<div><strong>' + fmt(receipts + settlements, 0) + '</strong><span>RECEIPTS + SETTLEMENTS · ' + badge("derived") + "</span></div></div></div>" +
-    '<div class="page-actions">' + selectedLink + '<a class="button button-primary" href="/dashboard" data-route>Watch the live firm</a></div></div></section>';
+  const activeWindow = selected ? '<div class="auction-window-head"><div><span>ACTIVE WINDOW ' + badge("chain") + '</span><b>' +
+    escapeHtml(selected.asset) + " / " + fmt(selected.intervalSec / 60, 0) + ' MIN</b></div><span class="countdown ' +
+    (selected.secondsLeft <= 20 ? "urgent" : "") + '">' + secondsLeft(selected.secondsLeft) + '</span></div>' +
+    '<div class="auction-window-main"><div><span>Lifecycle</span><strong>' + escapeHtml(selected.lifecycle) +
+    '</strong></div><div><span>Opening</span><strong>' + (selected.view ? fmt(selected.view.opening.value, 2) : "NO DATA") +
+    '</strong></div><div><span>Spot</span><strong>' + (selected.view ? fmt(selected.view.spot.value, 2) : "NO DATA") +
+    '</strong></div><div><span>Fair value ' + badge("model") + '</span><strong>' +
+    (selected.view?.fairValue ? pct(selected.view.fairValue.value) : "NO DATA") + '</strong></div></div>' +
+    '<div class="auction-window-id">' + escapeHtml(short(selected.marketId, 14, 10)) + '</div>' :
+    empty("NO ACTIVE WINDOW", "The live registry has not returned a current market window.");
+  const metric = (value, label, source) => '<div><strong>' + escapeHtml(value) + '</strong><span>' +
+    escapeHtml(label) + ' ' + badge(source) + '</span></div>';
+  return '<section class="page landing"><div class="landing-inner">' +
+    '<section class="editorial-hero"><div class="hero-copy"><span class="eyebrow">AUTONOMOUS OPENING AUCTION / SOMNIA</span>' +
+    '<h1>Liquidity that arrives <em>before the crowd.</em></h1>' +
+    '<p class="hero-lede">TEMPO discovers rolling DreamDEX Event Contract windows, anchors an empty book, manages inventory through expiry, and publishes the evidence trail.</p>' +
+    '<div class="hero-actions"><a class="button button-primary" href="/dashboard" data-route>Enter live observatory <span>↗</span></a>' +
+    selectedLink + '</div><div class="hero-network"><span class="live-beacon ' + (model.state ? "online" : "offline") +
+    '"></span><span>' + escapeHtml(network) + ' · CHAIN ' + escapeHtml(chainId ?? "UNAVAILABLE") + ' · ' + escapeHtml(mode) +
+    '</span></div></div><div class="auction-visual" aria-label="Live market snapshot"><div class="auction-grid" aria-hidden="true"></div>' +
+    '<div class="auction-orbit" aria-hidden="true"><span></span><span></span><i></i></div><article class="auction-window">' + activeWindow +
+    '</article><div class="auction-caption"><span>DISCOVER</span><span>PRICE</span><span>GATE</span><span>EXECUTE</span></div></div></section>' +
+    '<section class="live-ledger" aria-label="Live evidence summary">' +
+    metric(model.loaded.state ? fmt(markets.length, 0) : "NO DATA", "MARKETS IN SNAPSHOT", "chain") +
+    metric(model.loaded.state ? fmt(trading, 0) : "NO DATA", "TRADING WINDOWS", "derived") +
+    metric(model.loaded.journal ? fmt(model.records.length, 0) : "NO DATA", "JOURNAL EVENTS LOADED", "journal") +
+    metric(model.loaded.state && model.loaded.journal ? fmt(receipts + Number(settlementsCount || 0), 0) : "NO DATA", "RECEIPTS + SETTLEMENTS", "derived") +
+    '</section><section class="operating-model"><div class="section-intro"><span class="eyebrow">THE OPERATING LOOP</span>' +
+    '<h2>One bounded firm.<br><em>Every window accountable.</em></h2><p>The interface separates chain facts, deterministic policy, model estimates, and journal evidence so operators can see exactly what the system knows.</p></div>' +
+    '<div class="operating-grid"><article><span>01 / DISCOVERY</span><h3>Born from the venue</h3><p>Markets come from the official registry and retain their canonical market ID, cadence, status, and expiry.</p></article>' +
+    '<article><span>02 / GENESIS</span><h3>An empty book gets a pulse</h3><p>GENESIS submits post-only, two-sided liquidity from live venue parameters and a journaled fair-value estimate.</p></article>' +
+    '<article><span>03 / CONTROL</span><h3>Risk owns the boundary</h3><p>Every maker and taker plan passes the shared deterministic RiskEngine before any wallet request or agent write.</p></article>' +
+    '<article><span>04 / PROOF</span><h3>Receipts close the loop</h3><p>Transaction receipts, settlement facts, oracle links, and claims remain inspectable from the history surface.</p></article></div></section>' +
+    '<section class="lifecycle-section"><div class="section-intro compact-intro"><span class="eyebrow">CURRENT MARKET STATE</span><h2>From birth to roll.</h2></div>' +
+    lifecycle(selected?.lifecycle, false) + '</section>' +
+    '<section class="landing-cta"><div><span class="eyebrow">LIVE SYSTEM / NO DEMO DATA</span><h2>Observe the firm.<br>Verify the evidence.</h2></div>' +
+    '<div><p>Every displayed market value is loaded from the running engine, the official Somnia surface, or the append-only journal. Missing evidence stays visibly unavailable.</p>' +
+    '<div class="hero-actions"><a class="button button-primary" href="/dashboard" data-route>Open observatory ↗</a><a class="button button-ghost" href="/protocol" data-route>Read the protocol</a></div></div></section>' +
+    '</div></section>';
 }
 
 function marketItems(markets) {
-  if (!markets.length) return empty("NO ACTIVE WINDOW", "The official registry returned no current windows.");
+  if (!markets.length) return model.loaded.state ?
+    empty("NO ACTIVE WINDOW", "The official registry returned no current windows.") :
+    empty("UNAVAILABLE", "The live market snapshot could not be loaded.");
   return join(markets.map((row) =>
     '<button class="market-item ' + (row.marketId === model.selected ? "active " : "") + (model.births.has(row.marketId) ? "birth" : "") +
     '" type="button" data-select-market="' + escapeHtml(row.marketId) + '"><span class="market-item-main"><span class="asset-mark">' +
@@ -297,7 +324,7 @@ function rightTab(key, label) {
 }
 
 function dashboardLifecycle(selected, minimized = false) {
-  const current = selected?.lifecycle || "BIRTH";
+  const current = selected?.lifecycle || "UNAVAILABLE";
   const currentIndex = LIFE.indexOf(current);
   const assetName = selected ? escapeHtml(selected.asset) + " " + fmt(selected.intervalSec / 60, 0) + "m" : "AWAITING SELECTION";
   const marketIdParam = selected?.marketId ? encodeURIComponent(selected.marketId) : "";
@@ -348,6 +375,9 @@ function dashboardLifecycle(selected, minimized = false) {
 }
 
 function renderDashboard() {
+  if (!model.loaded.state) return '<section class="page page-scroll">' + heading("LIVE COMMAND CENTER", "Observatory unavailable",
+    "TEMPO could not load a verified engine snapshot. No market or agent values are being inferred.", btn("Retry", "data-refresh")) +
+    '<section class="panel">' + empty("UNAVAILABLE", "Check the engine connection and retry the live state read.") + "</section></section>";
   const markets = model.state?.markets || [];
   if (!model.selected || !market(model.selected)) model.selected = (markets.find((row) => row.secondsLeft > 20 && row.view) || markets[0])?.marketId || null;
   const selected = market(model.selected);
@@ -370,14 +400,15 @@ function renderDashboard() {
     riskBar("Capital committed", null, risk?.firmCapitalCap) +
     '</div></div></section>';
   const evidencePanel = '<section class="panel evidence-panel ' + (dash.evidence ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Evidence stream</h2><a class="text-link" href="/history" data-route>Full history ↗</a></div>' + panelToggle("evidence", dash.evidence) + '</div>' +
-    '<div class="evidence-body"><div class="scroll-region"><div style="max-height:132px;overflow:auto">' + activityRows(events, 12) +
+    '<div class="evidence-body"><div class="scroll-region"><div style="max-height:132px;overflow:auto">' +
+    (model.loaded.journal ? activityRows(events, 12) : empty("UNAVAILABLE", "The operational journal could not be loaded.")) +
     '</div><div class="panel-body" style="padding-top:8px"><div class="section-kicker"><span>LATEST SETTLEMENTS</span>' +
     badge("chain") + "</div>" + settlements(model.state?.settlements || [], 2) + briefing() + "</div></div></div></section>";
   const rightPanels = dash.right ? '<section class="panel right-rail"><div class="right-rail-tabs">' + rightTab("agents", "Agents & risk") + rightTab("evidence", "Evidence stream") + '</div></section>' : agentsPanel + evidencePanel;
   return '<section class="page dashboard ' + (dash.lifecycle ? "lifecycle-minimized" : "lifecycle-expanded") + '">' + heading("LIVE COMMAND CENTER", "The autonomous firm, in evidence",
     "Market state first. Agent action second. Risk and on-chain proof always visible.", actions) +
     '<div class="' + gridClass + '"><section class="panel venue-panel ' + (dash.venue ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Venue pulse</h2><small>' +
-    fmt(markets.length, 0) + " WINDOWS · " + fmt(births, 0) + ' BIRTHS LOADED</small></div>' + panelToggle("venue", dash.venue) + '</div><div class="venue-panel-body"><div class="pulse-grid">' +
+    fmt(markets.length, 0) + " WINDOWS · " + (model.loaded.journal ? fmt(births, 0) : "NO DATA") + ' BIRTHS LOADED</small></div>' + panelToggle("venue", dash.venue) + '</div><div class="venue-panel-body"><div class="pulse-grid">' +
     '<div class="pulse-stat"><span>TRADING WINDOWS ' + badge("chain") + "</span><b>" + fmt(markets.filter((row) => row.secondsLeft > 0 && row.status === 1).length, 0) +
     '</b></div><div class="pulse-stat"><span>NEAREST EXPIRY ' + badge("derived") + "</span><b>" +
     (nearest ? secondsLeft(nearest.secondsLeft) : "NO DATA") + '</b></div><div class="pulse-stat"><span>MANAGED CADENCES ' + badge("derived") + "</span><b>" +
@@ -425,6 +456,9 @@ function selectOptions(values, formatter) {
 }
 
 function renderMarkets() {
+  if (!model.loaded.state) return '<section class="page page-scroll">' + heading("DREAMDEX EVENT CONTRACTS", "Markets unavailable",
+    "The official registry snapshot could not be loaded. No market rows are being synthesized.", btn("Retry", "data-refresh")) +
+    '<section class="panel">' + empty("UNAVAILABLE", "Check the engine and testnet RPC connection, then retry.") + "</section></section>";
   const rows = filteredMarkets();
   const assets = [...new Set((model.state?.markets || []).map((row) => row.asset))];
   const intervals = [...new Set((model.state?.markets || []).map((row) => row.intervalSec))].sort((a, b) => a - b);
@@ -444,7 +478,7 @@ function renderMarkets() {
       "</b><small>spot " + (row.view ? fmt(row.view.spot.value, 2) : "NO DATA") + "</small></div></td>" +
       '<td><div class="cell-stack"><b>' + (row.view ? pct(row.view.fairValue.value) : "NO DATA") + " " + badge("model") +
       "</b><small>" + (row.view ? fmt(row.view.fairValue.band[0], 3) + "–" + fmt(row.view.fairValue.band[1], 3) : "UNAVAILABLE") + "</small></div></td>" +
-      '<td><div class="cell-stack"><b>' + fmt(fills, 0) + " " + badge("journal") + "</b><small>fills in loaded journal</small></div></td>" +
+      '<td><div class="cell-stack"><b>' + (model.loaded.journal ? fmt(fills, 0) : "NO DATA") + " " + badge("journal") + "</b><small>fills in loaded journal</small></div></td>" +
       '<td><a class="button button-small button-ghost" href="' + marketPath(row.marketId) + '" data-route>Inspect</a></td></tr>';
   }));
   const table = body
@@ -481,7 +515,9 @@ function sparkline(asset) {
 function proofTimeline(records, settlement) {
   const types = ["market-birth", "decision", "risk-reject", "order-sent", "order-receipt", "fill", "settlement", "claim"];
   const rows = records.filter((row) => types.includes(row.type)).slice(-12).reverse();
-  if (!rows.length && !settlement) return empty("NO EVENTS YET", "No lifecycle evidence is loaded for this market.");
+  if (!rows.length && !settlement) return model.loaded.journal ?
+    empty("NO EVENTS YET", "No lifecycle evidence is loaded for this market.") :
+    empty("UNAVAILABLE", "The operational journal could not be loaded.");
   return '<div class="proof-timeline">' + join(rows.map((row) =>
     '<button class="proof-event" type="button" data-event-id="' + escapeHtml(row.eventId || "") + '"><b>' +
     escapeHtml(row.type.toUpperCase()) + " " + badge(recordSource(row)) + "</b><small>" + escapeHtml(time(row.ts)) + " · " +
@@ -492,6 +528,9 @@ function proofTimeline(records, settlement) {
 }
 
 function renderMarketDetail(id) {
+  if (!model.loaded.state) return '<section class="page page-scroll">' + heading("MARKET INSPECTION", "Market state unavailable",
+    "TEMPO could not verify the current registry snapshot.") + '<section class="panel">' +
+    empty("UNAVAILABLE", "This market cannot be inspected until the engine returns live state.", btn("Retry", "data-refresh")) + "</section></section>";
   const row = market(id);
   if (!row) return '<section class="page page-scroll">' + heading("MARKET INSPECTION", "Market unavailable",
     "This market is not present in the current live snapshot.") + '<section class="panel">' +
@@ -521,10 +560,11 @@ function renderMarketDetail(id) {
     escapeHtml(row.asset) + "</span></div>" + sparkline(row.asset) + "</div></section>" +
     '<section class="panel"><div class="panel-head"><h2>Fair-value engine</h2><small>ESTIMATE, NEVER ORACLE</small></div><div class="panel-body">' +
     renderFairValue(row.view) + lifecycle(row.lifecycle, true) + "</div></section>" +
-    '<section class="panel"><div class="panel-head"><h2>Agents & risk decisions</h2><small>' + fmt(rejects.length, 0) +
+    '<section class="panel"><div class="panel-head"><h2>Agents & risk decisions</h2><small>' + (model.loaded.journal ? fmt(rejects.length, 0) : "NO DATA") +
     ' REJECTS LOADED</small></div><div class="panel-body scroll-region"><div class="agent-stack">' +
     join(agents.map(agentCard)) + '</div><div class="drawer-divider"></div>' +
-    (rejects.length ? activityRows(rejects, 6) : empty("NO DATA", "No risk rejection is loaded for this market. Policy limits remain active.")) +
+    (rejects.length ? activityRows(rejects, 6) : model.loaded.journal ? empty("NO DATA", "No risk rejection is loaded for this market. Policy limits remain active.") :
+      empty("UNAVAILABLE", "The operational journal could not be loaded. Policy limits remain active.")) +
     "</div></section>" +
     '<section class="panel detail-proof"><div class="panel-head"><h2>Lifecycle proof</h2><small>JOURNAL → CHAIN</small></div><div class="panel-body scroll-region">' +
     proofTimeline(records, settlement) + '<div class="drawer-divider"></div><div class="section-kicker"><span>SETTLEMENT</span>' +
@@ -559,6 +599,9 @@ function filteredHistory() {
 }
 
 function renderHistory() {
+  if (!model.loaded.journal) return '<section class="page page-scroll">' + heading("AUDITABLE BY DESIGN", "History unavailable",
+    "The operational journal could not be loaded. An empty activity stream is not being implied.", btn("Retry", "data-refresh")) +
+    '<section class="panel">' + empty("UNAVAILABLE", "Check the engine connection and retry the journal read.") + "</section></section>";
   const records = filteredHistory();
   const tabs = [["OPERATIONS", "Operations"], ["ALL", "All events"], ["ORDERS", "Orders"], ["FILLS", "Fills"], ["SETTLEMENTS", "Settlements"], ["RISK", "Risk decisions"], ["JOURNAL", "Journal only"]];
   const agents = [...new Set(model.records.map((row) => row.agent || "FIRM"))].sort();
@@ -641,31 +684,41 @@ function renderDocs() {
     model.docs + "</div></main></section>";
 }
 
-function renderPricing() {
-  const enhanced = sessionStorage.getItem("tempo-pricing-mode") === "LLM";
-  const freeExtra = enhanced
-    ? ["User-triggered operator briefing", "Journal-grounded commentary", "Generated-at and source-window metadata", "Bring-your-own provider"]
-    : ["Deterministic reporting", "No narration dependency", "Identical pricing, risk, execution, and data"];
-  const cards = [
-    { status: "AVAILABLE NOW", name: "Free Explorer", copy: "For judges, traders, and builders observing the public firm.", price: "Free", cta: "Open observatory", href: "/dashboard", features: ["Public live observatory", "Market and settlement state", "Read-only risk and activity", "SDK, CLI, MCP, and docs", ...freeExtra] },
-    { status: "PLANNED", name: "Pro Operator", copy: "For teams operating their own bounded autonomous market firm.", price: "Planned", cta: "Track roadmap", href: "https://github.com/Kevincruz2005/Tempo/issues", features: ["Firm orchestration console", "Configurable policy profiles", "Operator alerts", "Advanced monitoring and API access"] },
-    { status: "PLANNED", name: "Enterprise / Venue", copy: "For venues and desks deploying opening-auction liquidity infrastructure.", price: "Custom", cta: "Project repository", href: "https://github.com/Kevincruz2005/Tempo", features: ["Dedicated deployment", "Custom risk controls", "Private monitoring", "Venue and compliance integrations"] },
+function renderProtocol() {
+  const state = model.state;
+  const live = state?.live;
+  const risk = state?.risk;
+  const agents = state?.agents || [];
+  const facts = [
+    ["Network", live?.network || "UNAVAILABLE", "chain"],
+    ["Runtime mode", state ? (live.dryRun ? "DRY RUN" : "LIVE WRITES") : "UNAVAILABLE", "derived"],
+    ["Live event tail", state ? (live.tailing ? "CONNECTED" : "DISCONNECTED") : "UNAVAILABLE", "derived"],
+    ["Watched feeds", state ? (live.priceWatches?.length ? live.priceWatches.join(" · ") : "NO DATA") : "UNAVAILABLE", "chain"],
+    ["Active agents", model.loaded.state ? fmt(agents.length, 0) : "NO DATA", "derived"],
+    ["Snapshot time", state?.at ? utc(state.at) : "UNAVAILABLE", "derived"],
   ];
-  const cardHtml = join(cards.map((card, index) =>
-    '<article class="price-card ' + (index === 0 ? "featured" : "") + '"><span class="prov ' + (index === 0 ? "chain" : "derived") + '">' +
-    card.status + "</span><h2>" + card.name + "</h2><p>" + card.copy + '</p><div class="price">' + card.price +
-    (card.price === "Free" ? "<small> · forever</small>" : "") + '</div><a class="button ' + (index === 0 ? "button-primary" : "button-ghost") +
-    '" href="' + card.href + '" ' + (card.href.startsWith("/") ? "data-route" : 'target="_blank" rel="noopener noreferrer"') + ">" + card.cta + '</a><ul class="feature-list">' +
-    join(card.features.map((item) => "<li>" + escapeHtml(item) + "</li>")) + "</ul></article>"));
-  return '<section class="page pricing-page"><div class="pricing-inner">' +
-    heading("OBSERVE FREELY · OPERATE DELIBERATELY", "Infrastructure, not theater",
-      "The public observatory is available now. Operator and venue products are explicitly planned; no checkout or provisioning is implied.") +
-    '<div class="pricing-toggle" role="group" aria-label="Feature comparison"><button class="' + (!enhanced ? "active" : "") +
-    '" data-pricing-mode="STANDARD">Standard</button><button class="' + (enhanced ? "active" : "") +
-    '" data-pricing-mode="LLM">LLM-enhanced</button></div><div class="boundary-banner">' + badge("llm") + "<span>" +
-    (enhanced ? "Optional narration is shown in this comparison. It never changes market state, pricing, RiskEngine, or execution." :
-      "Standard mode contains the complete deterministic market, risk, execution, and evidence surface.") +
-    '</span></div><div class="pricing-grid">' + cardHtml + "</div></div></section>";
+  const riskRows = risk ? join(Object.entries(risk).map(([key, value]) =>
+    '<div class="protocol-row"><span>' + escapeHtml(key.replace(/([A-Z])/g, " $1")) + '</span><b>' + escapeHtml(value) + '</b>' + badge("policy") + '</div>')) :
+    empty("UNAVAILABLE", "The current engine snapshot did not include RiskEngine policy.");
+  const agentRows = agents.length ? join(agents.map((agent) =>
+    '<article class="protocol-agent"><div><span class="eyebrow">AUTONOMOUS POLICY</span><h3>' + escapeHtml(agent.name) + '</h3></div>' +
+    '<span class="prov ' + (agent.readOnly ? "derived" : "chain") + '">' + mode(agent) + '</span><p>' +
+    escapeHtml(agent.name === "GENESIS" ? "Post-only liquidity, inventory-aware repricing, and mandatory order expiry." :
+      "Independent opportunity detection, IOC-only execution, and bounded collateral exposure.") + '</p><button class="text-link" type="button" data-agent="' +
+    escapeHtml(agent.name) + '">Inspect live agent ↗</button></article>')) : empty("NO DATA", "Agent state is unavailable.");
+  return '<section class="page protocol-page"><div class="protocol-inner">' +
+    heading("SYSTEM ARCHITECTURE", "A firm designed to be inspected",
+      "TEMPO keeps discovery, estimation, policy, execution, and proof distinct—then exposes the live boundary of each layer.",
+      '<a class="button button-primary" href="/docs" data-route>Open technical docs ↗</a>') +
+    '<section class="protocol-facts">' + join(facts.map(([label, value, source]) => fact(label, value, source))) + '</section>' +
+    '<section class="protocol-flow" aria-label="TEMPO execution flow"><article><span>01</span><h2>Discover</h2><p>Read canonical DreamDEX windows and keep market identity keyed by the on-chain market ID.</p></article>' +
+    '<article><span>02</span><h2>Estimate</h2><p>Combine official spot history, the on-chain opening boundary, realized volatility, and time remaining.</p></article>' +
+    '<article><span>03</span><h2>Gate</h2><p>Validate status, tick and lot grids, expiry, inventory, collateral, order count, and firm-wide limits.</p></article>' +
+    '<article><span>04</span><h2>Prove</h2><p>Wait for successful receipts and retain decisions, fills, settlements, oracle evidence, and claims in the journal.</p></article></section>' +
+    '<div class="protocol-columns"><section class="panel"><div class="panel-head"><h2>Live RiskEngine boundary</h2><small>CURRENT SNAPSHOT</small></div><div class="panel-body protocol-rows">' + riskRows + '</div></section>' +
+    '<section class="protocol-agents">' + agentRows + '</section></div>' +
+    '<section class="protocol-truth"><span class="eyebrow">PROVENANCE IS PART OF THE UI</span><h2>Facts stay facts.<br><em>Estimates stay estimates.</em></h2><p>Chain data, derived values, policy limits, journal events, and optional commentary carry visible source labels. When a required source is missing, TEMPO renders NO DATA or UNAVAILABLE instead of inventing continuity.</p></section>' +
+    '</div></section>';
 }
 
 function renderRoute(options = {}) {
@@ -681,7 +734,7 @@ function renderRoute(options = {}) {
   else if (route.startsWith("/markets/")) html = renderMarketDetail(decodeURIComponent(route.slice(9)));
   else if (route === "/history") html = renderHistory();
   else if (route === "/docs") html = renderDocs();
-  else if (route === "/pricing") html = renderPricing();
+  else if (route === "/protocol" || route === "/pricing") html = renderProtocol();
   else html = '<section class="page page-scroll">' + heading("404", "Route not found", "The requested TEMPO surface does not exist.") +
     '<a class="button button-primary" href="/dashboard" data-route>Open dashboard</a></section>';
   host.innerHTML = html;
@@ -699,8 +752,8 @@ function renderRoute(options = {}) {
 }
 
 function updateNavigation() {
-  const base = routeBase();
-  document.querySelectorAll(".primary-nav a").forEach((link) => link.classList.toggle("active", link.getAttribute("href") === base));
+  const base = routeBase() === "/pricing" ? "/protocol" : routeBase();
+  document.querySelectorAll(".primary-nav a, .mobile-menu nav a").forEach((link) => link.classList.toggle("active", link.getAttribute("href") === base));
   const title = base === "/" ? "Autonomous Opening Auction" : base.slice(1).replace(/^\w/, (letter) => letter.toUpperCase());
   document.title = "TEMPO — " + title;
 }
@@ -748,7 +801,7 @@ function bindPage() {
 }
 
 function uiIsBusy() {
-  if (document.querySelector(".overlay:not([hidden]), .drawer-backdrop:not([hidden])")) return true;
+  if (document.querySelector(".overlay:not([hidden]), .drawer-backdrop:not([hidden]), .mobile-menu:not([hidden])")) return true;
   const active = document.activeElement;
   return Boolean(active && active !== document.body && active !== $("main-content") &&
     active.matches("input, select, textarea, button, a, [data-inspect]"));
@@ -782,16 +835,22 @@ function updateChrome() {
   const state = model.state;
   const net = $("pill-net");
   if (net) {
-    net.className = "status-pill " + (state ? "online" : "offline");
+    net.classList.toggle("online", Boolean(state));
+    net.classList.toggle("offline", !state);
     net.innerHTML = '<i></i><span>' + escapeHtml(state?.live?.network?.toUpperCase() || "UNAVAILABLE") + "</span>";
   }
-  if ($("pill-mode")) $("pill-mode").textContent = state ? (state.live.dryRun ? "DRY RUN" : "LIVE") : "UNAVAILABLE";
   if ($("footer-status")) $("footer-status").textContent = state ? "Engine snapshot " + time(state.at) : "TEMPO engine unavailable";
+  if ($("mobile-menu-network")) $("mobile-menu-network").textContent = state ?
+    "NETWORK · " + String(state.live.network || "UNAVAILABLE").toUpperCase() + " · " + (state.live.dryRun ? "DRY RUN" : "LIVE") :
+    "NETWORK · UNAVAILABLE";
   const beacon = document.querySelector(".status-rail .live-beacon");
   beacon?.classList.toggle("online", Boolean(state));
   beacon?.classList.toggle("offline", !state);
   const explorer = safeHttpsUrl(model.walletConfig?.explorerUrl);
-  if (explorer && $("footer-explorer")) $("footer-explorer").href = explorer;
+  if ($("footer-explorer")) {
+    $("footer-explorer").hidden = !explorer;
+    if (explorer) $("footer-explorer").href = explorer;
+  }
 }
 
 async function getJson(url) {
@@ -806,6 +865,7 @@ async function refreshState(force = false) {
     const state = await getJson("/api/state");
     if (!state?.live || !Array.isArray(state.markets) || !Array.isArray(state.agents) || !Array.isArray(state.settlements)) throw new Error("invalid state payload");
     model.state = state;
+    model.loaded.state = true;
     model.refreshAt = state.at;
     window.dispatchEvent(new CustomEvent("tempo:state", { detail: state }));
     updateChrome();
@@ -813,6 +873,7 @@ async function refreshState(force = false) {
     else scheduleLiveRender();
   } catch (error) {
     model.state = null;
+    model.loaded.state = false;
     model.stream = "UNAVAILABLE";
     updateChrome();
     if (force) renderRoute();
@@ -824,8 +885,10 @@ async function refreshJournal() {
   try {
     const body = await getJson("/api/journal?n=300");
     model.records = Array.isArray(body.records) ? body.records : [];
+    model.loaded.journal = true;
   } catch {
     model.records = [];
+    model.loaded.journal = false;
   }
 }
 
@@ -898,6 +961,8 @@ function closeOverlay(id) {
 }
 function closeOverlays(restore = true) {
   document.querySelectorAll(".overlay, .drawer-backdrop").forEach((node) => { node.hidden = true; });
+  if ($("mobile-menu")) $("mobile-menu").hidden = true;
+  $("menu-open")?.setAttribute("aria-expanded", "false");
   document.body.style.overflow = "";
   if (restore) overlayReturnFocus?.focus();
   overlayReturnFocus = null;
@@ -996,7 +1061,7 @@ function commandItems() {
     { label: "Browse markets", detail: "2 · Current DreamDEX windows", href: "/markets" },
     { label: "Open history", detail: "3 · Journal and chain evidence", href: "/history" },
     { label: "Search documentation", detail: "4 · SDK, security, operations", href: "/docs" },
-    { label: "View pricing", detail: "5 · Available and planned tiers", href: "/pricing" },
+    { label: "Inspect protocol", detail: "5 · Live architecture and risk boundary", href: "/protocol" },
     { label: "Open wallet", detail: "Client-signed human IOC", action: "wallet" },
     { label: "Display settings", detail: "Density, refresh, motion", action: "settings" },
     { label: "Keyboard shortcuts", detail: "Navigation and inspection", action: "shortcuts" },
@@ -1033,7 +1098,7 @@ function loadSettings() {
     const saved = JSON.parse(localStorage.getItem("tempo-display-v1") || "{}");
     if (["comfortable", "compact"].includes(saved.density)) model.settings.density = saved.density;
     if ([2000, 5000, 10000].includes(Number(saved.refresh))) model.settings.refresh = Number(saved.refresh);
-    if (["ALL", "BTC", "ETH"].includes(saved.asset)) model.settings.asset = saved.asset;
+    if (typeof saved.asset === "string" && saved.asset.length > 0 && saved.asset.length <= 32) model.settings.asset = saved.asset;
     if (saved.interval === "ALL" || (Number.isSafeInteger(Number(saved.interval)) && Number(saved.interval) > 0)) model.settings.interval = String(saved.interval);
     if (["dark", "light"].includes(saved.theme)) model.settings.theme = saved.theme;
     model.settings.reducedMotion = Boolean(saved.reducedMotion);
@@ -1049,7 +1114,7 @@ function applySettings() {
   if ($("theme-label")) $("theme-label").textContent = model.settings.theme === "light" ? "Dark" : "Light";
   if ($("theme-icon")) $("theme-icon").textContent = model.settings.theme === "light" ? "☾" : "☀";
   if ($("theme-toggle")) $("theme-toggle").setAttribute("aria-label", "Switch to " + (model.settings.theme === "light" ? "dark" : "light") + " theme");
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", model.settings.theme === "light" ? "#f6f7ff" : "#050505");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", model.settings.theme === "light" ? "#f2f1ec" : "#10100f");
   model.filters.asset = model.settings.asset;
   model.filters.interval = model.settings.interval;
   clearInterval(model.refreshTimer);
@@ -1057,8 +1122,11 @@ function applySettings() {
 }
 
 function openSettings() {
+  const assets = [...new Set((model.state?.markets || []).map((row) => row.asset).filter(Boolean))].sort();
   const intervals = [...new Set((model.state?.markets || []).map((row) => row.intervalSec))].sort((a, b) => a - b);
+  $("setting-asset").innerHTML = '<option value="ALL">All assets</option>' + selectOptions(assets, (value) => value);
   $("setting-interval").innerHTML = '<option value="ALL">All intervals</option>' + selectOptions(intervals, (value) => fmt(value / 60, 0) + "m");
+  if (model.settings.asset !== "ALL" && !assets.includes(model.settings.asset)) model.settings.asset = "ALL";
   if (model.settings.interval !== "ALL" && !intervals.map(String).includes(model.settings.interval)) model.settings.interval = "ALL";
   $("setting-density").value = model.settings.density;
   $("setting-refresh").value = String(model.settings.refresh);
@@ -1132,6 +1200,15 @@ function bindGlobal() {
       openOverlay("command-overlay", "#command-search");
       $("command-search").value = "";
       renderCommands();
+    } else if (target.id === "menu-open") {
+      closeOverlays(false);
+      overlayReturnFocus = target;
+      $("mobile-menu").hidden = false;
+      target.setAttribute("aria-expanded", "true");
+      document.body.style.overflow = "hidden";
+      $("menu-close")?.focus();
+    } else if (target.id === "menu-close") {
+      closeOverlays();
     } else if (target.id === "theme-toggle") {
       model.settings.theme = model.settings.theme === "light" ? "dark" : "light";
       localStorage.setItem("tempo-display-v1", JSON.stringify(model.settings));
@@ -1162,8 +1239,7 @@ function bindGlobal() {
     else if (target.matches("[data-history-tab]")) { model.filters.historyTab = target.dataset.historyTab; renderRoute(); }
     else if (target.matches("[data-clear-market-filters]")) {
       model.filters.marketQuery = ""; model.filters.marketStatus = "ALL"; model.filters.asset = "ALL"; model.filters.interval = "ALL"; renderRoute();
-    } else if (target.matches("[data-pricing-mode]")) { sessionStorage.setItem("tempo-pricing-mode", target.dataset.pricingMode); renderRoute(); }
-    else if (target.matches("[data-copy]")) void copyText(target.dataset.copy);
+    } else if (target.matches("[data-copy]")) void copyText(target.dataset.copy);
     else if (target.matches("[data-tx]")) openProof(target.dataset.tx);
     else if (target.matches("[data-event-id]")) openAudit(findRecord(target.dataset.eventId));
     else if (target.matches("[data-agent]")) openAgent(target.dataset.agent);
@@ -1176,7 +1252,7 @@ function bindGlobal() {
     const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName);
     if (event.key === "Escape") closeOverlays();
     if (event.key === "Tab") {
-      const overlay = document.querySelector(".overlay:not([hidden]), .drawer-backdrop:not([hidden])");
+      const overlay = document.querySelector(".overlay:not([hidden]), .drawer-backdrop:not([hidden]), .mobile-menu:not([hidden])");
       const focusable = overlay ? [...overlay.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')].filter((node) => !node.hidden) : [];
       if (focusable.length) {
         const first = focusable[0];
@@ -1194,7 +1270,7 @@ function bindGlobal() {
       else { openOverlay("command-overlay", "#command-search"); renderCommands(); }
     }
     if (!typing && /^[1-7]$/.test(event.key)) {
-      const routes = ["/", "/dashboard", "/markets", "/history", "/docs", "/pricing", "/dashboard"];
+      const routes = ["/", "/dashboard", "/markets", "/history", "/docs", "/protocol", "/dashboard"];
       navigate(routes[Number(event.key) - 1]);
     }
     if (!typing && event.key.toLowerCase() === "j") moveRows(1);
@@ -1217,8 +1293,8 @@ function bindGlobal() {
   }));
   const walletState = $("wallet-state");
   if (walletState) new MutationObserver(() => {
-    const state = walletState.textContent || "Wallet";
-    $("wallet-top-state").textContent = state === "CONNECTED" ? "Connected" : "Wallet";
+    const state = walletState.textContent || "DISCONNECTED";
+    $("wallet-top-state").textContent = state === "CONNECTED" ? "Connected" : "Connect Wallet";
     $("wallet-open").classList.toggle("connected", state === "CONNECTED");
   }).observe(walletState, { childList: true, subtree: true, characterData: true });
   window.addEventListener("tempo:wallet-receipt", (event) => {
@@ -1241,19 +1317,20 @@ function bindGlobal() {
 async function bootstrap() {
   loadSettings();
   bindGlobal();
-  renderRoute({ animate: true });
+  updateNavigation();
   const results = await Promise.allSettled([
     getJson("/api/wallet/config"),
     getJson("/api/journal?n=300"),
     getJson("/api/state"),
     path() === "/docs" ? ensureDocs() : Promise.resolve(),
   ]);
-  if (results[0].status === "fulfilled") model.walletConfig = results[0].value;
-  if (results[1].status === "fulfilled") model.records = Array.isArray(results[1].value.records) ? results[1].value.records : [];
+  if (results[0].status === "fulfilled") { model.walletConfig = results[0].value; model.loaded.wallet = true; }
+  if (results[1].status === "fulfilled") { model.records = Array.isArray(results[1].value.records) ? results[1].value.records : []; model.loaded.journal = true; }
   if (results[2].status === "fulfilled") {
     const state = results[2].value;
     if (state?.live && Array.isArray(state.markets) && Array.isArray(state.agents) && Array.isArray(state.settlements)) {
       model.state = state;
+      model.loaded.state = true;
       model.refreshAt = state.at;
       window.dispatchEvent(new CustomEvent("tempo:state", { detail: state }));
     }

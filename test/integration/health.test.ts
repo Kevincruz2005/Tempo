@@ -50,6 +50,7 @@ describe("health and readiness boundary", () => {
       "/history",
       "/docs",
       "/pricing",
+      "/protocol",
       `/markets/0x${"a".repeat(64)}`,
     ];
     for (const route of routes) {

@@ -30,6 +30,7 @@ describe("security boundaries", () => {
     expect(resolveStaticFile("/srv/tempo", "/history")).toBe("/srv/tempo/index.html");
     expect(resolveStaticFile("/srv/tempo", "/docs")).toBe("/srv/tempo/index.html");
     expect(resolveStaticFile("/srv/tempo", "/pricing")).toBe("/srv/tempo/index.html");
+    expect(resolveStaticFile("/srv/tempo", "/protocol")).toBe("/srv/tempo/index.html");
     expect(resolveStaticFile("/srv/tempo", "/app.js")).toBe("/srv/tempo/app.js");
     expect(resolveStaticFile("/srv/tempo", "/docs.html")).toBe("/srv/tempo/docs.html");
     expect(resolveStaticFile("/srv/tempo", "/assets/dashboard.png")).toBe("/srv/tempo/assets/dashboard.png");

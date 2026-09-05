@@ -4,11 +4,12 @@ import { describe, expect, it } from "vitest";
 const html = readFileSync("packages/web/public/index.html", "utf8");
 const app = readFileSync("packages/web/public/app.js", "utf8");
 const css = readFileSync("packages/web/public/styles.css", "utf8");
+const editorialCss = readFileSync("packages/web/public/ui-v2.css", "utf8");
 const wallet = readFileSync("packages/web/public/wallet.js", "utf8");
 
 describe("multipage observatory UI contract", () => {
   it("keeps every planned destination in the persistent top navigation", () => {
-    for (const route of ["/dashboard", "/markets", "/history", "/docs", "/pricing"]) {
+    for (const route of ["/dashboard", "/markets", "/history", "/docs", "/protocol"]) {
       expect(html).toContain(`href="${route}"`);
     }
     expect(app).toContain('route.startsWith("/markets/")');
@@ -42,6 +43,11 @@ describe("multipage observatory UI contract", () => {
     expect(html).toContain('class="skip-link"');
     expect(html).toContain("/assets/tempo-logo.png");
     expect(html).toContain('id="theme-toggle"');
+    expect(html).toContain('id="menu-open"');
+    expect(html).toContain('id="command-open"');
+    expect(editorialCss).toContain(".editorial-hero");
+    expect(editorialCss).toContain(".mobile-menu");
+    expect(editorialCss).toContain("@media (prefers-reduced-motion: reduce)");
     expect(app).toContain('dashboard: { venue: true, right: true, agents: true, evidence: true }');
     expect(app).toContain('data-toggle-panel');
     expect(app).toContain("GENESIS EXPANDED");
@@ -59,7 +65,7 @@ describe("multipage observatory UI contract", () => {
     expect(css).toContain("right-expanded:not(.agents-minimized).evidence-minimized");
     expect(css).toContain("grid-template-columns: 48px minmax(0, 1fr) 48px");
     expect(app).toContain("theme-light");
-    expect(html).toContain("white / purple / blue");
+    expect(html).toContain("warm neutral");
     expect(css).toContain("@keyframes edge-flow");
     expect(css).toContain("var(--flow-a)");
     expect(css).toContain("Judge-facing final polish");
@@ -68,6 +74,16 @@ describe("multipage observatory UI contract", () => {
     expect(css).toContain("@keyframes judge-edge-flow");
     expect(app).toContain("scheduleLiveRender");
     expect(css).toContain(".page-host.live-refresh .page");
+  });
+
+  it("uses the centered wallet connection modal without a dry-run navbar chip", () => {
+    expect(html).not.toContain('id="pill-mode"');
+    expect(html).toContain('id="wallet-top-state">Connect Wallet');
+    expect(html).toContain('class="drawer-backdrop wallet-modal-backdrop"');
+    expect(html).toContain('class="side-drawer wallet-drawer wallet-modal"');
+    expect(editorialCss).toContain(".wallet-modal-backdrop");
+    expect(editorialCss).toContain("place-items: center");
+    expect(app).toContain('openOverlay("wallet-overlay", "#wallet-connect")');
   });
 
   it("provides complete market and audit filtering without synthetic data", () => {
@@ -82,5 +98,9 @@ describe("multipage observatory UI contract", () => {
     expect(app).not.toContain("Math.random");
     expect(app).not.toContain("lorem ipsum");
     expect(app).not.toContain("tempo@example.com");
+    expect(html).not.toContain('id="wallet-size" type="number" min="0" inputmode="decimal" value=');
+    expect(html).not.toContain('id="wallet-price" type="number" min="0" max="1" inputmode="decimal" value=');
+    expect(app).not.toContain("Free Explorer");
+    expect(app).not.toContain("Pro Operator");
   });
 });

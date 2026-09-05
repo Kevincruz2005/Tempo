@@ -112,6 +112,7 @@ export function resolveStaticFile(staticDir: string, pathname: string): string |
     decoded === "/markets" ||
     decoded === "/history" ||
     decoded === "/docs" ||
+    decoded === "/protocol" ||
     decoded === "/pricing" ||
     /^\/markets\/0x[0-9a-f]{64}$/i.test(decoded);
   const requested = isApplicationRoute ? "/index.html" : decoded;
