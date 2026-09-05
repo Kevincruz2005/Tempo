@@ -758,3 +758,72 @@ body.theme-dark .wallet-modal {
   .topbar .status-pill-control:hover { transform: none; }
   .wallet-modal { animation: none !important; }
 }
+
+/* Reliable nested scrolling for live panels and full-page data surfaces. */
+.venue-panel,
+.market-preview,
+.agents-risk-panel,
+.evidence-panel,
+.detail-book,
+.detail-fair,
+.detail-agents,
+.detail-proof {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.venue-panel-body {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.market-list {
+  height: auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.markets-page {
+  grid-template-rows: auto auto minmax(320px, 1fr) auto;
+  overflow-y: auto;
+}
+
+.agents-risk-body,
+.evidence-body,
+.evidence-body > .scroll-region,
+.detail-book > .scroll-region,
+.detail-proof > .scroll-region {
+  min-height: 0;
+}
+
+.evidence-body {
+  overflow: hidden;
+}
+
+.evidence-body > .scroll-region {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.evidence-events {
+  min-height: 0;
+}
+
+.scroll-region,
+.data-table-wrap,
+.docs-sidebar-spa,
+.docs-content-spa,
+.page-scroll,
+.pricing-page,
+.protocol-page,
+.landing,
+.dashboard,
+.lifecycle,
+.lifecycle-detail,
+.dashboard-lifecycle-track {
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}

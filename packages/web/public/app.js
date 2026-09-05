@@ -370,7 +370,7 @@ function dashboardLifecycle(selected, minimized = false) {
         panelToggle("lifecycle", minimized) +
       '</div>' +
     '</div>' +
-    '<div class="dashboard-lifecycle-track">' + join(steps) + '</div>' +
+    '<div class="dashboard-lifecycle-track" data-scroll-key="dashboard-lifecycle">' + join(steps) + '</div>' +
   '</section>';
 }
 
@@ -393,19 +393,19 @@ function renderDashboard() {
   const selectedContent = selected ? marketFacts(selected) + '<div class="market-core">' + renderBook(selected.view, 5) +
     renderFairValue(selected.view) + '</div>' :
     empty("NO ACTIVE WINDOW", "No market is available for inspection.");
-  const agentsPanel = '<section class="panel agents-risk-panel ' + (dash.agents ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Agents & risk</h2><small>GENESIS EXPANDED · ONE BOUNDARY · TWO POLICIES</small></div>' + panelToggle("agents", dash.agents) + '</div><div class="agents-risk-body panel-body scroll-region"><div class="agent-stack">' +
+  const agentsPanel = '<section class="panel agents-risk-panel ' + (dash.agents ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Agents & risk</h2><small>GENESIS EXPANDED · ONE BOUNDARY · TWO POLICIES</small></div>' + panelToggle("agents", dash.agents) + '</div><div class="agents-risk-body panel-body scroll-region" data-scroll-key="dashboard-agents"><div class="agent-stack">' +
     (agents.length ? join(agents.map(agentCard)) : empty("NO DATA", "Agent state unavailable.")) + '</div><div class="drawer-divider"></div><div class="risk-bars">' +
     riskBar("Peak window gross inventory", peakWindowInventory(genesis), risk?.maxGrossInventory) +
     riskBar("Per-window open orders", null, risk?.maxOpenOrdersPerWindow) +
     riskBar("Capital committed", null, risk?.firmCapitalCap) +
     '</div></div></section>';
   const evidencePanel = '<section class="panel evidence-panel ' + (dash.evidence ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Evidence stream</h2><a class="text-link" href="/history" data-route>Full history ↗</a></div>' + panelToggle("evidence", dash.evidence) + '</div>' +
-    '<div class="evidence-body"><div class="scroll-region"><div style="max-height:132px;overflow:auto">' +
+    '<div class="evidence-body"><div class="scroll-region" data-scroll-key="dashboard-evidence"><div class="evidence-events">' +
     (model.loaded.journal ? activityRows(events, 12) : empty("UNAVAILABLE", "The operational journal could not be loaded.")) +
     '</div><div class="panel-body" style="padding-top:8px"><div class="section-kicker"><span>LATEST SETTLEMENTS</span>' +
     badge("chain") + "</div>" + settlements(model.state?.settlements || [], 2) + briefing() + "</div></div></div></section>";
   const rightPanels = dash.right ? '<section class="panel right-rail"><div class="right-rail-tabs">' + rightTab("agents", "Agents & risk") + rightTab("evidence", "Evidence stream") + '</div></section>' : agentsPanel + evidencePanel;
-  return '<section class="page dashboard ' + (dash.lifecycle ? "lifecycle-minimized" : "lifecycle-expanded") + '">' + heading("LIVE COMMAND CENTER", "The autonomous firm, in evidence",
+  return '<section class="page dashboard ' + (dash.lifecycle ? "lifecycle-minimized" : "lifecycle-expanded") + '" data-scroll-key="dashboard-page">' + heading("LIVE COMMAND CENTER", "The autonomous firm, in evidence",
     "Market state first. Agent action second. Risk and on-chain proof always visible.", actions) +
     '<div class="' + gridClass + '"><section class="panel venue-panel ' + (dash.venue ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Venue pulse</h2><small>' +
     fmt(markets.length, 0) + " WINDOWS · " + (model.loaded.journal ? fmt(births, 0) : "NO DATA") + ' BIRTHS LOADED</small></div>' + panelToggle("venue", dash.venue) + '</div><div class="venue-panel-body"><div class="pulse-grid">' +
@@ -413,11 +413,11 @@ function renderDashboard() {
     '</b></div><div class="pulse-stat"><span>NEAREST EXPIRY ' + badge("derived") + "</span><b>" +
     (nearest ? secondsLeft(nearest.secondsLeft) : "NO DATA") + '</b></div><div class="pulse-stat"><span>MANAGED CADENCES ' + badge("derived") + "</span><b>" +
     fmt(new Set(markets.filter((row) => row.managed).map((row) => row.intervalSec)).size, 0) +
-    '</b></div></div><div class="market-list scroll-region">' + marketItems(markets) + "</div></div></section>" +
+    '</b></div></div><div class="market-list scroll-region" data-scroll-key="dashboard-venue">' + marketItems(markets) + "</div></div></section>" +
     '<section class="panel market-preview"><div class="panel-head"><h2>' +
     (selected ? escapeHtml(selected.asset) + " " + fmt(selected.intervalSec / 60, 0) + "m · " + escapeHtml(selected.lifecycle) : "Selected market") +
     "</h2>" + (selected ? '<a class="text-link" href="' + marketPath(selected.marketId) + '" data-route>Inspect market ↗</a>' : "") +
-    '</div><div class="panel-body">' + selectedContent + "</div></section>" +
+    '</div><div class="panel-body scroll-region" data-scroll-key="dashboard-market">' + selectedContent + "</div></section>" +
     rightPanels + '</div>' +
     dashboardLifecycle(selected, dash.lifecycle) +
     '</section>';
@@ -490,10 +490,10 @@ function renderMarkets() {
     '<label>Asset<select id="market-asset"><option value="ALL">All assets</option>' + selectOptions(assets, (value) => value) + "</select></label>" +
     '<label>Interval<select id="market-interval"><option value="ALL">All intervals</option>' + selectOptions(intervals, (value) => fmt(value / 60, 0) + "m") + "</select></label>" +
     '<label>Sort<select id="market-sort"><option value="EXPIRY">Nearest expiry</option><option value="BIRTH">Newest birth</option><option value="LIFECYCLE">Lifecycle</option><option value="TOUCH">UP touch</option><option value="ACTIVITY">Activity</option></select></label></div>';
-  return '<section class="page markets-page">' + heading("DREAMDEX EVENT CONTRACTS", "Markets",
+  return '<section class="page markets-page" data-scroll-key="markets-page">' + heading("DREAMDEX EVENT CONTRACTS", "Markets",
     "Live windows from the official registry, with chain-derived books and TEMPO estimates.",
     btn("Refresh", "data-refresh") + '<span class="status-pill">UPDATED ' + (model.refreshAt ? time(model.refreshAt) : "UNAVAILABLE") + "</span>") +
-    filters + '<section class="panel"><div class="data-table-wrap">' + table + '</div></section>' +
+    filters + '<section class="panel"><div class="data-table-wrap" data-scroll-key="markets-table">' + table + '</div></section>' +
     '<section class="panel recent-finalized"><div class="panel-head"><h2>Recently finalized</h2><small>CHAIN-DERIVED SETTLEMENT SNAPSHOT</small></div><div class="panel-body">' +
     settlements(model.state?.settlements || [], 8) + "</div></section></section>";
 }
@@ -555,18 +555,18 @@ function renderMarketDetail(id) {
   return '<section class="page market-detail-page">' + header + '<div class="detail-grid">' +
     '<section class="panel detail-book"><div class="panel-head"><h2>UP order book</h2><small>' +
     (row.view?.bookAt ? utc(row.view.bookAt) : "PENDING") + " · " + badge("chain") +
-    '</small></div><div class="panel-body">' + renderBook(row.view, 12) + '<div class="drawer-divider"></div>' +
+    '</small></div><div class="panel-body scroll-region" data-scroll-key="detail-book">' + renderBook(row.view, 12) + '<div class="drawer-divider"></div>' +
     marketFacts(row) + '<div class="drawer-divider"></div><div class="section-kicker"><span>OFFICIAL PRICE FEED</span><span>' +
     escapeHtml(row.asset) + "</span></div>" + sparkline(row.asset) + "</div></section>" +
-    '<section class="panel"><div class="panel-head"><h2>Fair-value engine</h2><small>ESTIMATE, NEVER ORACLE</small></div><div class="panel-body">' +
+    '<section class="panel detail-fair"><div class="panel-head"><h2>Fair-value engine</h2><small>ESTIMATE, NEVER ORACLE</small></div><div class="panel-body scroll-region" data-scroll-key="detail-fair">' +
     renderFairValue(row.view) + lifecycle(row.lifecycle, true) + "</div></section>" +
-    '<section class="panel"><div class="panel-head"><h2>Agents & risk decisions</h2><small>' + (model.loaded.journal ? fmt(rejects.length, 0) : "NO DATA") +
-    ' REJECTS LOADED</small></div><div class="panel-body scroll-region"><div class="agent-stack">' +
+    '<section class="panel detail-agents"><div class="panel-head"><h2>Agents & risk decisions</h2><small>' + (model.loaded.journal ? fmt(rejects.length, 0) : "NO DATA") +
+    ' REJECTS LOADED</small></div><div class="panel-body scroll-region" data-scroll-key="detail-agents"><div class="agent-stack">' +
     join(agents.map(agentCard)) + '</div><div class="drawer-divider"></div>' +
     (rejects.length ? activityRows(rejects, 6) : model.loaded.journal ? empty("NO DATA", "No risk rejection is loaded for this market. Policy limits remain active.") :
       empty("UNAVAILABLE", "The operational journal could not be loaded. Policy limits remain active.")) +
     "</div></section>" +
-    '<section class="panel detail-proof"><div class="panel-head"><h2>Lifecycle proof</h2><small>JOURNAL → CHAIN</small></div><div class="panel-body scroll-region">' +
+    '<section class="panel detail-proof"><div class="panel-head"><h2>Lifecycle proof</h2><small>JOURNAL → CHAIN</small></div><div class="panel-body scroll-region" data-scroll-key="detail-proof">' +
     proofTimeline(records, settlement) + '<div class="drawer-divider"></div><div class="section-kicker"><span>SETTLEMENT</span>' +
     badge("chain") + "</div>" + (settlement ? settlements([settlement], 1) : empty("PENDING", "The market has not appeared in the finalized settlement snapshot.")) +
     briefing() + "</div></section></div></section>";
@@ -639,7 +639,7 @@ function renderHistory() {
     '<label>Status<select id="history-status"><option value="ALL">All states</option><option value="confirmed">Confirmed</option><option value="pending">Pending</option><option value="rejected">Rejected</option><option value="failed">Failed</option><option value="journal">Journal</option></select></label></div>';
   return '<section class="page history-page">' + heading("AUDITABLE BY DESIGN", "History",
     "Every journal decision, risk gate, order, fill, and settlement in the loaded operational window.", btn("Refresh", "data-refresh")) +
-    "<div>" + tabBar + filters + '</div><section class="panel"><div class="data-table-wrap">' + table + "</div></section></section>";
+    "<div>" + tabBar + filters + '</div><section class="panel"><div class="data-table-wrap" data-scroll-key="history-table">' + table + "</div></section></section>";
 }
 
 async function ensureDocs() {
@@ -676,10 +676,10 @@ function renderDocs() {
   if (model.docs === null) return '<section class="page">' + empty("Loading…", "Preparing the operator and developer reference.") + "</section>";
   if (!model.docs) return '<section class="page">' + empty("UNAVAILABLE", "The bundled documentation could not be loaded.", btn("Retry", "data-retry-docs")) + "</section>";
   const toc = docsToc();
-  return '<section class="page docs-page"><aside class="docs-sidebar-spa"><input class="docs-search" id="docs-search-spa" type="search" placeholder="Search docs…" />' +
+  return '<section class="page docs-page"><aside class="docs-sidebar-spa" data-scroll-key="docs-navigation"><input class="docs-search" id="docs-search-spa" type="search" placeholder="Search docs…" />' +
     '<nav class="docs-toc" aria-label="Documentation sections">' + join(toc.map((item) =>
       '<a href="/docs#' + escapeHtml(item.id) + '" data-route>' + escapeHtml(item.title) + "</a>")) +
-    '</nav></aside><main class="docs-content-spa" id="docs-scroll"><div class="docs-article">' +
+    '</nav></aside><main class="docs-content-spa" id="docs-scroll" data-scroll-key="docs-content"><div class="docs-article">' +
     '<div class="boundary-banner"><span>◇</span><span>Technical claims below are scoped by cited repository evidence and report dates. Live observatory values come from the current engine snapshot.</span></div>' +
     model.docs + "</div></main></section>";
 }
@@ -721,11 +721,38 @@ function renderProtocol() {
     '</div></section>';
 }
 
+const SCROLL_SELECTOR = "[data-scroll-key], .scroll-region, .data-table-wrap, .docs-content-spa, .docs-sidebar-spa, .page-scroll, .pricing-page, .protocol-page, .landing";
+
+function captureScrollPositions(host) {
+  const positions = new Map();
+  const occurrences = new Map();
+  host.querySelectorAll(SCROLL_SELECTOR).forEach((node) => {
+    const base = node.dataset.scrollKey || [...node.classList].sort().join(".") || node.tagName.toLowerCase();
+    const occurrence = occurrences.get(base) || 0;
+    occurrences.set(base, occurrence + 1);
+    positions.set(base + ":" + occurrence, { top: node.scrollTop, left: node.scrollLeft });
+  });
+  return positions;
+}
+
+function restoreScrollPositions(host, positions) {
+  const occurrences = new Map();
+  host.querySelectorAll(SCROLL_SELECTOR).forEach((node) => {
+    const base = node.dataset.scrollKey || [...node.classList].sort().join(".") || node.tagName.toLowerCase();
+    const occurrence = occurrences.get(base) || 0;
+    occurrences.set(base, occurrence + 1);
+    const position = positions.get(base + ":" + occurrence);
+    if (!position) return;
+    node.scrollTop = position.top;
+    node.scrollLeft = position.left;
+  });
+}
+
 function renderRoute(options = {}) {
   const host = $("main-content");
   if (!host) return;
   host.classList.toggle("live-refresh", !options.animate);
-  const oldScroll = options.preserve ? host.querySelector(".scroll-region, .data-table-wrap, .docs-content-spa")?.scrollTop || 0 : 0;
+  const scrollPositions = options.preserve ? captureScrollPositions(host) : null;
   const route = path();
   let html;
   if (route === "/") html = renderLanding();
@@ -741,10 +768,7 @@ function renderRoute(options = {}) {
   updateNavigation();
   restoreSelects();
   bindPage();
-  if (options.preserve) {
-    const scroller = host.querySelector(".scroll-region, .data-table-wrap, .docs-content-spa");
-    if (scroller) scroller.scrollTop = oldScroll;
-  }
+  if (scrollPositions) restoreScrollPositions(host, scrollPositions);
   if (route === "/docs" && location.hash) requestAnimationFrame(() => {
     const id = location.hash.slice(1);
     document.getElementById(id)?.scrollIntoView({ block: "start" });

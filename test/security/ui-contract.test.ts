@@ -42,6 +42,7 @@ describe("multipage observatory UI contract", () => {
     expect(css).toContain("@media (prefers-reduced-motion: reduce)");
     expect(html).toContain('class="skip-link"');
     expect(html).toContain("/assets/tempo-logo.png");
+    expect(html).toContain('rel="icon"');
     expect(html).toContain('id="theme-toggle"');
     expect(html).toContain('id="menu-open"');
     expect(html).toContain('id="command-open"');
@@ -74,6 +75,9 @@ describe("multipage observatory UI contract", () => {
     expect(css).toContain("@keyframes judge-edge-flow");
     expect(app).toContain("scheduleLiveRender");
     expect(css).toContain(".page-host.live-refresh .page");
+    expect(app).toContain("captureScrollPositions");
+    expect(app).toContain('data-scroll-key="dashboard-venue"');
+    expect(editorialCss).toContain(".venue-panel-body");
   });
 
   it("uses the centered wallet connection modal without a dry-run navbar chip", () => {
