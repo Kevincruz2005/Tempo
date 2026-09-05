@@ -823,6 +823,9 @@ export class Firm {
       ["GENESIS", this.maker],
       ["VECTOR", this.taker],
     ];
+    const firmAddresses = new Set(
+      pairs.map(([, exchange]) => exchange.walletAddress?.toLowerCase()).filter((address): address is string => Boolean(address)),
+    );
     for (const [name, ex] of pairs) {
       const addr = ex.walletAddress;
       if (!addr) continue;
@@ -863,6 +866,10 @@ export class Firm {
         const scale = 10 ** decimals;
         const price = Number(f.fillPrice) / scale;
         const size = Number(f.quantity) / scale;
+        const counterparty = weAreTaker ? f.maker : f.taker;
+        const counterpartyType = counterparty
+          ? firmAddresses.has(counterparty.toLowerCase()) ? "FIRM" : "EXTERNAL"
+          : "UNAVAILABLE";
         this.ledgers[name].applyFill(f.market_id, { kind, price, size });
         this.agentState[name].fillCount = this.ledgers[name].snapshot().fillCount;
         this.journal.append({
@@ -873,7 +880,15 @@ export class Firm {
           contractAddress: market.pool,
           tx: f.txHash,
           block: Number(f.blockNumber),
-          data: { kind, price, size },
+          data: {
+            kind,
+            price,
+            size,
+            maker: f.maker,
+            taker: f.taker,
+            ...(counterparty ? { counterparty } : {}),
+            counterpartyType,
+          },
         });
       }
     }

@@ -21,7 +21,7 @@ export interface ReportStats {
     receipts: number;
     uniqueTxHashes: string[];
     cancels: number;
-    fills: { count: number; byAgent: Record<string, number>; byKind: Record<string, number> };
+    fills: { count: number; quoteVolume: number; byAgent: Record<string, number>; byKind: Record<string, number> };
     claims: { count: number; txs: string[] };
   };
   estimateQuality: {
@@ -45,7 +45,7 @@ export function aggregate(records: JournalRecord[], since: string, until: string
       receipts: 0,
       uniqueTxHashes: [],
       cancels: 0,
-      fills: { count: 0, byAgent: {}, byKind: {} },
+      fills: { count: 0, quoteVolume: 0, byAgent: {}, byKind: {} },
       claims: { count: 0, txs: [] },
     },
     estimateQuality: { scoredMarkets: 0, brier: null, directionalAccuracy: null, note: "" },
@@ -104,6 +104,9 @@ export function aggregate(records: JournalRecord[], since: string, until: string
         break;
       case "fill":
         stats.execution.fills.count++;
+        if (Number.isFinite(Number(d.price)) && Number.isFinite(Number(d.size))) {
+          stats.execution.fills.quoteVolume += Number(d.price) * Number(d.size);
+        }
         if (r.agent) bump(stats.execution.fills.byAgent, r.agent);
         bump(stats.execution.fills.byKind, String(d.kind ?? "?"));
         break;
@@ -194,6 +197,7 @@ export function renderMarkdown(stats: ReportStats, aiNarrative?: { model: string
   L.push(`- Order sends: **${stats.execution.orderSends.real} real**, ${stats.execution.orderSends.dry} dry-run · receipts: ${stats.execution.receipts} · cancels: ${stats.execution.cancels}`);
   L.push(`- Unique transaction hashes: **${stats.execution.uniqueTxHashes.length}**${stats.execution.uniqueTxHashes.length ? " — verifiable via \`tempo verify\`" : ""}`);
   L.push(`- Fills: **${stats.execution.fills.count}**${Object.keys(stats.execution.fills.byAgent).length ? " — " + Object.entries(stats.execution.fills.byAgent).map(([k, v]) => `${k}: ${v}`).join(", ") : ""}`);
+  L.push(`- Matched quote notional: **${fmt(stats.execution.fills.quoteVolume, 3)}** (sum of journaled fill price × size)`);
   if (Object.keys(stats.execution.fills.byKind).length) {
     L.push(`- Fill kinds: ${Object.entries(stats.execution.fills.byKind).map(([k, v]) => `${k}: ${v}`).join(", ")}`);
   }

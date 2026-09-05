@@ -71,6 +71,27 @@ describe("health and readiness boundary", () => {
     expect(JSON.stringify(body)).not.toMatch(/private|secret|rpc|indexer|address|TEMPO_KEY/i);
   });
 
+  it("serves journal-derived intelligence and zero-fee impact stats", async () => {
+    const firm = fakeFirm(async () => healthy());
+    const journal = (firm as unknown as { journal: Journal }).journal;
+    journal.append({ type: "market-birth", marketId: `0x${"1".repeat(64)}`, data: { asset: "BTC" } });
+    journal.append({ type: "fill", agent: "GENESIS", data: { kind: "BUY_UP", price: 0.6, size: 25 } });
+    const server = new TempoServer(firm, 0, tmpdir());
+    servers.push(server);
+    await server.start();
+
+    const response = await request(server, "/api/stats");
+    expect(response.status).toBe(200);
+    const body = await response.json() as {
+      markets: { births: number };
+      execution: { fills: { count: number; quoteVolume: number } };
+      fees: { takerRate: number; protocolRevenue: number };
+    };
+    expect(body.markets.births).toBe(1);
+    expect(body.execution.fills).toMatchObject({ count: 1, quoteVolume: 15 });
+    expect(body.fees).toMatchObject({ takerRate: 0, protocolRevenue: 0 });
+  });
+
   it("returns cached readiness and a safe 503 when a dependency fails", async () => {
     let calls = 0;
     const server = new TempoServer(fakeFirm(async () => { calls++; return healthy(); }), 0, tmpdir());

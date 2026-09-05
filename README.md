@@ -14,7 +14,7 @@
   <a href="https://somnia.network/"><img src="https://img.shields.io/badge/Somnia%20L1-100ms%20blocks-7B3FE4?style=for-the-badge" alt="Somnia"></a>
   <a href="https://dreamdex.io/"><img src="https://img.shields.io/badge/DreamDEX-Event%20Contracts-FF6B35?style=for-the-badge" alt="DreamDEX"></a>
   <a href="https://nodejs.org/"><img src="https://img.shields.io/badge/Node.js-%E2%89%A520-green?style=for-the-badge&logo=node.js" alt="Node"></a>
-  <a href="test/reports/"><img src="https://img.shields.io/badge/tests-2%2C114%20passing-brightgreen?style=for-the-badge" alt="Tests"></a>
+  <a href="test/reports/"><img src="https://img.shields.io/badge/tests-2%2C115%20passing-brightgreen?style=for-the-badge" alt="Tests"></a>
   <a href="test/reports/zero-mock-audit.md"><img src="https://img.shields.io/badge/mocked%20values-0-brightgreen?style=for-the-badge" alt="Zero Mock"></a>
   <a href="test/reports/security.md"><img src="https://img.shields.io/badge/security-0%20vulnerabilities-brightgreen?style=for-the-badge" alt="Security"></a>
 
@@ -104,19 +104,19 @@ TEMPO is not another quoting bot that sits on top of an existing market. **TEMPO
 <a id="competitive-differentiation-matrix"></a>
 ## 🥊 Competitive Differentiation Matrix
 
-| Feature / Dimension | Bot-Kit `ec-maker` (Baseline) | Standard Polling Bots | Human Market Makers | **TEMPO Autonomous Firm** |
-|:---|:---|:---|:---|:---|
-| **Trigger Mechanism** | Fixed 10-second polling interval | Periodic REST polling (5s–30s) | Manual visual monitoring | **Event-driven via Somnia chain-log live tail (`somnia_watch`)** |
-| **Fair Value Calculation** | Mid of existing book (falls back to `0.50` when empty) | Static hardcoded mid or basic moving average | Subjective human charting | **Driftless diffusion ($\Phi$) over oracle spot vs on-chain strike** |
-| **Market Role** | Quotes markets that already have prices | Secondary liquidity taker | Discretionary trader | **Creates the market at birth (Liquidity Genesis)** |
-| **Inventory Requirement** | Pre-mints complete sets (locks up inventory capital) | Holds single-sided risk | High balance sheet commitment | **Zero inventory: resting dual-side buys mint pairs upon execution** |
-| **Endgame Handling** | Quotes fixed spread until timeout | Stalls or leaves stale quotes exposed | Panics or exits early | **Spread tightens with $\sqrt{\tau}$; quotes skew toward certainty** |
-| **Settlement & Roll** | Basic claim sweep | Manual claim or ignored | Manual claim and re-entry | **Automated resolution observer, void-aware claims, auto-roll** |
-| **Learning & Calibration** | None | None | Subjective review | **Brier-loss score optimization; deterministic bounded epochs** |
-| **Verifiability & Audit** | Console logs only | Centralized database logs | Trading ledger statements | **Typed immutable journal + CLI `tempo verify` checking on-chain RPC** |
-| **Interface Surface** | Headless CLI script | REST API | Web browser UI | **Single-screen observatory, typed Node SDK, 12 MCP tools, 15 CLI families** |
+| | Bot-kit `ec-maker` (the baseline judges know) | TEMPO |
+|---|---|---|
+| Trigger | 10-second polling loop | Event-driven: chain-log live tail, same-block-era re-quote |
+| Fair value | Mid of the *existing* book; 0.5 when empty | Computed from the official oracle feed vs the **on-chain opening price** — before a book exists |
+| Role | Quotes a market that already has prices | **Creates the market at birth** (liquidity genesis) |
+| Inventory | Mints sets to sell | Zero-inventory two-sided quote via mint-a-pair resting buys |
+| Endgame | None | Time-decaying spread tightening + certainty skew policy |
+| Settlement | Claim sweep | Observe on-chain resolution → void-aware redeem → automatic roll |
+| Learning | None | Brier-scored calibration epochs, clamped, journaled |
+| Evidence | Console logs | Typed journal + `tempo verify` cross-checks every tx hash on-chain |
+| Interface | — | CLI + published SDK + MCP server + multipage responsive observatory |
 
-> *"ec-maker is a quoting loop. TEMPO is a complete market lifecycle — and its intelligence is measured against on-chain ground truth."*
+> *"ec-maker is a quoting loop. TEMPO is a lifecycle — and its intelligence is measured, not claimed."*
 
 ---
 
@@ -174,17 +174,17 @@ All figures below are derived from verified journal records and on-chain receipt
 |:---|:---|:---|
 | **Operating Network** | **Somnia Shannon Testnet (50312)** | Chain RPC verification |
 | **Active Venue** | **DreamDEX Binary Event Contracts** | Discovered runtime registry |
-| **Windows Observed at Birth** | **618+ windows** (369 in benchmark 24h) | Journal discovery logs |
-| **Agent Decisions Journaled** | **6,274+ decisions** | Typed JSONL decision ledger |
-| **Real Orders Broadcast** | **715+ orders** (168 in benchmark 24h) | On-chain mempool receipts |
-| **Unique Transaction Hashes** | **501+ hashes** (120 in benchmark 24h) | Somnia Shannon Explorer |
+| **Windows Observed at Birth** | **2,381 windows** (BTC 1,201 / ETH 1,180) | [`test/reports/business-impact-20260905.md`](test/reports/business-impact-20260905.md) |
+| **Agent Decisions Journaled** | **8,805 decisions** | Typed JSONL decision ledger |
+| **Real Orders Broadcast** | **2,004 orders** | Journaled non-dry sends |
+| **Unique Transaction Hashes** | **1,464 hashes** | Journal transaction evidence |
 | **Funded Sample Verification** | **31/31 successful receipts (100%)** | [`test/reports/verify-20260902.md`](test/reports/verify-20260902.md) |
-| **On-Chain Fills Executed** | **10 fills** | Verified execution receipts |
-| **Settlement Claims Executed** | **3 claims** | ERC-20 payout receipts |
-| **Brier Score Calibration** | **0.0313** (latest 4 scored) / **0.0723** (historical 24h) | Real-time score ledger |
-| **Directional Forecasting Accuracy** | **100.0%** (4/4) / **83.3%** (5/6) | [`test/reports/gemini-report.md`](test/reports/gemini-report.md) |
-| **Operational Errors Absorbed** | **996 events** (RPC drops, 502s, post-only crosses) | **0 Firm Crashes** |
-| **Automated Test Suite** | **2,114 tests passing** (18 test files) | Vitest automated suite |
+| **On-Chain Fills Observed** | **100 fills / 1,255.625 tUSDC matched notional** | Journaled fill price × size |
+| **Settlement Claims Executed** | **13 claims** | Journaled claim transactions |
+| **Brier Score Calibration** | **0.0561 across 18 scored markets** | Deterministic journal aggregate |
+| **Directional Forecasting Accuracy** | **94.4%** (17/18) | [`test/reports/business-impact-20260905.md`](test/reports/business-impact-20260905.md) |
+| **Venue Trading / Settlement Fees** | **0% / 0%** | Canonical DreamDEX Event Contract documentation |
+| **Automated Test Suite** | **2,115 tests passing** (18 test files) | Vitest automated suite |
 | **Economic Invariant Matrix** | **2,048 cases tested** (6 & 18 decimals) | [`test/reports/offline-20260903.md`](test/reports/offline-20260903.md) |
 | **Security Vulnerabilities** | **0 vulnerabilities** (`npm audit`) | [`test/reports/security.md`](test/reports/security.md) |
 | **Mocked Economic Values** | **0 mocked values** | [`test/reports/zero-mock-audit.md`](test/reports/zero-mock-audit.md) |
@@ -353,7 +353,7 @@ graph TD
     subgraph EngineLayer["@tempo/engine — Autonomous Runtime"]
         GEN["GENESIS Agent<br/>(Liquidity-Genesis Maker)"]
         VEC["VECTOR Agent<br/>(Adversarial Arbitrage Taker)"]
-        HTTP["HTTP / SSE Server (:7333)<br/>(/health, /ready, /api/state, /stream)"]
+        HTTP["HTTP / SSE Server (:7333)<br/>(/health, /ready, /api/state, /api/stats, /stream)"]
     end
 
     subgraph Surfaces["Developer & Operator Interfaces"]
@@ -529,9 +529,9 @@ TEMPO implements an Model Context Protocol (MCP) server over `stdio`. It exposes
 }
 ```
 
-### 4. Web Observatory (Fixed Viewport, Zero-Scroll Dashboard)
+### 4. Web Observatory (Multipage, Responsive Observatory)
 
-Served locally at `http://127.0.0.1:7333`, the web observatory provides an industrial-grade trading desk UI engineered for fixed-height screens without page scroll:
+Served locally at `http://127.0.0.1:7333`, the web observatory provides an industrial-grade multipage experience: a one-monitor command surface with bounded internal panel scrolling, responsive mobile pages, and direct links for every market and evidence surface:
 - **Live Active Windows**: Real-time ticker cards showing strike, spot, seconds-left countdown, and market status.
 - **Materialized Order Book**: Bid/Ask depth chart with dynamic spread indicators and tick grids.
 - **Fair-Value Probability Band**: Live visualization of the appraiser's probability band versus current market mid.
@@ -542,6 +542,7 @@ Served locally at `http://127.0.0.1:7333`, the web observatory provides an indus
   - `GET /health`: Deterministic 200 OK (< 5ms response, zero secrets exposed).
   - `GET /ready`: Bounded 503/200 readiness probe checking indexer, RPC head, feeds, and live tail.
   - `GET /api/state`: Sanitized firm snapshot.
+  - `GET /api/stats`: Journal-derived intelligence and ecosystem-impact aggregates.
   - `GET /api/stream`: Real-time Server-Sent Events (SSE) feed.
 
 ---
@@ -616,7 +617,7 @@ git clone https://github.com/Kevincruz2005/Tempo.git
 cd Tempo
 npm install
 npm run build:sdk
-npm test                  # Runs all 2,114 offline invariant and unit tests
+npm test                  # Runs all 2,115 offline invariant and unit tests
 ```
 
 ### 2. Configuration (`.env`)
@@ -657,6 +658,21 @@ Run the firm and web observatory without risking capital:
 npm run firm
 # Web observatory available at http://127.0.0.1:7333
 ```
+
+### 3a. Temporary public demo URL
+
+With the firm running in a separate terminal, a temporary HTTPS URL can be
+created for judge access:
+
+```bash
+npm run public-demo
+```
+
+This uses a Cloudflare Quick Tunnel and prints a random `trycloudflare.com`
+URL. It is intended for demos, not production hosting; Quick Tunnels do not
+support SSE, so the observatory's bounded polling fallback keeps the public
+surface current. For a durable deployment, use an authenticated named tunnel
+or a managed host and set an explicit access policy.
 
 ### 4. Launching Live On-Chain Mode
 To run TEMPO with live transaction signing on Somnia Shannon testnet:
@@ -717,18 +733,27 @@ TEMPO directly aligns with the Somnia × DreamDEX Hackathon evaluation criteria:
 
 ### 2. Technical Implementation (25%)
 - **Deep Protocol Integration**: Direct utilization of DreamDEX CLOB, CREATE3 protocol registries, ERC-6909 tokens, and Somnia's sub-second block finality.
-- **Rigorous Verification**: 2,114 automated tests passing, 2,048-point invariant matrix, 0 npm audit vulnerabilities, and 0 mocked values.
+- **Rigorous Verification**: 2,115 automated tests passing, 2,048-point invariant matrix, 0 npm audit vulnerabilities, and 0 mocked values.
 - **Shared Monorepo Architecture**: Clean separation into `@tempo/core`, `@tempo/engine`, `@tempo/cli`, and `@tempo/mcp`.
 
 ### 3. User Experience & Design (20%)
-- **Industrial Web Observatory**: Fixed-viewport, zero-scroll single-screen dashboard providing complete institutional observability.
+- **Industrial Web Observatory**: Multipage navigation with a one-monitor command surface, bounded panel scrolling, responsive layouts, onboarding, and direct evidence inspection.
 - **Safe Non-Custodial Trading**: EIP-6963 wallet connectivity with pre-sign risk breakdowns and network mismatch protection.
 - **AI Agent Native**: Complete Model Context Protocol (MCP) server ready for autonomous AI agent ecosystems.
 
 ### 4. Business & Ecosystem Impact (20%)
 - **Eliminates Dead Markets**: Solves the `tradeCount: 0` dilemma for ephemeral event contracts, making every window tradable from block zero.
-- **Drives Continuous Trading Volume**: By anchoring opening books, retail traders and external bots have immediate liquidity to trade against, accelerating DreamDEX protocol fees.
+- **Drives Matched Activity**: The dated evidence snapshot records 100 fills and 1,255.625 tUSDC of matched quote notional. DreamDEX charges 0% maker, taker, and settlement fees, so TEMPO does not invent a protocol-fee claim.
 - **Institutional Foundation**: Serves as open-source liquidity infrastructure that other Somnia protocols can adopt for prediction markets, insurance contracts, and binary derivatives.
+
+### Business model and sustainability
+
+- **Revenue path**: GENESIS targets bid-ask spread capture, settlement value, and venue maker yield where applicable; VECTOR targets bounded mispricing edge.
+- **Cost structure**: Somnia's low transaction cost and one autonomous Node.js process make continuous coverage economical without human staffing.
+- **Flywheel**: Liquidity Genesis makes windows usable → usable books attract wallet traders and external agents → matched activity strengthens DreamDEX → additional assets and cadences create more opportunities for TEMPO.
+- **Mainnet path**: `TEMPO_NETWORK=mainnet` switches the network; capital deployment and a fresh live-risk review remain explicit operator gates.
+- **Open infrastructure**: `@tempo/core` and the MCP server are MIT licensed so other builders can add assets, policies, and integrations.
+- **External adoption status**: historical fills do not contain enough counterparty attribution to claim external users. New fills now journal maker, taker, and `FIRM`/`EXTERNAL` classification; the claim will be added only after verified evidence exists.
 
 ### 5. Presentation & Demo (15%)
 - **Comprehensive Documentation**: Complete A-to-Z design documentation, architecture diagrams, and mathematical specifications.
@@ -747,7 +772,7 @@ TEMPO directly aligns with the Somnia × DreamDEX Hackathon evaluation criteria:
   - Closed-loop Brier score self-calibration.
   - 12-tool Model Context Protocol (MCP) server for external AI agents.
   - Fixed-viewport web observatory and non-custodial wallet flow.
-  - 2,114-test suite expansion with zero-mock auditing.
+  - 2,115-test suite expansion with zero-mock auditing.
 - [ ] **Phase 3: Somnia Data Streams Public Anchor Feed**
   - Publish opening genesis quotes directly to Somnia Data Streams.
   - Transform TEMPO's pricing estimates into a public decentralized good for third-party bots and dApps.

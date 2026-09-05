@@ -69,6 +69,28 @@
     <div class="mobile-menu-foot"><span id="mobile-menu-network">NETWORK · CONNECTING</span><span>ZERO MOCKED VALUES</span></div>
   </div>
 
+  <div class="overlay onboarding-overlay" id="onboarding-overlay" hidden>
+    <section class="onboarding-dialog" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+      <div class="onboarding-copy">
+        <span class="eyebrow">FIRST VISIT / 60-SECOND ORIENTATION</span>
+        <h2 id="onboarding-title">Every window is born empty.<br><em>TEMPO attends the birth.</em></h2>
+        <p>DreamDEX creates rolling prediction markets faster than a human desk can staff them. TEMPO anchors each newborn book from the official spot feed and on-chain opening price, quotes it within a deterministic risk boundary, and carries it through settlement and roll.</p>
+      </div>
+      <ol class="onboarding-map">
+        <li><span>01</span><div><b>Venue Pulse</b><p>Open the left rail to inspect live BTC and ETH windows discovered from DreamDEX.</p></div></li>
+        <li><span>02</span><div><b>Market Core</b><p>The center shows the chain-derived book beside TEMPO’s explicitly labeled fair-value estimate.</p></div></li>
+        <li><span>03</span><div><b>Agents or Evidence</b><p>Open one right rail at a time to inspect risk limits, journal events, receipts, and settlements.</p></div></li>
+        <li><span>04</span><div><b>Verify or Participate</b><p>Inspect any transaction hash, or connect a wallet to review an IOC order before signing.</p></div></li>
+      </ol>
+      <div class="onboarding-truth"><span>CHAIN FACTS STAY FACTS</span><span>ESTIMATES STAY LABELED</span><span>MOCKED VALUES: 0</span></div>
+      <div class="onboarding-actions">
+        <button class="button button-primary" type="button" data-onboarding="dashboard">Enter live observatory ↗</button>
+        <button class="button button-ghost" type="button" data-onboarding="wallet">Connect wallet</button>
+        <button class="text-link" type="button" data-onboarding="dismiss">Dismiss guide</button>
+      </div>
+    </section>
+  </div>
+
   <div class="overlay" id="command-overlay" hidden>
     <section class="command-dialog" role="dialog" aria-modal="true" aria-labelledby="command-title">
       <div class="dialog-head"><div><span class="eyebrow">GLOBAL NAVIGATION</span><h2 id="command-title">Command menu</h2></div><button class="close-button" data-close="command-overlay" aria-label="Close command menu">×</button></div>

@@ -31,6 +31,7 @@
   <aside class="docs-sidebar" id="docs-sidebar">
     <nav aria-label="Documentation sections">
       <p class="nav-group">Start</p>
+      <a href="#try-tempo">Try TEMPO</a>
       <a href="#overview" class="active">Overview</a>
       <a href="#quickstart">Quickstart</a>
       <a href="#feature-catalog">Feature catalog</a>
@@ -70,12 +71,26 @@
 
   <main class="docs-content" id="docs-content">
     <article class="doc-inner">
+      <section class="doc-section" id="try-tempo" data-title="Try TEMPO">
+        <div class="eyebrow">NO INSTALL REQUIRED ON A HOSTED DEPLOYMENT</div>
+        <h1>Try TEMPO</h1>
+        <p class="lede">Use the live observatory served by this deployment to watch Liquidity Genesis happen, inspect the evidence, and participate from a browser wallet.</p>
+        <ol>
+          <li>Open the <a href="/dashboard">live observatory</a>.</li>
+          <li>Expand Venue Pulse and watch TEMPO discover a newborn BTC or ETH window.</li>
+          <li>Inspect the chain-derived book and the labeled Anchoring estimate in the center.</li>
+          <li>Connect an EIP-6963 wallet on Somnia Shannon testnet (chain 50312) and review an IOC order before signing.</li>
+          <li>Open History and inspect transaction hashes, settlement facts, and oracle evidence independently.</li>
+        </ol>
+        <div class="callout rule"><strong>NO BLIND SIGNING</strong><p>The wallet flow renders market, side, size, limit, worst-case cost, expiry headroom, chain status, and the RiskEngine verdict before requesting a signature.</p></div>
+      </section>
+
       <section class="doc-section overview" id="overview" data-title="Overview">
         <div class="eyebrow">AUTONOMOUS OPENING AUCTION / SOMNIA SHANNON</div>
         <h1>TEMPO Documentation</h1>
         <p class="lede">The operator and developer reference for TEMPO: a two-agent opening-auction firm for DreamDEX Event Contracts, built on the pinned Somnia markets SDK.</p>
         <div class="status-strip" aria-label="Verified project status">
-          <div><b>2,107</b><span>offline tests passing</span></div>
+          <div><b>2,115</b><span>offline tests passing</span></div>
           <div><b>31 / 31</b><span>live receipts verified</span></div>
           <div><b>0.29.0</b><span>markets SDK pinned</span></div>
           <div><b>0</b><span>mocked economic values</span></div>
@@ -85,7 +100,7 @@
           <p>Chain status, opening prices, fills, balances, and settlements are facts with provenance. Fair value, volatility, and agent decisions are explicitly labeled estimates.</p>
         </div>
         <figure class="product-figure">
-          <img src="/assets/dashboard.png" width="1440" height="900" alt="TEMPO live operator dashboard showing rolling windows, an order book, agent state, activity, and settlements" />
+          <img src="/assets/dashboard.png" width="1440" height="900" alt="TEMPO live observatory showing rolling windows, an order book, agent state, activity, and settlements" />
           <figcaption>Live operator surface: rolling windows, market facts, estimate state, the two-agent firm, journal tape, and finalized settlements.</figcaption>
         </figure>
       </section>
@@ -99,7 +114,7 @@ cp .env.example .env
 npm test
 npm run cli -- doctor
 npm run firm</code></pre>
-        <p>Open <a href="/">http://127.0.0.1:7333</a>. The dashboard and this documentation are served by the same local-only hardened server.</p>
+        <p>Open <a href="/">the observatory</a>. The dashboard and this documentation are served by the same hardened server. For a temporary judge URL, run <code>npm run public-demo</code>; Quick Tunnels use the observatory's polling fallback because Cloudflare does not proxy SSE on Quick Tunnels.</p>
 
         <h3>Operating modes</h3>
         <table>
@@ -181,7 +196,7 @@ npm run firm</code></pre>
             <tr><td>Firm reporting</td><td>Journal aggregation, closest-to-settlement Brier scoring, Markdown, optional AI narrative</td><td>Real journal records; narrative labeled separately</td></tr>
             <tr><td>Observability</td><td>Typed JSONL journal, subscriptions, replay, CLI activity, SSE tape</td><td>Runtime events and receipts</td></tr>
             <tr><td>Receipt verification</td><td>Journal transaction hashes rechecked independently through RPC</td><td>Somnia Shannon receipts</td></tr>
-            <tr><td>Operator interfaces</td><td>SDK, 15-command CLI, fixed-viewport dashboard, read-only HTTP/SSE API</td><td>Shared <code>@tempo/core</code></td></tr>
+            <tr><td>Operator interfaces</td><td>SDK, 15-command CLI, multipage responsive observatory, read-only HTTP/SSE API</td><td>Shared <code>@tempo/core</code></td></tr>
             <tr><td>Security boundary</td><td>Loopback bind, Host/Origin checks, CSP, rate/SSE limits, redaction, output encoding</td><td>Engine and browser controls</td></tr>
           </tbody>
         </table>
@@ -552,7 +567,7 @@ npm run cli -- calibrate --force</code></pre>
       <section class="doc-section" id="dashboard" data-title="Dashboard and HTTP API">
         <div class="eyebrow">READ-ONLY OPERATOR UI</div>
         <h2>Dashboard and HTTP API</h2>
-        <p>The dashboard is a fixed-viewport live work surface. Windows and selected market state occupy the primary area; firm health, activity, and settlements remain visible without changing pages.</p>
+        <p>The observatory is a multipage live work surface. Dashboard windows use bounded internal scrolling, while Markets, History, Docs, and Protocol have direct routes and preserve the same evidence-first navigation.</p>
         <div class="dashboard-features">
           <div><b>Windows</b><span>Rolling series, cadence, lifecycle, and seconds to expiry</span></div>
           <div><b>Market facts</b><span>Opening boundary, spot, status, venue, and book provenance</span></div>
@@ -566,6 +581,7 @@ npm run cli -- calibrate --force</code></pre>
           <thead><tr><th>Route</th><th>Response</th></tr></thead>
           <tbody>
             <tr><td><code>GET /api/state</code></td><td>Sanitized live snapshot: markets, views, agents, risk, tail health, and settlements.</td></tr>
+            <tr><td><code>GET /api/stats</code></td><td>Journal-derived Brier, directional accuracy, fills, matched notional, coverage, transaction-count, and current fee aggregates.</td></tr>
             <tr><td><code>GET /api/stream</code></td><td>Bounded server-sent event stream of sanitized journal records.</td></tr>
             <tr><td><code>GET /api/journal?n=60</code></td><td>Recent records; canonical integer limit from 1 through 300.</td></tr>
             <tr><td><code>GET /api/provenance</code></td><td>Source map for every displayed value class.</td></tr>
@@ -612,7 +628,7 @@ npm run cli -- calibrate --force</code></pre>
         <div class="eyebrow">VERIFIED DELIVERY</div>
         <h2>Testing and evidence</h2>
         <div class="evidence-grid">
-          <div><b>2,107 / 2,107</b><span>Offline unit, failure, security, economic, CLI, and MCP tests</span></div>
+          <div><b>2,115 / 2,115</b><span>Offline unit, failure, security, economic, CLI, and MCP tests</span></div>
           <div><b>2,048</b><span>Deterministic 6- and 18-decimal invariant cases</span></div>
           <div><b>87.35%</b><span>Critical pure-core statement coverage</span></div>
           <div><b>3 / 3</b><span>Live SDK and integration tests</span></div>

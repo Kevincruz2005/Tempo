@@ -6,7 +6,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { extname, resolve, sep } from "node:path";
-import { aggregate, type JournalRecord } from "@tempo/core";
+import { aggregate, type JournalRecord, type ReportStats } from "@tempo/core";
 import type { Firm } from "./firm.js";
 
 const MIME: Record<string, string> = {
@@ -60,6 +60,18 @@ export interface TempoServerOptions {
   apiRequestsPerMinute?: number;
   /** Injectable for deterministic boundary tests; production uses Firm.readiness. */
   readinessProbe?: () => Promise<ReadinessResult>;
+}
+
+interface PublicStats {
+  window: ReportStats["window"];
+  markets: ReportStats["markets"];
+  execution: {
+    receipts: number;
+    uniqueTxCount: number;
+    fills: ReportStats["execution"]["fills"];
+  };
+  estimateQuality: ReportStats["estimateQuality"];
+  fees: { makerRate: 0; takerRate: 0; settlementRate: 0; protocolRevenue: 0; note: string };
 }
 
 export function isSameOriginRequest(origin?: string, host?: string, fetchSite?: string): boolean {
@@ -187,6 +199,7 @@ export class TempoServer {
   private unsubscribe?: () => void;
   private readonly readinessProbe: () => Promise<ReadinessResult>;
   private readinessCache?: { at: number; result: ReadinessResult };
+  private statsCache?: { at: number; value: PublicStats };
   private narrativeCache?: { at: number; value: { status: "READY" | "UNAVAILABLE"; model?: string; generatedAt?: string; text?: string; reason?: string } };
   private narrativeInFlight?: Promise<NonNullable<TempoServer["narrativeCache"]>["value"]>;
 
@@ -352,6 +365,7 @@ export class TempoServer {
         return this.json(response, 200, prepared);
       }
       if (url.pathname === "/api/state") return this.json(response, 200, await this.firm.snapshot());
+      if (url.pathname === "/api/stats") return this.json(response, 200, this.stats());
       if (url.pathname === "/api/narrative") return this.json(response, 200, await this.narrative());
       if (url.pathname === "/api/journal") {
         const limit = parseJournalLimit(url.searchParams.get("n"));
@@ -426,6 +440,34 @@ export class TempoServer {
     } finally {
       this.narrativeInFlight = undefined;
     }
+  }
+
+  private stats(): PublicStats {
+    const now = Date.now();
+    if (this.statsCache && now - this.statsCache.at < 60_000) return this.statsCache.value;
+    const records = this.firm.journal.since(0);
+    const until = new Date(now).toISOString();
+    const since = records[0]?.ts ?? until;
+    const totals = aggregate(records, since, until);
+    const value: PublicStats = {
+      window: totals.window,
+      markets: totals.markets,
+      execution: {
+        receipts: totals.execution.receipts,
+        uniqueTxCount: totals.execution.uniqueTxHashes.length,
+        fills: totals.execution.fills,
+      },
+      estimateQuality: totals.estimateQuality,
+      fees: {
+        makerRate: 0 as const,
+        takerRate: 0 as const,
+        settlementRate: 0 as const,
+        protocolRevenue: 0 as const,
+        note: "DreamDEX Event Contracts currently set maker, taker, and settlement fees to zero.",
+      },
+    };
+    this.statsCache = { at: now, value };
+    return value;
   }
 
   private async ready(response: ServerResponse): Promise<void> {

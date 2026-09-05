@@ -13,6 +13,7 @@
     "pretest": "npm run build:sdk",
     "firm": "tsx packages/cli/src/index.ts firm simulate",
     "web": "tsx packages/cli/src/index.ts firm simulate",
+    "public-demo": "sh scripts/public-demo.sh",
     "cli": "tsx packages/cli/src/index.ts",
     "faucet": "tsx packages/cli/src/index.ts faucet",
     "test": "vitest run test/unit test/failure test/security test/economic test/cli test/integration/health.test.ts test/integration/mcp.test.ts --exclude test/failure/live-chain-gate.test.ts",

@@ -22,6 +22,10 @@ Every DreamDEX Event Contract window (BTC/ETH Up/Down over 1m–24h) deploys wit
 
 Exchanges solved this centuries ago with the **opening auction**. DreamDEX's windows don't have one. That is the gap TEMPO fills.
 
+**The problem, quantified:** at 2026-09-05T16:47:03.779Z, **10 of the latest 12 finalized windows had `tradeCount: 0`**. The other two had 2 and 3 trades. This is a dated chain/indexer snapshot—not an extrapolation—and is reproducible from [`test/reports/business-impact-20260905.md`](test/reports/business-impact-20260905.md).
+
+**Why this is not a bot:** a market-making bot profits from an existing market. TEMPO creates the market—there is no book to make until it anchors one. Liquidity Genesis for ephemeral markets is a missing venue function, not merely a strategy layered on top.
+
 ## The Solution: Liquidity Genesis, End to End
 
 ```
@@ -58,8 +62,8 @@ Most trading-system claims cannot be checked. TEMPO's model-based estimates and 
 1. **Every estimate is journaled before action** — spot, strike, σ, time, and the computed probability, with an explicit `MODEL ESTIMATE` label (chain reads are labeled `CHAIN FACT`).
 2. **Every settlement is an on-chain fact.**
 3. **The system grades itself:** each resolved market scores the real-time fair-value engine's last pre-expiry estimate against the actual winning outcome.
-   - **Brier score: 0.1093 across 6 scored markets** (0 = perfect, 0.25 = coin-flip confidence)
-   - **Directional accuracy: 83.3%** on the current evaluation snapshot
+   - **Brier score: 0.0561 across 18 scored markets** (0 = perfect, 0.25 = coin-flip confidence)
+   - **Directional accuracy: 94.4%** on the 2026-09-05 journal snapshot
 4. **The firm learns within bounds:** a calibration loop consumes scored outcomes, adjusts exactly two pricing parameters (σ multiplier, taker edge) clamped to [0.5×, 2×] of operator-set defaults, one adjustment per ≥25-market epoch — every adjustment journaled with its reason. Deterministic, auditable self-improvement. **No LLM is used in the hot path** — remote inference would add latency and variable response times to machine-speed execution.
 
 ---
@@ -109,15 +113,35 @@ The primitive is reusable, not a demo shell:
 - **`@tempo/core` — typed Node SDK** (v0.2.0, strict TypeScript, CycloneDX SBOM + SHA256 checksums + clean-environment consumer verification): config, exchange wrapper over all three tiers of `@somnia-chain/markets-sdk` (unified / client / trader), fair-value engine, risk engine, policies, journal, ledger, calibration, report generation
 - **`tempo` CLI — 15 command families with 16 documented subcommands**: `doctor · markets · book · watch · agents · positions · firm simulate · firm start · trade · claims · settlements · activity · verify · report · calibrate · faucet`
 - **MCP server — 12 tools** for external AI agents: 10 read tools (`discover_markets`, `inspect_event_contract`, `get_live_book`, `get_fair_value`, `get_settlement`, `verify_receipt`, …), an always-dry-run `simulate_trade`, and an opt-in `place_order` gated behind `TEMPO_MCP_WRITES=true` that still routes through the same RiskEngine — schema-validated, journaled, zero key exposure
-- **Single-screen web observatory** (`npm run firm` → localhost:7333): live windows, materialized books, fair-value band, firm roster, activity tape with real tx hashes, settlement feed with oracle-explorer audit links, SSE live stream — plus **Connect Wallet** (EIP-1193 provider, pre-sign summary before any signature, read-only address watching)
+- **Multipage web observatory** (`npm run firm` → localhost:7333): direct Observatory, Markets, History, Docs, and Protocol routes; a one-monitor live surface with bounded panel scrolling; materialized books, fair-value band, firm roster, activity tape with real tx hashes, settlement feed with oracle-explorer audit links, SSE live stream — plus **Connect Wallet** (EIP-1193 provider, pre-sign summary before any signature, read-only address watching)
+
+### Public demo runbook
+
+Run `npm run public-demo` after starting the firm to expose the local observatory through an operator-provided Cloudflare Quick Tunnel. The repository does not claim a permanent public URL, external fills, or wallet signatures without attributable evidence.
+- **First-visit orientation**: a dismissible, locally remembered guide explains Liquidity Genesis, The Anchoring, provenance, panel navigation, and the wallet path before a judge enters the dense live surface
+- **Firm Intelligence bar**: journal-derived Brier score, directional accuracy, births, fills, matched notional, live two-sided coverage, transaction hashes, the venue's 0% fee policy, and zero-mock status are visible without scrolling
 - **`/health` + `/ready`** service endpoints (rate-limited, same-origin enforced, zero secret leakage)
 - **Optional LLM narration** for the firm report — stats-only prompt, output labeled `AI NARRATIVE`, graceful no-key fallback; the deterministic report is complete without it
 
 CLI, web, and MCP all sit on the same core — one implementation of the primitive, three surfaces.
 
+## Business & Ecosystem Impact
+
+The 2026-09-05 evidence snapshot contains **2,381 journaled market births, 100 fills, and 1,255.625 tUSDC of matched quote notional**. At the live coverage checkpoint, 10 windows were trading, 8 were in TEMPO-managed cadences, and 6 had a materialized two-sided managed book (3 BTC and 3 ETH): **60% of all active windows and 75% of managed active windows**.
+
+DreamDEX currently sets maker, taker, and settlement fees to **0%**, so TEMPO does not claim invented protocol fee revenue. The ecosystem impact is immediately tradable books and matched activity without taxing users. The sustainable economic path is:
+
+1. GENESIS targets spread capture, settlement value, and venue maker yield where applicable.
+2. VECTOR targets bounded edge when its independent estimate disagrees with the touch.
+3. Somnia's low transaction cost and a single autonomous Node.js process keep operation economical.
+4. More usable windows attract wallet traders and external agents; more activity strengthens DreamDEX's utility and creates more assets and cadences for TEMPO to cover.
+5. `@tempo/core` and the MCP server are MIT licensed, allowing other builders to extend the primitive.
+
+Historical fills did not retain enough counterparty identity to prove external adoption. New runtime fills now journal maker, taker, counterparty, and `FIRM`/`EXTERNAL` classification. A “Proven by External Traders” claim will be added only after an attributed fill and receipt are captured; no external demand is fabricated here.
+
 ## Engineering Evidence
 
-- **2,107 automated tests passing** (17 files) — including a 2,048-case economic/decimal invariant matrix, security boundaries, failure paths, CLI matrix
+- **2,115 automated tests passing** (18 files) — including a 2,048-case economic/decimal invariant matrix, security boundaries, failure paths, and the CLI matrix
 - **`npm audit`: 0 vulnerabilities** · strict `tsc` clean across 4 packages · SBOM + checksums in `release/`
 - **Reproducible from a clean clone**: `npm install → cp .env.example .env → npm test → npm run firm` — no hidden manual state, dry-run by default, keys never in the repo
 - Full evidence index: [`test/reports/`](https://github.com/Kevincruz2005/Tempo/tree/main/test/reports)

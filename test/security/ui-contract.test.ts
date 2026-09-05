@@ -78,6 +78,11 @@ describe("multipage observatory UI contract", () => {
     expect(app).toContain("captureScrollPositions");
     expect(app).toContain('data-scroll-key="dashboard-venue"');
     expect(editorialCss).toContain(".venue-panel-body");
+    expect(editorialCss).toContain(".onboarding-dialog");
+    expect(html).toContain('id="onboarding-overlay"');
+    expect(html).toContain('data-onboarding="dashboard"');
+    expect(app).toContain('getJson("/api/stats")');
+    expect(app).toContain("firmIntelligence");
   });
 
   it("uses the centered wallet connection modal without a dry-run navbar chip", () => {

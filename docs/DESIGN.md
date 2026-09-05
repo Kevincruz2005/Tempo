@@ -132,13 +132,22 @@ prototype: justified non-use (not load-bearing; documented in RECONNAISSANCE §3
 
 **TEMPO** — agents `GENESIS` (maker) and `VECTOR` (taker).
 
-### 2. One-Sentence Primitive
+### 2. Named Primitive
 
 **An autonomous market firm that provides two-sided liquidity at the birth of
 every DreamDEX event-contract window — anchored to the on-chain opening price
 and the oracle's live spot feed — and carries each market through quote,
 re-price, endgame, settlement, claim, and successor roll with zero human
 intervention.**
+
+The design uses four terms consistently because they describe distinct mechanisms:
+
+- **Liquidity Genesis** — supplying the first bounded two-sided quote to a newborn ephemeral market.
+- **The Anchoring** — deriving fair value from the official spot feed versus the on-chain opening price before a book exists.
+- **Verifiable Trading Intelligence** — journaling estimates before action, scoring them after settlement, and feeding only bounded calibration epochs.
+- **The Roll** — settlement → void-aware claim → successor discovery, turning separate windows into a continuous service.
+
+This is not conventional market making. A market maker assumes a market already exists; TEMPO provides the missing market-structure function that creates a usable opening book.
 
 ### 3. Why This Exists
 
@@ -452,22 +461,16 @@ DreamDEX's audited core (Hacken-audited spot engine family). Deployment =
 config + funded keys: `faucet()` mints 10k tUSDC per call per key. Fresh-clone
 reproduction in README §Reproducibility.
 
-### 27. 90-Second Demo (second-by-second)
+### 27. 150-Second Demo (second-by-second)
 
-- **0–10s** — `tempo markets`: 14 live windows, real strikes from the chain;
-  the 1m series shows empty books (the problem, on-chain).
-- **10–25s** — `tempo firm simulate` already running against the live venue →
-  a 1m/5m window birth is detected; GENESIS posts Buy Up + Buy Down anchored
-  to fair value; `tempo book <symbol>` shows the materialized two-sided book;
-  tx hashes stream into the journal.
-- **25–50s** — spot feed moves; appraiser re-prices; re-quotes land (hashes);
-  VECTOR's fair value diverges from GENESIS's touch → IOC taker fill prints on
-  a real trade; both ledgers update from real fills.
-- **50–70s** — final 20 seconds: quotes converge toward certainty; the window
-  locks; the oracle settles (resolution + explorer link shown); `tempo claims`
-  lists the winnings; `--claim` redeems; tUSDC returns to the wallet on-chain.
-- **70–90s** — `tempo verify` replays the journal and cross-checks every tx on
-  chain; the web dashboard (one screen) has shown the whole lifecycle live.
+- **0–20s · dead birth** — show a finalized `tradeCount: 0` window and state the market-structure gap.
+- **20–40s · The Anchoring** — show live spot, on-chain opening price, volatility, time, and the first materialized two-sided quote.
+- **40–70s · disagreement** — open Agents & Risk; show GENESIS and VECTOR as independent policies under one RiskEngine.
+- **70–100s · Verifiable Trading Intelligence** — show the header Brier score and directional accuracy, then inspect the underlying journal and settlement evidence.
+- **100–130s · The Roll and proof** — show lock, oracle settlement, void-aware claim, successor, and `tempo verify` receipt checks.
+- **130–150s · wallet and close** — stop at the browser pre-sign summary; show external flow only if an attributed `EXTERNAL` fill exists.
+
+The complete narration and shot list live in `test/reports/demo-script-150s.md`.
 
 ### 28. Holy-Shit Moment
 
@@ -478,8 +481,8 @@ settlement. Every number on screen is a real on-chain fact with a hash.
 
 ### 29. UI / UX
 
-Single screen, no page scroll, dark premium financial aesthetic (deep ink,
-one accent, mono numerics). Panels: venue pulse (windows + birth clock),
+Multi-page observatory with a one-monitor live command surface, internal panel
+scrolling, and a dark premium financial aesthetic (deep ink, one accent, mono numerics). Panels: venue pulse (windows + birth clock),
 selected window book + fair-value band, firm roster (capital, inventory, P&L —
 real), activity tape (events → decisions → tx hashes), settlement feed with
 oracle links. Internal panel scroll only; navigation instantaneous; honest

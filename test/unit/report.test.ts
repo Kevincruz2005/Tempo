@@ -19,7 +19,7 @@ describe("firm report", () => {
         record("decision", { fairP: 0.8, secondsLeft: 20 }, { agent: "GENESIS", marketId }),
         record("order-sent", { dryRun: false }, { agent: "GENESIS", marketId }),
         record("order-receipt", {}, { agent: "GENESIS", marketId, tx }),
-        record("fill", { kind: "BUY_UP" }, { agent: "GENESIS", marketId }),
+        record("fill", { kind: "BUY_UP", price: 0.6, size: 25 }, { agent: "GENESIS", marketId }),
         record("settlement", { voided: false, winningOutcome: 0 }, { marketId }),
         record("claim", {}, { marketId, tx }),
       ],
@@ -29,10 +29,12 @@ describe("firm report", () => {
 
     expect(stats.markets).toEqual({ births: 1, byAsset: { BTC: 1 } });
     expect(stats.execution.orderSends.real).toBe(1);
+    expect(stats.execution.fills.quoteVolume).toBe(15);
     expect(stats.execution.uniqueTxHashes).toEqual([tx]);
     expect(stats.estimateQuality.scoredMarkets).toBe(1);
     expect(stats.estimateQuality.brier).toBeCloseTo(0.04);
     expect(stats.estimateQuality.directionalAccuracy).toBe(1);
+    expect(renderMarkdown(stats)).toContain("Matched quote notional: **15.000**");
   });
 
   it("excludes voided outcomes and reports unavailable scoring honestly", () => {

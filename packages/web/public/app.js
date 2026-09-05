@@ -5,6 +5,7 @@ const LIFE = ["BIRTH", "ANCHOR", "GENESIS", "REPRICE", "ENDGAME", "SETTLE", "CLA
 const HASH = /^0x[0-9a-f]{64}$/i;
 const model = {
   state: null,
+  stats: null,
   records: [],
   walletConfig: null,
   docs: null,
@@ -12,13 +13,14 @@ const model = {
   stream: "CONNECTING",
   refreshAt: null,
   refreshTimer: null,
+  statsTimer: null,
   liveRenderTimer: null,
   eventSource: null,
   commandIndex: 0,
   rowIndex: -1,
   births: new Set(),
   walletProofs: new Map(),
-  loaded: { state: false, journal: false, wallet: false },
+  loaded: { state: false, stats: false, journal: false, wallet: false },
   dashboard: { venue: true, right: true, agents: true, evidence: true },
   filters: {
     marketQuery: "", marketStatus: "ALL", asset: "ALL", interval: "ALL", sort: "EXPIRY",
@@ -83,6 +85,9 @@ function marketRecords(id) {
 }
 function recordDetail(record) {
   const data = record?.data || {};
+  if (record?.type === "fill" && data.counterparty) {
+    return [data.kind, data.counterpartyType, short(data.counterparty, 7, 5)].filter(Boolean).join(" · ");
+  }
   return data.reason || data.what || data.outcome || data.kind || data.lifecycle || data.status || "";
 }
 function recordSource(record) {
@@ -323,6 +328,29 @@ function rightTab(key, label) {
   return '<button class="right-tab" type="button" data-toggle-panel="' + key + '" aria-expanded="false" aria-label="Open ' + label + '"><span class="toggle-arrow" aria-hidden="true">←</span><span class="toggle-text">' + label + '</span></button>';
 }
 
+function firmIntelligence() {
+  const stats = model.stats;
+  const quality = stats?.estimateQuality;
+  const fills = stats?.execution?.fills;
+  const active = (model.state?.markets || []).filter((row) => row.status === 1 && row.secondsLeft > 0);
+  const covered = active.filter((row) => row.managed && row.view?.book?.yesBids?.length && row.view?.book?.yesAsks?.length).length;
+  const item = (value, label, source, title) => '<div class="intelligence-stat"><span>' + escapeHtml(label) + " " + badge(source, title) +
+    '</span><b>' + escapeHtml(value) + "</b></div>";
+  const period = stats?.window?.since ? "JOURNAL SINCE " + utc(stats.window.since).slice(0, 10) : "AWAITING JOURNAL AGGREGATE";
+  return '<section class="firm-intelligence" aria-label="Firm intelligence and ecosystem impact"><div class="intelligence-head"><div><span class="eyebrow">VERIFIABLE TRADING INTELLIGENCE</span><h2>Measured against settlement truth</h2></div><small>' +
+    escapeHtml(period) + '</small></div><div class="intelligence-grid">' +
+    item(quality?.brier === null || quality?.brier === undefined ? "NO DATA" : fmt(quality.brier, 4), "BRIER", "model", "Brier score over journaled pre-expiry estimates and on-chain outcomes") +
+    item(quality?.directionalAccuracy === null || quality?.directionalAccuracy === undefined ? "NO DATA" : pct(quality.directionalAccuracy), "DIR. ACC.", "derived") +
+    item(stats ? fmt(stats.markets?.births, 0) : "NO DATA", "WINDOW BIRTHS", "journal") +
+    item(stats ? fmt(fills?.count, 0) : "NO DATA", "FILLS", "journal") +
+    item(stats ? fmt(fills?.quoteVolume, 3) : "NO DATA", "MATCHED NOTIONAL", "derived", "Sum of fill price × size in journal collateral units") +
+    item(model.loaded.state ? (active.length ? covered + "/" + active.length : "NO DATA") : "NO DATA", "LIVE COVERAGE", "derived", "Managed trading windows with materialized UP bid and ask") +
+    item(stats ? fmt(stats.execution?.uniqueTxCount, 0) : "NO DATA", "TX HASHES", "journal", "Journaled hashes; verify independently with tempo verify") +
+    item("0%", "VENUE FEES", "chain", "DreamDEX maker, taker, and settlement fees are currently zero") +
+    item("0", "MOCKED VALUES", "policy") +
+    "</div></section>";
+}
+
 function dashboardLifecycle(selected, minimized = false) {
   const current = selected?.lifecycle || "UNAVAILABLE";
   const currentIndex = LIFE.indexOf(current);
@@ -405,8 +433,8 @@ function renderDashboard() {
     '</div><div class="panel-body" style="padding-top:8px"><div class="section-kicker"><span>LATEST SETTLEMENTS</span>' +
     badge("chain") + "</div>" + settlements(model.state?.settlements || [], 2) + briefing() + "</div></div></div></section>";
   const rightPanels = dash.right ? '<section class="panel right-rail"><div class="right-rail-tabs">' + rightTab("agents", "Agents & risk") + rightTab("evidence", "Evidence stream") + '</div></section>' : agentsPanel + evidencePanel;
-  return '<section class="page dashboard ' + (dash.lifecycle ? "lifecycle-minimized" : "lifecycle-expanded") + '" data-scroll-key="dashboard-page">' + heading("LIVE COMMAND CENTER", "The autonomous firm, in evidence",
-    "Market state first. Agent action second. Risk and on-chain proof always visible.", actions) +
+  return '<section class="page dashboard ' + (dash.lifecycle ? "lifecycle-minimized" : "lifecycle-expanded") + '" data-scroll-key="dashboard-page"><div class="dashboard-intro">' + heading("LIVE COMMAND CENTER", "The autonomous firm, in evidence",
+    "Market state first. Agent action second. Risk and on-chain proof always visible.", actions) + firmIntelligence() + "</div>" +
     '<div class="' + gridClass + '"><section class="panel venue-panel ' + (dash.venue ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Venue pulse</h2><small>' +
     fmt(markets.length, 0) + " WINDOWS · " + (model.loaded.journal ? fmt(births, 0) : "NO DATA") + ' BIRTHS LOADED</small></div>' + panelToggle("venue", dash.venue) + '</div><div class="venue-panel-body"><div class="pulse-grid">' +
     '<div class="pulse-stat"><span>TRADING WINDOWS ' + badge("chain") + "</span><b>" + fmt(markets.filter((row) => row.secondsLeft > 0 && row.status === 1).length, 0) +
@@ -916,6 +944,17 @@ async function refreshJournal() {
   }
 }
 
+async function refreshStats(force = false) {
+  try {
+    model.stats = await getJson("/api/stats");
+    model.loaded.stats = true;
+    if (force && path() === "/dashboard") renderRoute({ preserve: true });
+  } catch {
+    model.stats = null;
+    model.loaded.stats = false;
+  }
+}
+
 async function refreshNarrative() {
   const button = $("ai-summary");
   const text = $("ai-narrative-text");
@@ -992,6 +1031,17 @@ function closeOverlays(restore = true) {
   overlayReturnFocus = null;
 }
 function openWallet() { openOverlay("wallet-overlay", "#wallet-connect"); }
+function dismissOnboarding(destination) {
+  try { localStorage.setItem("tempo_onboarded", "1"); } catch { /* Storage may be unavailable in hardened browsing modes. */ }
+  closeOverlay("onboarding-overlay");
+  if (destination === "dashboard") navigate("/dashboard");
+  if (destination === "wallet") openWallet();
+}
+function showFirstVisitOnboarding() {
+  let onboarded = false;
+  try { onboarded = localStorage.getItem("tempo_onboarded") === "1"; } catch { /* Show the guide when storage is unavailable. */ }
+  if (!onboarded) openOverlay("onboarding-overlay", "[data-onboarding=dashboard]");
+}
 function findRecord(id) { return model.records.find((row) => row.eventId === id); }
 
 function openProof(hash) {
@@ -1217,7 +1267,8 @@ function bindGlobal() {
       if (href?.startsWith("/")) { event.preventDefault(); navigate(href); }
       return;
     }
-    if (target.matches("[data-close]")) closeOverlay(target.dataset.close);
+    if (target.matches("[data-onboarding]")) dismissOnboarding(target.dataset.onboarding);
+    else if (target.matches("[data-close]")) closeOverlay(target.dataset.close);
     else if (target.matches("[data-open-wallet]") || target.id === "wallet-open") openWallet();
     else if (target.id === "command-open") {
       model.commandIndex = 0;
@@ -1346,6 +1397,7 @@ async function bootstrap() {
     getJson("/api/wallet/config"),
     getJson("/api/journal?n=300"),
     getJson("/api/state"),
+    getJson("/api/stats"),
     path() === "/docs" ? ensureDocs() : Promise.resolve(),
   ]);
   if (results[0].status === "fulfilled") { model.walletConfig = results[0].value; model.loaded.wallet = true; }
@@ -1359,8 +1411,11 @@ async function bootstrap() {
       window.dispatchEvent(new CustomEvent("tempo:state", { detail: state }));
     }
   }
+  if (results[3].status === "fulfilled") { model.stats = results[3].value; model.loaded.stats = true; }
   updateChrome();
   renderRoute();
+  model.statsTimer = window.setInterval(() => void refreshStats(true), 60_000);
+  requestAnimationFrame(showFirstVisitOnboarding);
   if (!new URLSearchParams(location.search).has("snapshot")) startStream();
 }
 
