@@ -149,6 +149,19 @@ flowchart LR
 - **One-Round-Trip Writes (`realtime_sendRawTransaction`)**: Enables submission and receipt validation in a single round-trip, eliminating pending-transaction limbo.
 - **Keeperless Settlement**: DreamDEX resolves windows on-chain via oracle delivery through Somnia's native reactivity. No off-chain keeper or cron is required.
 
+#### Somnia Ecosystem Stack & Resources Leveraged
+
+| Category | Resource / Component | How TEMPO Uses It |
+|:---|:---|:---|
+| **L1 Blockchain** | **Somnia L1 (Shannon 50312 & Mainnet 5031)** | Ultra-high throughput (~100ms blocks), sub-second finality, and negligible execution gas for high-frequency quoting. |
+| **RPC & Node APIs** | **`https://api.infra.testnet.somnia.network`** | Primary JSON-RPC node infrastructure for state inspection, signer balances, order broadcasting, and health probing. |
+| **Reactivity Primitives** | **`somnia_watch` & `realtime_sendRawTransaction`** | Streaming log tailing for microsecond fill detection; single round-trip write/receipt validation avoiding pending-state limbo. |
+| **Protocol Contracts** | **DreamDEX Suite (CREATE3 Deployed)** | Direct on-chain interaction with `BinaryMarketsModule`, `MarketsCore` (CLOB), `BinarySettlement`, `OutcomeToken6909`, and `CollateralRouter`. |
+| **Oracle Layer** | **`OracleHub` & Somnia Price Feeds** | Official Somnia spot price feeds (ETH/USD, BTC/USD) and oracle hub for fair-value driftless diffusion ($\Phi$) and settlement scoring. |
+| **Protocol SDK** | **`@somnia-chain/markets-sdk`** | Type-safe contract interfaces, order encoding, balance checks, and multi-tier exchange abstraction inside `TempoExchange`. |
+| **Tokens & Collateral** | **`STT` (Native) & `tUSDC` (Collateral)** | Somnia native token (`STT`) for gas execution; testnet ERC-20 collateral (`0x70a8...25d8E`) for pair-minting and order settlement. |
+| **Data & Explorer** | **Somnia Shannon Explorer & Envio Indexer** | Ledger verification (`shannon-explorer.somnia.network`) and indexed window discovery with direct RPC failover. |
+
 ### 2. Why DreamDEX? (The Mechanism)
 - **On-Chain Opening Boundary**: The exact strike price is committed on-chain at window birth, providing the reference anchor for fair-value diffusion.
 - **Mint-a-Pair Path**: Resting bids on Up and Down simultaneously allow the venue to mint complete sets on fill, achieving two-sided liquidity with **zero pre-funded inventory**.
