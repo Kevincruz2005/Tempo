@@ -185,7 +185,7 @@ Operational figures below are derived from the dated journal and on-chain receip
 | **Brier Score Calibration** | **0.0561 across 18 scored markets** | [`test/reports/business-impact-20260905.md`](test/reports/business-impact-20260905.md) |
 | **Directional Forecasting Accuracy** | **94.4%** (17/18) | [`test/reports/business-impact-20260905.md`](test/reports/business-impact-20260905.md) |
 | **Venue Trading / Settlement Fees** | **0% / 0%** | [`docs/sources/raw/dreamdex-trading_event-contracts.md`](docs/sources/raw/dreamdex-trading_event-contracts.md) |
-| **Automated Test Suite** | **2,116 tests passing** (18 test files) | [`test/reports/readme-audit-20260905.md`](test/reports/readme-audit-20260905.md) |
+| **Automated Test Suite** | **2,117 tests passing** (18 test files) | [`test/reports/readme-audit-20260905.md`](test/reports/readme-audit-20260905.md) |
 | **Economic Invariant Matrix** | **2,048 cases tested** (6 & 18 decimals) | [`test/reports/offline-20260903.md`](test/reports/offline-20260903.md) |
 | **Security Vulnerabilities** | **0 vulnerabilities** (`npm audit`) | [`test/reports/security.md`](test/reports/security.md) |
 | **Mocked Economic Values** | **0 mocked values** | [`test/reports/zero-mock-audit.md`](test/reports/zero-mock-audit.md) |
@@ -623,7 +623,7 @@ git clone https://github.com/Kevincruz2005/Tempo.git
 cd Tempo
 npm install
 npm run build:sdk
-npm test                  # Runs all 2,116 offline invariant and integration tests
+npm test                  # Runs all 2,117 offline invariant and integration tests
 ```
 
 ### 2. Configuration (`.env`)
@@ -750,7 +750,7 @@ TEMPO directly aligns with the Somnia × DreamDEX Hackathon evaluation criteria:
 
 ### 2. Technical Implementation (25%)
 - **Deep Protocol Integration**: Direct utilization of DreamDEX CLOB, CREATE3 protocol registries, ERC-6909 tokens, and Somnia's sub-second block finality.
-- **Rigorous Verification**: 2,116 automated tests passing, 2,048-point invariant matrix, 0 npm audit vulnerabilities, and 0 mocked values ([verification proof](test/reports/readme-audit-20260905.md)).
+- **Rigorous Verification**: 2,117 automated tests passing, 2,048-point invariant matrix, 0 npm audit vulnerabilities, and 0 mocked values ([verification proof](test/reports/readme-audit-20260905.md)).
 - **Shared Monorepo Architecture**: Clean separation into `@tempo/core`, `@tempo/engine`, `@tempo/cli`, and `@tempo/mcp`.
 
 ### 3. User Experience & Design (20%)
@@ -789,7 +789,7 @@ TEMPO directly aligns with the Somnia × DreamDEX Hackathon evaluation criteria:
   - Closed-loop Brier score self-calibration.
   - 12-tool Model Context Protocol (MCP) server for external AI agents.
   - Multipage responsive web observatory and non-custodial wallet flow.
-  - 2,116-test suite expansion with zero-mock auditing.
+  - 2,117-test suite expansion with zero-mock auditing.
 - [ ] **Phase 3: Somnia Data Streams Public Anchor Feed**
   - Publish opening genesis quotes directly to Somnia Data Streams.
   - Transform TEMPO's pricing estimates into a public decentralized good for third-party bots and dApps.
@@ -827,7 +827,7 @@ This README covers every externally meaningful part of TEMPO: the problem, proto
 | **Q** | Quantization | Tick, lot, collateral decimals and complement-safe probability conversion | [`quant.ts`](packages/core/src/quant.ts), [2,048-case matrix](test/reports/offline-20260903.md) |
 | **R** | Risk | Price, size, capital, inventory, order-count, loss, edge and time gates | [`risk.ts`](packages/core/src/risk.ts), [`risk.test.ts`](test/unit/risk.test.ts) |
 | **S** | Settlement and claims | Finalization, oracle audit, winning-side redemption, void handling and capital roll | [funded lifecycle proof](test/reports/full-onchain-mode.md), [explorer transactions](#verified-on-chain-proof--transactions) |
-| **T** | Tests and release quality | Type checking, 2,116 tests, economic invariants, security scan and SDK release | [current verification](test/reports/readme-audit-20260905.md), [release report](test/reports/release.md) |
+| **T** | Tests and release quality | Type checking, 2,117 tests, economic invariants, security scan and SDK release | [current verification](test/reports/readme-audit-20260905.md), [release report](test/reports/release.md) |
 | **U** | Usability and onboarding | First-visit orientation, persistent navigation, panel controls, accessibility and responsive behavior | [`app.js`](packages/web/public/app.js), [`ui-contract.test.ts`](test/security/ui-contract.test.ts) |
 | **V** | VECTOR | Independent fair-value disagreement and bounded IOC execution | [`policies.ts`](packages/core/src/policies.ts), [real IOC receipt](https://shannon-explorer.somnia.network/tx/0x3d2cc41de74db30eb8811609cdee105e9657a7dce2b463236b3a5618a6b26079) |
 | **W** | Wallet | EIP-6963/EIP-1193 discovery, chain gating, allowlisted unsigned calls, pre-sign review and receipt polling | [`wallet.ts`](packages/core/src/wallet.ts), [wallet flow proof](test/reports/wallet-flow.md), [`wallet.test.ts`](test/unit/wallet.test.ts) |
@@ -857,6 +857,63 @@ This README covers every externally meaningful part of TEMPO: the problem, proto
 - **Master Submission Checklist**: [`test/reports/final-checklist.md`](test/reports/final-checklist.md)
 - **Developer Documentation Portal**: [`packages/web/public/docs.html`](packages/web/public/docs.html)
 - **Architecture Design Document**: [`docs/DESIGN.md`](docs/DESIGN.md)
+
+---
+
+<a id="production-deployment--azure-proof"></a>
+## 🚀 Production Deployment: Vercel + Azure
+
+The current public deployment separates the browser Observatory from the autonomous backend while keeping both surfaces on the same committed repository revision.
+
+| Surface | Deployment | Runtime responsibility |
+|:---|:---|:---|
+| **Frontend** | [tempo-somnia.vercel.app](https://tempo-somnia.vercel.app) | Multipage Observatory, wallet review, browser UI, SSE client |
+| **Backend** | [20-189-112-129.sslip.io](https://20-189-112-129.sslip.io) | TEMPO engine, live chain reads, firm lifecycle, journal, API and SSE |
+| **Network** | Somnia Shannon Testnet, chain ID `50312` | DreamDEX Event Contracts and settlement |
+
+### Azure runtime
+
+The backend is manually cloned at `/opt/tempo` on an Azure Ubuntu VM and runs as the `tempo.service` systemd unit. Nginx terminates HTTPS, proxies to the private TEMPO HTTP listener on `127.0.0.1:7333`, keeps SSE unbuffered, and exposes the health endpoint at `/health`. The certificate is managed by Certbot with renewal enabled.
+
+The validated production service runs:
+
+```text
+TEMPO_DRY_RUN=false
+TEMPO_PAUSED=false
+TEMPO_MCP_WRITES=false
+TEMPO_ASSETS=BTC,ETH
+firm start
+```
+
+This means GENESIS and VECTOR may perform real, risk-gated Somnia testnet actions, while MCP remains read/simulation-only by default. Agent credentials are not stored in GitHub, Vercel, the README, or the frontend. They are loaded only by the Azure service from a root-owned, mode-600 secrets file.
+
+### Frontend/backend integrity
+
+The Vercel build writes the API origin into `runtime-config.js` from the protected `TEMPO_API_BASE` build variable. The browser therefore calls the HTTPS Azure origin instead of assuming same-origin `/api` routes. Azure accepts browser requests only from `https://tempo-somnia.vercel.app`; unapproved origins receive `403`. Preflight, API JSON, and SSE streaming were verified against the production URL.
+
+Vercel deep-link routes for `/dashboard`, `/markets`, `/history`, `/docs`, and `/protocol` resolve to the application shell. The frontend also applies CSP, frame, referrer, and permissions policies. Direct access to the backend process port is not required.
+
+### GitHub and deployment separation
+
+GitHub is the source repository and evidence archive. Azure is updated manually with fast-forward pulls and systemd restarts; no GitHub Actions workflow, webhook, or automatic Azure deployment is configured. Vercel production deployments are also performed manually through the CLI, with the stable `tempo-somnia.vercel.app` alias assigned explicitly.
+
+### Deployment verification
+
+The final Azure and local validation included:
+
+* TypeScript build and typecheck
+* **2,117 automated tests** across 18 files
+* **10 live chain/indexer/feed integration tests**
+* Complete CLI live matrix, including `doctor`, discovery, books, agents, positions, claims, verification, settlements, backtest, watch, and firm startup
+* **11/11 MCP read/simulation tools**, with `place_order` absent while MCP writes are disabled
+* Anonymous browser smoke test against the Vercel URL with no console errors
+* Confirmed production API state with `dryRun: false`, live BTC/ETH watches, and live market discovery
+
+The official Somnia testnet RPC is used by Azure. A public Thirdweb fallback was rate-limited during signer balance checks, so the deployment was moved to the official endpoint and the full signer-aware CLI matrix then passed.
+
+### LLM boundary
+
+LLM narration is a cold-path reporting feature only. It receives journal-derived statistics and cannot price, approve risk, sign, or execute transactions. If the configured provider rejects a request—for example, Gemini rejected the Azure VM location—the deterministic report remains available and no data is fabricated. The trading hot path remains deterministic and on-chain/evidence-first.
 
 ---
 
