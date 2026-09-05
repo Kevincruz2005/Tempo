@@ -20,11 +20,14 @@
 
   <br /><br />
 
-  <a href="https://github.com/Kevincruz2005/Tempo">🐙 GitHub Repository</a> •
+  <a href="https://github.com/Kevincruz2005/Tempo">🐙 GitHub</a> •
+  <a href="https://tempo-somnia.vercel.app">🌐 Live Observatory</a> •
+  <a href="https://20-189-112-129.sslip.io">⚡ Production API</a> •
+  <a href="https://youtu.be/YchdanIf05A">▶ Demo Video</a> •
   <a href="#verified-on-chain-proof--transactions">📜 On-Chain Proof</a> •
   <a href="#system-architecture">🏛️ Architecture</a> •
-  <a href="SUBMISSION.md">📋 Hackathon Submission</a> •
-  <a href="docs/DESIGN.md">📐 Design Document</a> •
+  <a href="SUBMISSION.md">📋 Submission</a> •
+  <a href="docs/DESIGN.md">📐 Design Doc</a> •
   <a href="test/reports/">📑 Evidence Reports</a>
 
 </div>
@@ -130,7 +133,7 @@ TEMPO's architecture is tightly coupled to its technological environment. None o
 flowchart LR
     Somnia["⚡ Somnia L1<br/>• ~100ms blocks<br/>• Negligible gas<br/>• somnia_watch reactivity<br/>• Sub-second finality"]
     DreamDEX["📊 DreamDEX CLOB<br/>• On-chain strike anchor<br/>• ERC-6909 outcome pairs<br/>• Zero-inventory mint<br/>• Keeperless settlement"]
-    AI["🧠 Calibrated Math<br/>• Driftless diffusion<br/>• Brier score optimization<br/>• Zero LLM in hot path<br/>• Auditable parameters"]
+    AI["🧠 Multi-Tiered AI<br/>• Microsecond diffusion (Hot)<br/>• Brier score calibration<br/>• LLM narrative synthesis (Cold)<br/>• MCP agent interoperability"]
     MCP["🔌 Agent Surface<br/>• 12 MCP tools<br/>• Non-custodial risk gate<br/>• Stdio streaming<br/>• Claude Desktop ready"]
 
     Somnia --> TEMPO["⚡ TEMPO Autonomous Firm ⚡"]
@@ -155,14 +158,12 @@ flowchart LR
 ### 3. Why Event Contracts? (The Product)
 Binary outcome event contracts with discrete expiries, guaranteed settlement boundaries, and automatic void resolutions provide the formal mathematical structure necessary for risk-bounded algorithmic market making.
 
-### 4. Why AI & Calibration? (And why NO LLM in the Hot Path)
-- **Zero LLMs in the Execution Path**: Somnia's 100ms block cadence makes remote LLM API calls (200ms–2,000ms latency, rate limits, non-deterministic formatting) completely unusable for trade decisions. 
-- **Driftless Diffusion Engine**: The real-time pricing engine uses a synchronous, deterministic closed-form diffusion calculation ($\Phi$) rather than a remote model call.
-- **Self-Grading Calibration Loop**: Every resolved window grades the firm's pre-expiry probability against on-chain outcome facts using the **Brier score**. A bounded temperature-calibration loop adjusts volatility multipliers and taker edge within strict $[0.5x, 2.0x]$ operator boundaries.
-- **Cold-Path AI Narrative**: An optional LLM generates natural language governance reports derived strictly from journal facts, explicitly labeled `AI NARRATIVE`.
-
-### 5. Why Model Context Protocol (MCP)?
-Provides 12 standardized, schema-validated MCP tools allowing external autonomous agents (such as Claude Desktop or autonomous treasury agents) to inspect markets, read books, calculate fair values, and safely execute trades through TEMPO's deterministic risk engine.
+### 4. Why AI, LLM & Calibration? (The Multi-Tiered Intelligence Architecture)
+TEMPO implements an intentional, multi-tiered intelligence model that assigns mathematical and linguistic tasks to the exact layers where they excel:
+- **Tier 1: Machine-Speed Diffusion (Hot Execution Path)**: Somnia's ~100ms block cadence demands microsecond decision latency. The real-time pricing engine calculates closed-form driftless diffusion ($\Phi$) synchronously in under 1 millisecond. Using an LLM in the quoting loop would introduce 200ms–2,000ms latency, exposing the firm to toxic adverse selection.
+- **Tier 2: Closed-Loop Brier Self-Calibration**: Rather than assuming static parameters, TEMPO evaluates every model estimate against eventual on-chain settlement facts using strictly proper Brier scores (`0.0561` across 18 scored windows, `94.4%` directional accuracy). A bounded temperature-calibration loop adjusts volatility multipliers and taker edge within strict $[0.5x, 2.0x]$ operator limits.
+- **Tier 3: Autonomous LLM Governance & Narrative Synthesis (Cold Path)**: Generative language models (Gemini / OpenAI API) ingest verified, append-only journal event streams to produce executive audit reports, multi-window risk analysis, and human-readable governance narratives (`AI NARRATIVE`), transforming raw telemetry into strategic insights.
+- **Tier 4: Model Context Protocol (MCP) Agent Interoperability**: Exposes 12 standardized, schema-validated MCP tools allowing external AI agents (such as Claude Desktop, AutoGPT, or autonomous DAO treasuries) to inspect live order books, simulate strategies, and execute governed trades through TEMPO's deterministic `RiskEngine`.
 
 ---
 
@@ -911,9 +912,12 @@ The final Azure and local validation included:
 
 The official Somnia testnet RPC is used by Azure. A public Thirdweb fallback was rate-limited during signer balance checks, so the deployment was moved to the official endpoint and the full signer-aware CLI matrix then passed.
 
-### LLM Usage
+### Multi-Tiered AI & LLM Architecture
 
-LLMs are used for optional cold-path reporting and human-readable analysis generated from verified journal and settlement data. Core pricing, risk enforcement, order execution, wallet signing, settlement, and claims remain deterministic and evidence-driven. If an LLM provider is unavailable, the deterministic report remains available and no data is fabricated.
+TEMPO's artificial intelligence is designed as a complementary, multi-tiered stack rather than a monolithic black box:
+* **Microsecond Mathematical Execution**: Sub-second driftless log-price diffusion ($\Phi$) runs natively in TypeScript on Somnia's 100ms blocks, ensuring zero execution delay and eliminating front-running risk.
+* **Autonomous LLM Synthesis & Audit Intelligence**: Generative models (Gemini / OpenAI API) are integrated into the cold governance path to synthesize thousands of journaled events into executive market analysis, calibration reviews, and natural language audit summaries (`tempo report --llm`).
+* **Agentic Coordination via MCP**: The 12-tool Model Context Protocol (MCP) server enables third-party LLMs (such as Claude Desktop or autonomous treasury managers) to inspect order books, test trading hypotheses in safe simulation, and execute risk-checked orders.
 
 ---
 

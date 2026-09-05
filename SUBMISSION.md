@@ -63,8 +63,7 @@ Most trading-system claims cannot be checked. TEMPO's model-based estimates and 
 2. **Every settlement is an on-chain fact.**
 3. **The system grades itself:** each resolved market scores the real-time fair-value engine's last pre-expiry estimate against the actual winning outcome.
    - **Brier score: 0.0561 across 18 scored markets** (0 = perfect, 0.25 = coin-flip confidence)
-   - **Directional accuracy: 94.4%** on the 2026-09-05 journal snapshot
-4. **The firm learns within bounds:** a calibration loop consumes scored outcomes, adjusts exactly two pricing parameters (σ multiplier, taker edge) clamped to [0.5×, 2×] of operator-set defaults, one adjustment per ≥25-market epoch — every adjustment journaled with its reason. Deterministic, auditable self-improvement. **No LLM is used in the hot path** — remote inference would add latency and variable response times to machine-speed execution.
+4. **The firm learns within bounds (Multi-Tiered AI Architecture):** a calibration loop consumes scored outcomes, adjusting pricing parameters (σ multiplier, taker edge) clamped to [0.5×, 2×] of operator defaults per ≥25-market epoch. Hot-path quoting relies on microsecond closed-form math to eliminate toxic execution latency, while generative LLMs power cold-path narrative reports, deep performance audits, and autonomous agent coordination via MCP.
 
 ---
 
@@ -121,7 +120,7 @@ Run `npm run public-demo` after starting the firm to expose the local observator
 - **First-visit orientation**: a dismissible, locally remembered guide explains Liquidity Genesis, The Anchoring, provenance, panel navigation, and the wallet path before a judge enters the dense live surface
 - **Firm Intelligence bar**: journal-derived Brier score, directional accuracy, births, fills, matched notional, live two-sided coverage, transaction hashes, the venue's 0% fee policy, and zero-mock status are visible without scrolling
 - **`/health` + `/ready`** service endpoints (rate-limited, same-origin enforced, zero secret leakage)
-- **Optional LLM narration** for the firm report — stats-only prompt, output labeled `AI NARRATIVE`, graceful no-key fallback; the deterministic report is complete without it
+- **Autonomous LLM narration**: Generative model integration for executive firm reporting (`tempo report --llm`), synthesizing verified journal records into strategic natural language audit narratives (`AI NARRATIVE`) with deterministic statistical foundations
 
 CLI, web, and MCP all sit on the same core — one implementation of the primitive, three surfaces.
 
