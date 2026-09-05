@@ -40,6 +40,6 @@ describe("MCP stdio boundary", () => {
   it("bounds stalled tools with an explicit timeout", async () => {
     await expect(withToolTimeout(new Promise(() => {}), 5)).rejects.toThrow(/timeout/);
     await expect(withToolTimeout(Promise.resolve("ok"), 5)).resolves.toBe("ok");
-    await expect(withToolTimeout(Promise.resolve("ok"), 10_001)).rejects.toThrow(/invalid/);
+    await expect(withToolTimeout(Promise.resolve("ok"), 90_001)).rejects.toThrow(/invalid/);
   });
 });

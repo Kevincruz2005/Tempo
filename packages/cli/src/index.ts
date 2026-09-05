@@ -192,33 +192,38 @@ async function main(): Promise<void> {
 
     case "agents":
     case "positions": {
-      await withExchange(async (ex) => {
-        for (const [name, key] of [["GENESIS", cfg.keys.maker], ["VECTOR", cfg.keys.taker]] as const) {
-          out(`== ${name} ${key ? "" : "(no key — READ-ONLY)"}`);
-          if (!key) continue;
+      const agents = await Promise.all(
+        ([
+          ["GENESIS", cfg.keys.maker],
+          ["VECTOR", cfg.keys.taker],
+        ] as const).map(async ([name, key]) => {
+          const lines = [`== ${name} ${key ? "" : "(no key — READ-ONLY)"}`];
+          if (!key) return lines;
           const agent = new TempoExchange({ config: cfg, privateKey: key });
           try {
             const bal = await agent.collateralBalance();
-            out(`   address:    ${agent.walletAddress}`);
-            out(`   collateral: ${fmt(bal.human, 2)} (${bal.decimals} decimals)`);
+            lines.push(`   address:    ${agent.walletAddress}`);
+            lines.push(`   collateral: ${fmt(bal.human, 2)} (${bal.decimals} decimals)`);
             if (cmd === "positions") {
-              const rows = await agent.markets();
-              for (const m of rows.slice(0, 12)) {
-                const oc = await agent.onchain(m.marketId);
-                if (oc.status === 0 || oc.status === 5) continue;
-                const balances = await Promise.all([agent.outcomeBalance(oc, "UP"), agent.outcomeBalance(oc, "DOWN")]).catch(() => null);
-                if (!balances) {
-                  out(`   ${m.symbol}: UNAVAILABLE`);
-                } else if (balances[0] > 0 || balances[1] > 0) {
-                  out(`   ${m.symbol}: UP ${fmt(balances[0], 1)} / DOWN ${fmt(balances[1], 1)}`);
+              const rows = await agent.positions(undefined, 12).catch(() => null);
+              if (!rows) {
+                lines.push("   positions: UNAVAILABLE");
+                return lines;
+              }
+              for (const row of rows) {
+                if (row.status === 0 || row.status === 5) continue;
+                if (row.up > 0 || row.down > 0) {
+                  lines.push(`   ${row.symbol}: UP ${fmt(row.up, 1)} / DOWN ${fmt(row.down, 1)}`);
                 }
               }
             }
           } finally {
             await agent.close().catch(() => {});
           }
-        }
-      });
+          return lines;
+        }),
+      );
+      for (const lines of agents) for (const line of lines) out(line);
       break;
     }
 

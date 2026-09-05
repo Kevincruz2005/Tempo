@@ -43,7 +43,7 @@ const placeOrderDefinition = { name: "place_order", description: "Opt-in MCP IOC
 type ToolArgs = Record<string, unknown>;
 
 export async function withToolTimeout<T>(work: Promise<T>, timeoutMs = 10_000): Promise<T> {
-  if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 10_000) throw new Error("invalid MCP timeout");
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 90_000) throw new Error("invalid MCP timeout");
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([work, new Promise<T>((_, reject) => { timer = setTimeout(() => reject(new Error(`MCP tool timeout after ${timeoutMs} milliseconds`)), timeoutMs); })]);
@@ -77,7 +77,8 @@ export function createMcpServer() {
     const argsHash = safeArgsHash(args);
     try {
       if (name === "place_order" && !writesEnabled) throw new TempoError("NO_KEY", "place_order is not enabled or signer-backed");
-      const value = await withToolTimeout(handleTool(name, args, config, reader, journal, LIMIT, marketInput, tradeInput, bounded));
+      const timeoutMs = name === "get_positions" ? 90_000 : 10_000;
+      const value = await withToolTimeout(handleTool(name, args, config, reader, journal, LIMIT, marketInput, tradeInput, bounded), timeoutMs);
       const tx = value && typeof value === "object" && typeof (value as { tx?: unknown }).tx === "string" ? (value as { tx: string }).tx : undefined;
       journal.append({ type: "mcp", agent: "MCP", source: "mcp-stdio", tx, data: { tool: name, argsHash, result: "success" } });
       return result(value);

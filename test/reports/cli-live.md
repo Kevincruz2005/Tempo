@@ -1,6 +1,6 @@
 # CLI Live Report
 
-- Run at: 2026-09-05T17:21:01.250Z
+- Run at: 2026-09-05T20:38:30.526Z
 
 ## doctor
 
@@ -19,9 +19,9 @@ maker key:      present
 taker key:      present
 live markets:   10 (managed assets: BTC,ETH)
 collateral:     0x70a86D8842FB63C4Ad2b7cdddF530eBf1BB25d8E (6 decimals)
-feed BTC:     80065.44 (ema 80077.61)
-feed ETH:     2478.54 (ema 2479.15)
-maker balance:  48585.89 collateral
+feed BTC:     79736.75 (ema 79736.01)
+feed ETH:     2475.87 (ema 2475.90)
+maker balance:  48493.02 collateral
 
 ```
 ## markets
@@ -31,18 +31,18 @@ maker balance:  48585.89 collateral
 
 ```text
 symbol                                  asset cad  left   venue       marketId
-ETH-247945-05SEP26-1718/tUSDC           ETH   1m   29s    0x1a1e6821  0x0000000000
-BTC-8008246-05SEP26-1718/tUSDC          BTC   1m   29s    0x1a1e6821  0x0000000000
-BTC-8014494-05SEP26-1720/tUSDC          BTC   5m   149s   0x1a1e6821  0x0000000000
-ETH-248089-05SEP26-1720/tUSDC           ETH   5m   149s   0x1a1e6821  0x0000000000
-BTC-0-05SEP26-1800/tUSDC                BTC   60m  2549s  0x679795a0  0x0000000000
-ETH-0-05SEP26-1800/tUSDC                ETH   60m  2549s  0x679795a0  0x0000000000
-ETH-0-05SEP26-2000/tUSDC                ETH   240m 9749s  0x679795a0  0x0000000000
-BTC-0-05SEP26-2000/tUSDC                BTC   240m 9749s  0x679795a0  0x0000000000
-ETH-0-06SEP26/tUSDC                     ETH   1440m24149s 0x679795a0  0x0000000000
-BTC-0-06SEP26/tUSDC                     BTC   1440m24149s 0x679795a0  0x0000000000
-ETH-0-19OCT26/tUSDC                     ETH   64800m3739349s0x09567c41  0x0000000000
-BTC-0-19OCT26/tUSDC                     BTC   64800m3739349s0x09567c41  0x0000000000
+ETH-247580-05SEP26-2035/tUSDC           ETH   1m   15s    0x1a1e6821  0x0000000000
+BTC-7972695-05SEP26-2035/tUSDC          BTC   1m   15s    0x1a1e6821  0x0000000000
+ETH-247703-05SEP26-2035/tUSDC           ETH   5m   15s    0x1a1e6821  0x0000000000
+BTC-7973399-05SEP26-2035/tUSDC          BTC   5m   15s    0x1a1e6821  0x0000000000
+ETH-0-05SEP26-2100/tUSDC                ETH   60m  1515s  0x679795a0  0x0000000000
+BTC-0-05SEP26-2100/tUSDC                BTC   60m  1515s  0x679795a0  0x0000000000
+BTC-0-06SEP26-4736/tUSDC                BTC   240m 12315s 0x679795a0  0x0000000000
+ETH-0-06SEP26-4737/tUSDC                ETH   240m 12315s 0x679795a0  0x0000000000
+ETH-0-06SEP26-3BC3/tUSDC                ETH   1440m12315s 0x679795a0  0x0000000000
+BTC-0-06SEP26-3BC2/tUSDC                BTC   1440m12315s 0x679795a0  0x0000000000
+ETH-0-19OCT26/tUSDC                     ETH   64800m3727515s0x09567c41  0x0000000000
+BTC-0-19OCT26/tUSDC                     BTC   64800m3727515s0x09567c41  0x0000000000
 
 12 live windows — the venue's own rolling series
 
@@ -53,14 +53,19 @@ BTC-0-19OCT26/tUSDC                     BTC   64800m3739349s0x09567c41  0x000000
 - Exit: 0
 
 ```text
-market:   BTC-8008246-05SEP26-1718/tUSDC  (BTC 1m, 0s left)
-strike:   80082.46
-spot:     80034.32  [price-feed]
+market:   BTC-0-05SEP26-2100/tUSDC  (BTC 60m, 1484s left)
+strike:   79770.50
+spot:     79726.75  [price-feed]
 grid:     tick 0.001 lot 0.001 (6 decimals)
 
 YES book (Up probability):
+  0.392 × 460.0
+  0.382 × 330.0
+  0.379 × 200.0
   --- touch ---
-  EMPTY BOOK — no liquidity yet (the genesis gap)
+  0.350 × 200.0
+  0.340 × 330.0
+  0.322 × 460.0
 
 ```
 ## agents
@@ -71,7 +76,7 @@ YES book (Up probability):
 ```text
 == GENESIS
    address:    0xE7a8a7d81Bad87512f9cab931E5122B5eaEE8c7a
-   collateral: 48584.49 (6 decimals)
+   collateral: 48509.89 (6 decimals)
 == VECTOR
    address:    0x54001362B87792d4Cb2c9bC8ed06421a899156E7
    collateral: 49999.71 (6 decimals)
@@ -79,13 +84,16 @@ YES book (Up probability):
 ```
 ## positions
 
-- Status: FAIL
-- Exit: timeout
+- Status: PASS
+- Exit: 0
 
 ```text
 == GENESIS
    address:    0xE7a8a7d81Bad87512f9cab931E5122B5eaEE8c7a
-   collateral: 48584.49 (6 decimals)
+   collateral: 48509.89 (6 decimals)
+== VECTOR
+   address:    0x54001362B87792d4Cb2c9bC8ed06421a899156E7
+   collateral: 49999.71 (6 decimals)
 
 ```
 ## claims
@@ -95,11 +103,11 @@ YES book (Up probability):
 
 ```text
 0x000000000000  winner DOWN  held UP UNAVAILABLE / DOWN UNAVAILABLE
-   oracle: https://prd.oracle.somnia.host/questions/68868199934477279842620711836930495327138688021576976514371682099009716367800?view=graph
+   oracle: https://prd.oracle.somnia.host/questions/115298127750996982390059071189125955680847279367207018673051034604648047884532?view=graph
 0x000000000000  winner DOWN  held UP UNAVAILABLE / DOWN UNAVAILABLE
-   oracle: https://prd.oracle.somnia.host/questions/26640155858661585724225379688567501256414994594752398210624278424878081413003?view=graph
+   oracle: https://prd.oracle.somnia.host/questions/24457478989645627938952774187013461592599814361283158587406907293222431601784?view=graph
 0x000000000000  winner DOWN  held UP UNAVAILABLE / DOWN UNAVAILABLE
-   oracle: https://prd.oracle.somnia.host/questions/76768056836382069260662224244166981724654935873985440755611057259340981077582?view=graph
+   oracle: https://prd.oracle.somnia.host/questions/70295197396107472513545420459653989871976997597054520039941873747711039347619?view=graph
 
 ```
 ## activity
@@ -108,20 +116,20 @@ YES book (Up probability):
 - Exit: 0
 
 ```text
-17:19:13 market-birth    firm    ETH-247844-05SEP26-1720/tUSDC {"asset":"ETH","intervalSec":60,"expiry":1788628800,"venueId":"0x1a1e6821cde7d0159c0d293177871e09677b4e42307c7
-17:19:13 market-birth    firm    BTC-8007138-05SEP26-1720/tUSDC {"asset":"BTC","intervalSec":60,"expiry":1788628800,"venueId":"0x1a1e6821cde7d0159c0d293177871e09677b4e42307c7
-17:19:13 price           firm     {"asset":"ETH","price":2477.7149999999997,"ema":2477.820712486479,"ts":1788628751000}
-17:19:14 price           firm     {"asset":"BTC","price":80052.7275,"ema":80055.31685153564,"ts":1788628753000}
-17:19:14 price           firm     {"asset":"ETH","price":2477.6949999999997,"ema":2477.8049984256686,"ts":1788628753000}
+20:36:57 price           firm     {"asset":"BTC","price":79714.95,"ema":79714.9113439247,"ts":1788640615000}
+20:36:58 price           firm     {"asset":"BTC","price":79714.95,"ema":79714.9161759341,"ts":1788640616000}
+20:36:58 price           firm     {"asset":"ETH","price":2476.575,"ema":2476.594379964446,"ts":1788640616000}
+20:36:59 price           firm     {"asset":"BTC","price":79746.94,"ema":79718.91915394235,"ts":1788640618000}
+20:36:59 price           firm     {"asset":"ETH","price":2478.965,"ema":2476.8907074688905,"ts":1788640618000}
 
 ```
 ## verify
 
-- Status: FAIL
-- Exit: timeout
+- Status: PASS
+- Exit: 0
 
 ```text
-journal records (7d): 123007, carrying tx hashes: 1512
+journal records (7d): 145768, carrying tx hashes: 1728
   0x78f5da3b8db9906375b306736c6218734643e8ac50841ebd1128f1768a5e241e block=477736005 status=success
   0xc2183fd308731574075deacf800cf30940cd6b79b77b67e3e165db418c89d77b block=477736020 status=success
   0x48e32d8058b9219a6b8b804f94f70e2541f222bef608f46dfcd3719a6a879046 block=477736185 status=success
@@ -157,7 +165,11 @@ journal records (7d): 123007, carrying tx hashes: 1512
   0xc199d20a4f271977e2726808a8ac660ae4a2626d95af142e0e873879e79c0b8a block=477990229 status=success
   0xd3a7c8515e3d7a1707375a87f57046868ba4f19d2379180cc08a64bbd0dfe7cd block=477990383 status=success
   0xbe2d3f013403f13346b9b3ab97603bddce73ec623d4dafbc9a773b809cae757d block=477990411 status=success
-
+  0x02a74cacbb37bd2fa6562ffd36c659c1e51c0f7c42d7bad344de33a0884da761 block=477990481 status=success
+  0x696b6ddcf590ed27f769541452d514306033c8043393d89d1a62a81832d99876 block=477990509 status=success
+  0x884ddbddfe546a9a8fbd8752bdd0319c18ebe529dded0b79ae9bf15e74ab8d39 block=477990578 status=success
+  0xb1930c5a511c8dcc3a861b4ae5dfc669fb7f6ba4b59713f9deecc71b4260cc72 block=477990702 status=success
+  0x7874c2feccfd8f899f5ef7f301162ef311d59a2e3
 ```
 ## settlements
 
@@ -165,12 +177,12 @@ journal records (7d): 123007, carrying tx hashes: 1512
 - Exit: 0
 
 ```text
-ETH 1m expired 2026-09-05T17:19:00.000Z  trades 0  last —
-   oracle: https://prd.oracle.somnia.host/questions/87177662882563012953078137895112589548109369050712158231655610604770463973155?view=graph
-BTC 1m expired 2026-09-05T17:19:00.000Z  trades 0  last —
-   oracle: https://prd.oracle.somnia.host/questions/59706334112249240150116655552816296269364816816209152020948200679022916384558?view=graph
-ETH 1m expired 2026-09-05T17:18:00.000Z  trades 0  last —
-   oracle: https://prd.oracle.somnia.host/questions/68868199934477279842620711836930495327138688021576976514371682099009716367800?view=graph
+ETH 1m expired 2026-09-05T20:37:00.000Z  trades 0  last —
+   oracle: https://prd.oracle.somnia.host/questions/96752211943580975643997091763038450687294328862482296434299526115464708463424?view=graph
+BTC 1m expired 2026-09-05T20:37:00.000Z  trades 0  last —
+   oracle: https://prd.oracle.somnia.host/questions/22189251509559611562416387027916385223337468609459384093784871429927566579747?view=graph
+ETH 1m expired 2026-09-05T20:36:00.000Z  trades 0  last —
+   oracle: https://prd.oracle.somnia.host/questions/115298127750996982390059071189125955680847279367207018673051034604648047884532?view=graph
 
 ```
 ## backtest
@@ -180,10 +192,10 @@ ETH 1m expired 2026-09-05T17:18:00.000Z  trades 0  last —
 
 ```text
 real-feed midpoint fair-value backtest (MODEL ESTIMATE; finalized outcome is chain fact)
-ETH  2026-09-05T17:20:00.000Z  estimate 0.2244 outcome 0 brier 0.0504 samples 88
-ETH  2026-09-05T17:20:00.000Z  estimate 0.3430 outcome 0 brier 0.1176 samples 418
-BTC  2026-09-05T17:20:00.000Z  estimate 0.0246 outcome 0 brier 0.0006 samples 88
-mean Brier 0.0562 over 3 real windows
+ETH  2026-09-05T20:37:00.000Z  estimate 0.2975 outcome 1 brier 0.4935 samples 88
+BTC  2026-09-05T20:37:00.000Z  estimate 0.6637 outcome 1 brier 0.1131 samples 88
+ETH  2026-09-05T20:36:00.000Z  estimate 0.3730 outcome 1 brier 0.3932 samples 88
+mean Brier 0.3333 over 3 real windows
 
 ```
 ## watch
@@ -192,6 +204,7 @@ mean Brier 0.0562 over 3 real windows
 - Exit: timeout
 
 ```text
+watching 5 windows (live tail) — ctrl-c to stop
 
 ```
 ## firm
