@@ -1,6 +1,18 @@
 import { escapeHtml, safeHttpsUrl } from "/security.js";
 
 const $ = (id) => document.getElementById(id);
+const API_BASE = (() => {
+  const configured = globalThis.TEMPO_RUNTIME_CONFIG?.apiBase;
+  if (typeof configured !== "string" || !configured.trim()) return location.origin;
+  try {
+    const url = new URL(configured, location.origin);
+    if (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname))) return location.origin;
+    return url.origin;
+  } catch {
+    return location.origin;
+  }
+})();
+function apiUrl(pathname) { return new URL(pathname, API_BASE).toString(); }
 const LIFE = ["BIRTH", "ANCHOR", "GENESIS", "REPRICE", "ENDGAME", "SETTLE", "CLAIM", "ROLL"];
 const HASH = /^0x[0-9a-f]{64}$/i;
 const model = {
@@ -673,7 +685,7 @@ function renderHistory() {
 async function ensureDocs() {
   if (model.docs !== null) return;
   try {
-    const response = await fetch("/docs.html");
+    const response = await fetch(apiUrl("/docs.html"));
     if (!response.ok) throw new Error("docs " + response.status);
     const source = await response.text();
     const parsed = new DOMParser().parseFromString(source, "text/html");
@@ -906,7 +918,7 @@ function updateChrome() {
 }
 
 async function getJson(url) {
-  const response = await fetch(url, { headers: { Accept: "application/json" } });
+  const response = await fetch(apiUrl(url), { headers: { Accept: "application/json" } });
   const body = await response.json();
   if (!response.ok) throw new Error(body?.error || url + " " + response.status);
   return body;
@@ -983,7 +995,7 @@ async function refreshNarrative() {
 
 function startStream() {
   model.eventSource?.close();
-  const stream = new EventSource("/api/stream");
+  const stream = new EventSource(apiUrl("/api/stream"));
   model.eventSource = stream;
   stream.onopen = () => { model.stream = "TAIL LIVE"; updateChrome(); };
   stream.onmessage = (event) => {

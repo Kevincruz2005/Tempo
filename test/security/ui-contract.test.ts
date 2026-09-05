@@ -25,7 +25,7 @@ describe("multipage observatory UI contract", () => {
   });
 
   it("preserves explicit review-before-sign and receipt verification", () => {
-    expect(wallet.indexOf('fetch(`/api/wallet/prepare?')).toBeGreaterThan(-1);
+    expect(wallet.indexOf('apiUrl(`/api/wallet/prepare?')).toBeGreaterThan(-1);
     expect(wallet.indexOf('method: "eth_sendTransaction"')).toBeGreaterThan(wallet.indexOf('fetch(`/api/wallet/prepare?'));
     expect(wallet).toContain('method: "eth_getTransactionReceipt"');
     expect(wallet).toContain("RiskEngine: ACCEPTED · chain status: 1 (Trading)");
@@ -78,6 +78,9 @@ describe("multipage observatory UI contract", () => {
     expect(app).toContain("captureScrollPositions");
     expect(app).toContain('data-scroll-key="dashboard-venue"');
     expect(app).toContain('data-scroll-key="markets-finalized"');
+    expect(app).toContain("TEMPO_RUNTIME_CONFIG");
+    expect(app).toContain("function apiUrl");
+    expect(wallet).toContain("TEMPO_RUNTIME_CONFIG");
     expect(editorialCss).toContain(".venue-panel-body");
     expect(editorialCss).toContain(".recent-finalized > .panel-body");
     expect(editorialCss).toContain(".onboarding-dialog");

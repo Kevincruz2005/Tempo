@@ -55,6 +55,8 @@ export const SECURITY_HEADERS = {
 
 export interface TempoServerOptions {
   host?: string;
+  /** Exact browser origins allowed to read the API and SSE stream. */
+  allowedOrigins?: string[];
   maxSseClients?: number;
   maxSseClientsPerIp?: number;
   apiRequestsPerMinute?: number;
@@ -84,6 +86,27 @@ export function isSameOriginRequest(origin?: string, host?: string, fetchSite?: 
   } catch {
     return false;
   }
+}
+
+function normalizedOrigin(origin: string): string | undefined {
+  try {
+    const parsed = new URL(origin);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return undefined;
+    if (parsed.username || parsed.password || parsed.pathname !== "/" || parsed.search || parsed.hash) return undefined;
+    return parsed.origin.toLowerCase();
+  } catch {
+    return undefined;
+  }
+}
+
+export function isAllowedOrigin(origin: string | undefined, allowedOrigins: readonly string[]): boolean {
+  if (!origin) return false;
+  const normalized = normalizedOrigin(origin);
+  return Boolean(normalized && allowedOrigins.some((allowed) => normalizedOrigin(allowed) === normalized));
+}
+
+function configuredOrigins(raw = process.env.TEMPO_WEB_ORIGINS ?? ""): string[] {
+  return raw.split(",").map((origin) => normalizedOrigin(origin.trim())).filter((origin): origin is string => Boolean(origin));
 }
 
 export function isAllowedHostHeader(hostHeader: string | undefined, bindHost: string): boolean {
@@ -192,6 +215,7 @@ export class TempoServer {
   private server: ReturnType<typeof createServer> | null = null;
   private readonly sseClients = new Map<ServerResponse, string>();
   private readonly host: string;
+  private readonly allowedOrigins: string[];
   private readonly maxSseClients: number;
   private readonly maxSseClientsPerIp: number;
   private readonly rateLimiter: FixedWindowRateLimiter;
@@ -210,6 +234,7 @@ export class TempoServer {
     options: TempoServerOptions = {},
   ) {
     this.host = options.host ?? "127.0.0.1";
+    this.allowedOrigins = [...new Set((options.allowedOrigins ?? configuredOrigins()).map((origin) => normalizedOrigin(origin)).filter((origin): origin is string => Boolean(origin)))];
     this.maxSseClients = options.maxSseClients ?? 32;
     this.maxSseClientsPerIp = options.maxSseClientsPerIp ?? 4;
     this.rateLimiter = new FixedWindowRateLimiter(options.apiRequestsPerMinute ?? 240);
@@ -302,15 +327,23 @@ export class TempoServer {
     response.end();
   }
 
-  private applySecurityHeaders(response: ServerResponse): void {
+  private applySecurityHeaders(response: ServerResponse, requestOrigin?: string): void {
     for (const [name, value] of Object.entries(SECURITY_HEADERS)) response.setHeader(name, value);
+    if (isAllowedOrigin(requestOrigin, this.allowedOrigins)) {
+      response.setHeader("Access-Control-Allow-Origin", requestOrigin as string);
+      response.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+      response.setHeader("Access-Control-Allow-Headers", "Accept, Content-Type");
+      response.setHeader("Access-Control-Max-Age", "600");
+      response.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+      response.setHeader("Vary", "Origin");
+    }
   }
 
   private async handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
-    this.applySecurityHeaders(response);
+    this.applySecurityHeaders(response, request.headers.origin);
     const rawUrl = request.url ?? "/";
     if (rawUrl.length > 2_048) return this.text(response, 414, "URI too long");
-    if (request.method !== "GET") {
+    if (request.method !== "GET" && request.method !== "OPTIONS") {
       response.setHeader("Allow", "GET");
       return this.text(response, 405, "method not allowed");
     }
@@ -322,15 +355,17 @@ export class TempoServer {
       return this.text(response, 400, "bad request");
     }
     if (!isAllowedHostHeader(request.headers.host, this.host)) return this.text(response, 403, "forbidden");
-    if (
-      !isSameOriginRequest(
-        request.headers.origin,
-        request.headers.host,
-        Array.isArray(request.headers["sec-fetch-site"])
-          ? request.headers["sec-fetch-site"][0]
-          : request.headers["sec-fetch-site"],
-      )
-    ) {
+    const requestOrigin = request.headers.origin;
+    const fetchSite = Array.isArray(request.headers["sec-fetch-site"])
+      ? request.headers["sec-fetch-site"][0]
+      : request.headers["sec-fetch-site"];
+    if (request.method === "OPTIONS") {
+      if (!url.pathname.startsWith("/api/") || !isAllowedOrigin(requestOrigin, this.allowedOrigins)) return this.text(response, 403, "forbidden");
+      response.writeHead(204);
+      response.end();
+      return;
+    }
+    if (!isAllowedOrigin(requestOrigin, this.allowedOrigins) && !isSameOriginRequest(requestOrigin, request.headers.host, fetchSite)) {
       return this.text(response, 403, "forbidden");
     }
 

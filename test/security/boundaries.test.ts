@@ -3,6 +3,7 @@ import { TempoExchange, clampProbToTicks, loadConfig, probToTicks, sizeToLots } 
 import {
   FixedWindowRateLimiter,
   SECURITY_HEADERS,
+  isAllowedOrigin,
   isAllowedHostHeader,
   isSameOriginRequest,
   parseJournalLimit,
@@ -54,6 +55,12 @@ describe("security boundaries", () => {
     expect(isAllowedHostHeader("[::1]:7333", "127.0.0.1")).toBe(true);
     expect(isAllowedHostHeader("attacker.invalid:7333", "127.0.0.1")).toBe(false);
     expect(isAllowedHostHeader("attacker.invalid@127.0.0.1:7333", "127.0.0.1")).toBe(false);
+  });
+
+  it("allows only explicitly configured frontend origins", () => {
+    expect(isAllowedOrigin("https://tempo.vercel.app", ["https://tempo.vercel.app"])).toBe(true);
+    expect(isAllowedOrigin("https://tempo.vercel.app.evil.invalid", ["https://tempo.vercel.app"])).toBe(false);
+    expect(isAllowedOrigin("https://tempo.vercel.app/path", ["https://tempo.vercel.app"])).toBe(false);
   });
 
   it("requires a bounded canonical journal limit", () => {

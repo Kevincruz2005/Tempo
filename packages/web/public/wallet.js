@@ -1,6 +1,18 @@
 import { escapeHtml } from "/security.js";
 
 const $ = (id) => document.getElementById(id);
+const API_BASE = (() => {
+  const configured = globalThis.TEMPO_RUNTIME_CONFIG?.apiBase;
+  if (typeof configured !== "string" || !configured.trim()) return location.origin;
+  try {
+    const url = new URL(configured, location.origin);
+    if (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname))) return location.origin;
+    return url.origin;
+  } catch {
+    return location.origin;
+  }
+})();
+function apiUrl(pathname) { return new URL(pathname, API_BASE).toString(); }
 let provider;
 let account;
 let chainId;
@@ -31,7 +43,7 @@ function clearPrepared(message) {
 }
 
 async function loadWalletConfig() {
-  const response = await fetch("/api/wallet/config");
+  const response = await fetch(apiUrl("/api/wallet/config"));
   const body = await response.json();
   if (!response.ok || !Number.isSafeInteger(body.chainId) || !/^0x[0-9a-f]+$/i.test(body.chainHex)) throw new Error("wallet network configuration unavailable");
   walletConfig = body;
@@ -170,7 +182,7 @@ async function switchNetwork() {
 async function refreshWalletActivity() {
   if (!account) return;
   try {
-    const response = await fetch(`/api/wallet/activity?address=${encodeURIComponent(account)}`);
+    const response = await fetch(apiUrl(`/api/wallet/activity?address=${encodeURIComponent(account)}`));
     if (!response.ok) throw new Error(`activity ${response.status}`);
     const data = await response.json();
     $("wallet-activity").innerHTML = `<small>YOUR ACTIVITY · ${data.fills?.length ?? 0} fills · ${data.orders?.length ?? 0} watched orders · live store attribution</small>`;
@@ -196,7 +208,7 @@ async function reviewTrade() {
   const summary = $("wallet-summary");
   try {
     const query = new URLSearchParams({ address: account, market, outcome, size: String(size), price: String(price) });
-    const response = await fetch(`/api/wallet/prepare?${query}`);
+    const response = await fetch(apiUrl(`/api/wallet/prepare?${query}`));
     const body = await response.json();
     if (!response.ok) throw new Error(body.error ?? "order preparation failed");
     if (body.review?.chainId !== chainId || body.review?.allowlistValidated !== true) throw new Error("prepared transaction failed chain or destination validation");
