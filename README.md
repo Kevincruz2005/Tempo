@@ -911,7 +911,7 @@ The final Azure and local validation included:
 
 The official Somnia testnet RPC is used by Azure. A public Thirdweb fallback was rate-limited during signer balance checks, so the deployment was moved to the official endpoint and the full signer-aware CLI matrix then passed.
 
-### LLM boundary
+### LLM Usage
 
 LLM narration is a cold-path reporting feature only. It receives journal-derived statistics and cannot price, approve risk, sign, or execute transactions. If the configured provider rejects a request—for example, Gemini rejected the Azure VM location—the deterministic report remains available and no data is fabricated. The trading hot path remains deterministic and on-chain/evidence-first.
 
