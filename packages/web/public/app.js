@@ -522,7 +522,7 @@ function renderMarkets() {
     "Live windows from the official registry, with chain-derived books and TEMPO estimates.",
     btn("Refresh", "data-refresh") + '<span class="status-pill">UPDATED ' + (model.refreshAt ? time(model.refreshAt) : "UNAVAILABLE") + "</span>") +
     filters + '<section class="panel"><div class="data-table-wrap" data-scroll-key="markets-table">' + table + '</div></section>' +
-    '<section class="panel recent-finalized"><div class="panel-head"><h2>Recently finalized</h2><small>CHAIN-DERIVED SETTLEMENT SNAPSHOT</small></div><div class="panel-body">' +
+    '<section class="panel recent-finalized"><div class="panel-head"><h2>Recently finalized</h2><small>CHAIN-DERIVED SETTLEMENT SNAPSHOT</small></div><div class="panel-body scroll-region" data-scroll-key="markets-finalized">' +
     settlements(model.state?.settlements || [], 8) + "</div></section></section>";
 }
 

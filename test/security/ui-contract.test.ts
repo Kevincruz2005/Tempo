@@ -77,7 +77,9 @@ describe("multipage observatory UI contract", () => {
     expect(css).toContain(".page-host.live-refresh .page");
     expect(app).toContain("captureScrollPositions");
     expect(app).toContain('data-scroll-key="dashboard-venue"');
+    expect(app).toContain('data-scroll-key="markets-finalized"');
     expect(editorialCss).toContain(".venue-panel-body");
+    expect(editorialCss).toContain(".recent-finalized > .panel-body");
     expect(editorialCss).toContain(".onboarding-dialog");
     expect(html).toContain('id="onboarding-overlay"');
     expect(html).toContain('data-onboarding="dashboard"');

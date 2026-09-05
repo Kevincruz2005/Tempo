@@ -790,6 +790,23 @@ body.theme-dark .wallet-modal {
   overflow-y: auto;
 }
 
+.recent-finalized {
+  min-height: 240px;
+  max-height: min(34vh, 320px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.recent-finalized > .panel-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
 .agents-risk-body,
 .evidence-body,
 .evidence-body > .scroll-region,
@@ -826,6 +843,13 @@ body.theme-dark .wallet-modal {
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 900px) {
+  .recent-finalized {
+    min-height: 280px;
+    max-height: 360px;
+  }
 }
 
 /* Judge-facing intelligence: live aggregates, never hard-coded performance. */
