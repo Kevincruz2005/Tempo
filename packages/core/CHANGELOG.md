@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.1 - 2026-09-06
+
+- Improve live exchange reads with the HTTP fast path for on-chain views.
+- Correct timestamp handling used by the diffusion fair-value model.
+- Unblock the pricing cycle when live exchange data is available.
+- Clarify quantitative estimate and cold-path report labels.
+- Refresh the SDK installation documentation for the `sdk-v0.3.1` release.
+
 ## 0.3.0 - 2026-09-03
 
 - Add emergency write pause, strict endpoint/configuration validation, and

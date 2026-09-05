@@ -16,7 +16,7 @@ claim helpers, deterministic policies, risk controls, provenance, and replay.
 ## Install from GitHub Releases
 
 ```bash
-npm install https://github.com/Kevincruz2005/Tempo/releases/download/sdk-v0.3.0/tempo-core-0.3.0.tgz
+npm install https://github.com/Kevincruz2005/Tempo/releases/download/sdk-v0.3.1/tempo-core-0.3.1.tgz
 ```
 
 ## Read-only example
