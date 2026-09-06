@@ -341,6 +341,10 @@ function rightTab(key, label) {
   return '<button class="right-tab" type="button" data-toggle-panel="' + key + '" aria-expanded="false" aria-label="Open ' + label + '"><span class="toggle-arrow" aria-hidden="true">←</span><span class="toggle-text">' + label + '</span></button>';
 }
 
+function panelSwitch(key, label, arrow) {
+  return '<button class="panel-toggle panel-switch" type="button" data-toggle-panel="' + key + '" aria-expanded="false" aria-label="Open ' + label + '"><span class="toggle-arrow" aria-hidden="true">' + arrow + '</span><span class="toggle-text">' + label + '</span></button>';
+}
+
 function firmIntelligence(minimized = false) {
   const stats = model.stats;
   const quality = stats?.estimateQuality;
@@ -441,18 +445,18 @@ function renderDashboard() {
   const selectedContent = selected ? marketFacts(selected) + '<div class="market-core">' + renderBook(selected.view, 5) +
     renderFairValue(selected.view) + '</div>' :
     empty("NO ACTIVE WINDOW", "No market is available for inspection.");
-  const agentsPanel = '<section class="panel agents-risk-panel ' + (dash.agents ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Agents & risk</h2><small>GENESIS EXPANDED · ONE BOUNDARY · TWO POLICIES</small></div>' + panelToggle("agents", dash.agents) + '</div><div class="agents-risk-body panel-body scroll-region" data-scroll-key="dashboard-agents"><div class="agent-stack">' +
+  const agentsPanel = '<section class="panel agents-risk-panel ' + (dash.agents ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Agents & risk</h2><small>GENESIS EXPANDED · ONE BOUNDARY · TWO POLICIES</small></div><div class="panel-head-actions">' + (!dash.agents ? panelSwitch("evidence", "Evidence stream", "↓") : "") + panelToggle("agents", dash.agents) + '</div></div><div class="agents-risk-body panel-body scroll-region" data-scroll-key="dashboard-agents"><div class="agent-stack">' +
     (agents.length ? join(agents.map(agentCard)) : empty("NO DATA", "Agent state unavailable.")) + '</div><div class="drawer-divider"></div><div class="risk-bars">' +
     riskBar("Peak window gross inventory", peakWindowInventory(genesis), risk?.maxGrossInventory) +
     riskBar("Per-window open orders", null, risk?.maxOpenOrdersPerWindow) +
     riskBar("Capital committed", null, risk?.firmCapitalCap) +
     '</div></div></section>';
-  const evidencePanel = '<section class="panel evidence-panel ' + (dash.evidence ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Evidence stream</h2><a class="text-link" href="/history" data-route>Full history ↗</a></div>' + panelToggle("evidence", dash.evidence) + '</div>' +
+  const evidencePanel = '<section class="panel evidence-panel ' + (dash.evidence ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Evidence stream</h2><a class="text-link" href="/history" data-route>Full history ↗</a></div><div class="panel-head-actions">' + (!dash.evidence ? panelSwitch("agents", "Agents & risk", "↑") : "") + panelToggle("evidence", dash.evidence) + '</div></div>' +
     '<div class="evidence-body"><div class="scroll-region" data-scroll-key="dashboard-evidence"><div class="evidence-events">' +
     (model.loaded.journal ? activityRows(events, 12) : empty("UNAVAILABLE", "The operational journal could not be loaded.")) +
     '</div><div class="panel-body" style="padding-top:8px"><div class="section-kicker"><span>LATEST SETTLEMENTS</span>' +
     badge("chain") + "</div>" + settlements(model.state?.settlements || [], 2) + briefing() + "</div></div></div></section>";
-  const rightPanels = dash.right ? '<section class="panel right-rail"><div class="right-rail-tabs">' + rightTab("agents", "Agents & risk") + rightTab("evidence", "Evidence stream") + '</div></section>' : agentsPanel + evidencePanel;
+  const rightPanels = dash.right ? '<section class="panel right-rail"><div class="right-rail-tabs">' + rightTab("agents", "Agents & risk") + rightTab("evidence", "Evidence stream") + '</div></section>' : dash.agents ? evidencePanel : agentsPanel;
   return '<section class="page dashboard ' + (dash.lifecycle ? "lifecycle-minimized" : "lifecycle-expanded") + '" data-scroll-key="dashboard-page"><div class="dashboard-intro">' + heading("LIVE COMMAND CENTER", "The autonomous firm, in evidence",
     "Market state first. Agent action second. Risk and on-chain proof always visible.", actions) + firmIntelligence(dash.intelligence) + "</div>" +
     '<div class="' + gridClass + '"><section class="panel venue-panel ' + (dash.venue ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Venue pulse</h2><small>' +

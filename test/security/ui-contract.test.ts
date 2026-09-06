@@ -54,6 +54,9 @@ describe("multipage observatory UI contract", () => {
     expect(app).toContain("GENESIS EXPANDED");
     expect(app).toContain('rightTab("agents", "Agents & risk")');
     expect(app).toContain('rightTab("evidence", "Evidence stream")');
+    expect(app).toContain('panelSwitch("evidence", "Evidence stream", "↓")');
+    expect(app).toContain('panelSwitch("agents", "Agents & risk", "↑")');
+    expect(app).toContain('dash.agents ? evidencePanel : agentsPanel');
     expect(app).toContain("model.dashboard.right = false");
     expect(app).toContain('key === "agents" && minimized ? "↓"');
     expect(app).toContain('key === "evidence" && minimized ? "↑"');
@@ -91,6 +94,10 @@ describe("multipage observatory UI contract", () => {
     expect(wallet).toContain("TEMPO_RUNTIME_CONFIG");
     expect(editorialCss).toContain(".venue-panel-body");
     expect(editorialCss).toContain(".recent-finalized > .panel-body");
+    expect(editorialCss).toContain(".agents-risk-body > .drawer-divider");
+    expect(editorialCss).toContain("grid-template-columns: repeat(2, minmax(0, 1fr))");
+    expect(editorialCss).toContain("scrollbar-gutter: auto");
+    expect(editorialCss).toContain(".risk-track { display: block");
     expect(editorialCss).toContain(".onboarding-dialog");
     expect(html).toContain('id="onboarding-overlay"');
     expect(html).toContain('data-onboarding="dashboard"');

@@ -560,7 +560,7 @@ body.theme-light select {
 .pulse-grid { background: var(--line); }
 .pulse-stat { background: var(--surface-solid); }
 .market-item:hover, .market-item.active { box-shadow: inset 2px 0 var(--text); }
-.risk-track { background: var(--surface-raised); }
+.risk-track { display: block; background: var(--surface-raised); }
 .risk-track i { background: var(--text); }
 .fair-value-number { font-family: Georgia, serif; }
 .book-level.bid::before { background: color-mix(in srgb, var(--up) 15%, transparent); }
@@ -1143,4 +1143,113 @@ body.reduced-motion .intelligence-grid-shell {
   .onboarding-truth { align-items: flex-start; flex-direction: column; }
   .onboarding-actions { align-items: stretch; flex-direction: column; }
   .onboarding-actions .button { width: 100%; }
+}
+
+/* Keep the expanded agent window self-contained without shrinking status badges. */
+@media (min-width: 901px) {
+  .dashboard-grid.right-expanded:not(.agents-minimized) .agents-risk-panel,
+  .dashboard-grid.right-expanded:not(.evidence-minimized) .evidence-panel {
+    grid-column: 3;
+    grid-row: 1 / 3;
+    width: auto;
+    justify-self: stretch;
+  }
+
+  .dashboard-grid.right-expanded:not(.agents-minimized) .agents-risk-panel > .panel-head {
+    min-height: 48px;
+  }
+
+  .dashboard-grid.right-expanded:not(.agents-minimized) .agents-risk-body {
+    display: grid;
+    grid-template-rows: auto 1px auto;
+    align-content: start;
+    gap: 6px;
+    padding: 6px 10px;
+    overflow: hidden;
+    scrollbar-gutter: auto;
+  }
+
+  .dashboard-grid.right-expanded:not(.agents-minimized) .agent-stack {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .dashboard-grid.right-expanded:not(.agents-minimized) .agent-card {
+    padding: 4px 10px;
+  }
+
+  .dashboard-grid.right-expanded:not(.agents-minimized) .agent-meta {
+    gap: 2px 8px;
+    margin-top: 3px;
+  }
+
+  .dashboard-grid.right-expanded:not(.agents-minimized) .agent-meta div span {
+    min-height: 22px;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  .dashboard-grid.right-expanded:not(.agents-minimized) .agent-meta div b {
+    margin-top: 2px;
+    font-size: 14px;
+    line-height: 1.2;
+  }
+
+  .dashboard-grid.right-expanded:not(.agents-minimized) .agents-risk-body > .drawer-divider {
+    margin: 0;
+  }
+
+  .dashboard-grid.right-expanded:not(.agents-minimized) .risk-bars {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .dashboard-grid.right-expanded:not(.agents-minimized) .risk-row-head {
+    display: grid;
+    align-items: flex-start;
+    align-content: start;
+    gap: 3px;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  .dashboard-grid.right-expanded:not(.agents-minimized) .risk-row-head b {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 3px;
+    font-size: 10px;
+    line-height: 1.2;
+  }
+
+  .dashboard-grid.right-expanded:not(.agents-minimized) .risk-track {
+    height: 4px;
+    margin-top: 4px;
+  }
+
+  .dashboard-grid.right-expanded .panel-switch {
+    min-width: 116px;
+  }
+}
+
+@media (max-width: 900px) {
+  .dashboard-grid.right-expanded:not(.agents-minimized) .agents-risk-panel {
+    height: auto;
+    display: block;
+  }
+
+  .dashboard-grid.right-expanded:not(.agents-minimized) .agents-risk-body {
+    max-height: none;
+    overflow: visible;
+    scrollbar-gutter: auto;
+  }
+
+  .dashboard-grid.right-expanded:not(.agents-minimized) .risk-row-head b {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
+  }
 }
