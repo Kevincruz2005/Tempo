@@ -26,6 +26,7 @@ const model = {
   refreshAt: null,
   refreshTimer: null,
   statsTimer: null,
+  statsRefreshTimer: null,
   liveRenderTimer: null,
   eventSource: null,
   commandIndex: 0,
@@ -33,7 +34,7 @@ const model = {
   births: new Set(),
   walletProofs: new Map(),
   loaded: { state: false, stats: false, journal: false, wallet: false },
-  dashboard: { intelligence: false, venue: true, right: true, agents: true, evidence: true },
+  dashboard: { intelligence: true, venue: true, right: true, agents: true, evidence: true },
   filters: {
     marketQuery: "", marketStatus: "ALL", asset: "ALL", interval: "ALL", sort: "EXPIRY",
     historyTab: "OPERATIONS", historyQuery: "", historyAgent: "ALL", historySource: "ALL", historyStatus: "ALL",
@@ -348,11 +349,18 @@ function firmIntelligence(minimized = false) {
   const covered = active.filter((row) => row.managed && row.view?.book?.yesBids?.length && row.view?.book?.yesAsks?.length).length;
   const item = (value, label, source, title) => '<div class="intelligence-stat"><span>' + escapeHtml(label) + " " + badge(source, title) +
     '</span><b>' + escapeHtml(value) + "</b></div>";
-  const period = stats?.window?.since ? "JOURNAL SINCE " + utc(stats.window.since).slice(0, 10) : "AWAITING JOURNAL AGGREGATE";
+  const scoredMarkets = Number.isFinite(Number(quality?.scoredMarkets)) ? Number(quality.scoredMarkets) : null;
+  const qualityUpdatedAt = stats?.window?.until ? time(stats.window.until) : null;
+  const qualitySource = scoredMarkets === null
+    ? "Live journal aggregate unavailable"
+    : "Live derived metric over " + scoredMarkets + " settled market" + (scoredMarkets === 1 ? "" : "s") + ": the last pre-expiry journaled fair-value estimate is scored against the chain-observed settlement outcome" + (qualityUpdatedAt ? ". Updated " + qualityUpdatedAt : "");
+  const period = stats?.window?.since
+    ? "LIVE · " + (scoredMarkets === null ? "NO DATA" : fmt(scoredMarkets, 0)) + " SCORED · UPDATED " + (qualityUpdatedAt || "NO DATA")
+    : "AWAITING LIVE JOURNAL AGGREGATE";
   return '<section class="firm-intelligence ' + (minimized ? "intelligence-minimized" : "intelligence-expanded") + '" aria-label="Firm intelligence and ecosystem impact"><div class="intelligence-head"><div><span class="eyebrow">VERIFIABLE TRADING INTELLIGENCE</span><h2>Measured against settlement truth</h2></div><span class="intelligence-actions"><small>' +
     escapeHtml(period) + '</small>' + panelToggle("intelligence", minimized) + '</span></div><div class="intelligence-grid-shell"><div class="intelligence-grid">' +
-    item(quality?.brier === null || quality?.brier === undefined ? "NO DATA" : fmt(quality.brier, 4), "BRIER", "model", "Brier score over journaled pre-expiry estimates and on-chain outcomes") +
-    item(quality?.directionalAccuracy === null || quality?.directionalAccuracy === undefined ? "NO DATA" : pct(quality.directionalAccuracy), "DIR. ACC.", "derived") +
+    item(quality?.brier === null || quality?.brier === undefined ? "NO DATA" : fmt(quality.brier, 4), "BRIER · " + (scoredMarkets === null ? "NO DATA" : fmt(scoredMarkets, 0) + " SETTLED"), "derived", qualitySource) +
+    item(quality?.directionalAccuracy === null || quality?.directionalAccuracy === undefined ? "NO DATA" : pct(quality.directionalAccuracy), "DIR. ACC. · " + (scoredMarkets === null ? "NO DATA" : fmt(scoredMarkets, 0) + " SETTLED"), "derived", qualitySource) +
     item(stats ? fmt(stats.markets?.births, 0) : "NO DATA", "WINDOW BIRTHS", "journal") +
     item(stats ? fmt(fills?.count, 0) : "NO DATA", "FILLS", "journal") +
     item(stats ? fmt(fills?.quoteVolume, 3) : "NO DATA", "MATCHED NOTIONAL", "derived", "Sum of fill price × size in journal collateral units") +
@@ -967,6 +975,14 @@ async function refreshStats(force = false) {
   }
 }
 
+function scheduleStatsRefresh(delay = 350) {
+  clearTimeout(model.statsRefreshTimer);
+  model.statsRefreshTimer = setTimeout(() => {
+    model.statsRefreshTimer = null;
+    void refreshStats(true);
+  }, delay);
+}
+
 async function refreshNarrative() {
   const button = $("ai-summary");
   const text = $("ai-narrative-text");
@@ -1010,6 +1026,7 @@ function startStream() {
     if (model.records.length > 600) model.records.splice(0, model.records.length - 400);
     if (["market-birth", "decision", "order-sent", "order-receipt", "order-cancelled", "fill", "risk-reject", "settlement", "claim", "error"].includes(record.type)) {
       scheduleLiveRender(120);
+      scheduleStatsRefresh();
     }
   };
   stream.onerror = () => { model.stream = "POLL FALLBACK"; updateChrome(); };

@@ -246,6 +246,10 @@ export class TempoServer {
   start(): Promise<void> {
     if (this.server) return Promise.reject(new Error("TEMPO server already started"));
     this.unsubscribe = this.firm.journal.subscribe((record: JournalRecord) => {
+      // Every public aggregate is derived from the journal. Invalidate the
+      // cache before broadcasting so the dashboard's SSE-triggered refresh
+      // observes the record that caused it.
+      this.statsCache = undefined;
       const frame = `data: ${JSON.stringify(sanitizeForTransport(record))}\n\n`;
       for (const response of this.sseClients.keys()) {
         try {
