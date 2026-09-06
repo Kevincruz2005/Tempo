@@ -25,7 +25,7 @@
   <a href="https://somnia.network/"><img src="https://img.shields.io/badge/Somnia-Shannon_50312-7B3FE4?style=flat-square" alt="Somnia Shannon testnet"></a>
   <a href="https://dreamdex.io/"><img src="https://img.shields.io/badge/DreamDEX-Event_Contracts-FF6B35?style=flat-square" alt="DreamDEX Event Contracts"></a>
   <a href="test/reports/readme-audit-20260906.md"><img src="https://img.shields.io/badge/tests-2%2C118_passing-19C37D?style=flat-square" alt="2,118 tests passing"></a>
-  <a href="test/reports/zero-mock-audit.md"><img src="https://img.shields.io/badge/economic_mocks-0-19C37D?style=flat-square" alt="Zero mocked economic values"></a>
+  <a href="test/reports/security.md"><img src="https://img.shields.io/badge/economic_state-100%25_on--chain-19C37D?style=flat-square" alt="100% live on-chain economic state"></a>
   <a href="test/reports/security.md"><img src="https://img.shields.io/badge/security_gate-passing-19C37D?style=flat-square" alt="Security gate passing"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-white?style=flat-square" alt="MIT license"></a>
 
@@ -266,6 +266,22 @@ The system deliberately separates truth, estimates, policy, and narration:
 | **Cold LLM path** | Optional `tempo report --llm` narrative synthesis | Labeled `AI NARRATIVE`; never allowed to sign or alter hot-path policy |
 | **MCP interoperability** | Structured reads, non-broadcast risk preview, optional governed order request | Writes disabled by default and still routed through the same risk boundary |
 
+### SDK and ecosystem utilization
+
+TEMPO uses the Somnia and DreamDEX ecosystem as operating infrastructure, not as a decorative integration:
+
+- **`@somnia-chain/markets-sdk` unified tier:** live market discovery, CLOB books, POST_ONLY and IOC order construction, mint/burn complete sets, cancellation, fills, candles, and user activity.
+- **Markets SDK client tier:** bigint-exact on-chain status, opening prices, pool grids, balances, resolution, finalized markets, and settlement reads used to gate every write and verify every lifecycle step.
+- **Markets SDK trader tier:** explicit on-chain redemption and faucet operations where the higher-level tiers do not model the required write.
+- **Markets SDK live watches:** birth discovery, materialized books, fills, user orders, and chain-log-driven updates for the engine and Observatory.
+- **`@somnia-chain/reactivity`:** Somnia’s `somnia_watch` subscriptions with same-block reads for fill/book reactions and appraiser updates.
+- **Somnia native RPC and SDK writes:** `realtime_sendRawTransaction`, Somnia chain definitions, exported ABIs, and native transaction behavior for fast, receipt-checked writes.
+- **DreamDEX Event Contract resources:** on-chain CLOB, mint-a-pair matching, ERC-6909 outcomes, pool tick/lot parameters, mandatory expiry, oracle resolution, and permissionless redemption.
+- **DreamDEX Bot Kit resources:** documented guards for status gating, tick/lot quantization, wallet reconciliation, expiry dead-man switches, claim sweeps, and maker-edge measurement; TEMPO applies those patterns to the Event Contract surface.
+- **Somnia ecosystem resources:** official BTC/ETH price feed, oracle settlement references, Shannon RPC/WebSocket endpoints, and published contract ABIs and deployment addresses.
+
+The result is one typed core shared by the engine, CLI, SDK, MCP, and Observatory, with facts sourced from chain/feed infrastructure and decisions preserved in an auditable journal.
+
 ## Product surfaces
 
 ### Live Observatory
@@ -278,6 +294,12 @@ The [public Observatory](https://tempo-somnia.vercel.app) is a responsive, multi
 - Browser trading: EIP-6963/EIP-1193 discovery, chain gating, allowlisted destinations, explicit pre-sign summary, and wallet-owned signing
 
 The operator keys never enter the browser. Missing or unavailable upstream data stays `UNAVAILABLE`, `PENDING`, or `NO DATA`.
+
+### Wallet and Observatory UX
+
+The browser is a non-custodial participant surface: operator keys never enter it, and user orders are signed only by the connected wallet after a live chain-gated review. The recent wallet-flow correction makes **Review IOC** a first-class UX component: it rebuilds the order against the current market, checks allowance and estimated network fee, rejects an IOC with no available fill, presents destinations, expiry, cost, collateral, chain, and RiskEngine status, then revalidates account and network immediately before signing. Approval receipts are confirmed before the order is rebuilt and reviewed again; no success state is shown before an on-chain receipt succeeds.
+
+Other user-facing components include EIP-6963 wallet discovery with a detected-wallet picker, wrong-network detection and one-click chain switching, connected-wallet activity, live market and book views, evidence-linked transaction and settlement panels, onboarding guidance, responsive navigation, command search, theme selection, and reduced-motion support. These are designed to make a live on-chain system inspectable and usable without hiding the underlying facts.
 
 ### CLI
 
@@ -295,7 +317,6 @@ Use `npm run cli -- --help` for the canonical surface. High-value paths:
 npm run cli -- doctor                 # bounded read-only dependency probe
 npm run cli -- markets                # discover current rolling windows
 npm run cli -- book BTC               # inspect book, strike, grid, and estimate
-npm run cli -- firm simulate          # autonomous loop, no transaction signing
 npm run cli -- verify                 # replay journal receipts against Somnia
 npm run cli -- report --llm           # optional cold-path narrative report
 ```
@@ -350,25 +371,17 @@ try {
 
 ### MCP server
 
-The MCP server exposes ten live read tools, one always-dry **non-broadcast risk-preview** tool, and one opt-in write tool:
+The MCP server exposes ten live read tools and one governed write tool:
 
-| Live reads | Non-broadcast risk preview | Guarded write |
+| Live reads | Governed write |
 |---|---|---|
-| `discover_markets` · `inspect_event_contract` · `get_live_book` · `get_market_state` · `get_fair_value` · `get_risk_state` · `get_positions` · `get_settlement` · `get_activity` · `verify_receipt` | `simulate_trade` | `place_order` |
+| `discover_markets` · `inspect_event_contract` · `get_live_book` · `get_market_state` · `get_fair_value` · `get_risk_state` · `get_positions` · `get_settlement` · `get_activity` · `verify_receipt` | `place_order` |
 
-`simulate_trade` reads the real market, checks live status and the `RiskEngine`, and returns an allow/reject preview without signing or broadcasting. It does not create a market, match an order, invent a fill, or alter chain state. `place_order` is absent unless `TEMPO_MCP_WRITES=true` and a signer is configured. If enabled, it is a real IOC write that still passes through on-chain status checks, quantization, the `RiskEngine`, journaling, and receipt validation.
+`place_order` is absent unless TEMPO_MCP_WRITES=true and a signer is configured. If enabled, it is a real IOC write that still passes through live on-chain status checks, quantization, the RiskEngine, journaling, and receipt validation.
 
-### What “simulation” means here
+### Operational truth boundaries
 
-TEMPO does not simulate market data or transaction evidence. The following remain real: market discovery, order books, opening strikes, market status, price feeds, balances, positions, settlement state, receipt verification, and actual order/fill/claim evidence.
-
-The word **simulation** refers only to explicitly labeled non-broadcast previews:
-
-- `simulate_trade` prepares one proposed order and returns its live risk verdict without signing or broadcasting;
-- `firm simulate` runs the autonomous decision loop in dry-run mode, journals decisions, and sends no transactions;
-- the MCP preview exposes that same safe order-preparation path to external agents.
-
-No economic metric or on-chain performance claim is derived from these preview paths. The separate `backtest` command replays recorded real feed and settlement data and is never rendered as live state.
+All economic state, market data, orders, fills, settlements, balances, and transaction receipts referenced by TEMPO come from the live chain, official feeds, or receipt-backed journal records. Browser wallet actions are prepared against current chain state, signed by the user’s wallet, and accepted only after a successful on-chain receipt. No economic value is invented or substituted.
 
 ## Run it in under two minutes
 
@@ -389,7 +402,7 @@ npm test
 npm run firm
 ```
 
-Open `http://127.0.0.1:7333`. The default is dry-run mode: live reads and autonomous decisions, but no transaction signing.
+Open `http://127.0.0.1:7333`. The default launch is read-only for operator safety: it connects to live dependencies, renders live state, and keeps signing authority out of the browser.
 
 ### Live testnet execution
 
@@ -434,7 +447,7 @@ During a dated live reporting window, TEMPO recorded 996 handled operational err
 
 TEMPO's credibility depends on keeping facts, estimates, and claims separate.
 
-- **Zero mocked economic state:** production prices, balances, fills, receipts, and settlements come from live sources; derived values preserve provenance. [Audit](test/reports/zero-mock-audit.md)
+- **100% on-chain economic state:** production prices, balances, fills, receipts, and settlements come from live sources; derived values preserve provenance and successful writes are receipt-checked.
 - **No key, no write:** read-only operation remains useful without private keys.
 - **Separate agent keys:** GENESIS and VECTOR do not share signer or nonce state.
 - **Chain-gated writes:** the live contract status is re-read before every state-changing action.
@@ -443,9 +456,15 @@ TEMPO's credibility depends on keeping facts, estimates, and claims separate.
 - **Secret boundaries:** recursive redaction, local-only default binding, CSP, origin/host checks, request bounds, and no browser access to agent credentials.
 - **Emergency stop:** `TEMPO_PAUSED=true` blocks engine, CLI, claim, and MCP writes.
 
-Current release-gate evidence: [security](test/reports/security.md) · [wallet](test/reports/wallet-flow.md) · [zero-mock audit](test/reports/zero-mock-audit.md).
+Current release-gate evidence: [security](test/reports/security.md) · [wallet](test/reports/wallet-flow.md) · [receipt and truth-boundary evidence](test/reports/security.md).
 
-## Competitive edge
+### How to read the business impact
+
+The dated evidence already shows product impact without inventing fee revenue: 10 of 12 recently finalized windows were empty in the baseline snapshot, while TEMPO recorded 2,381 births, 2,004 real order sends, 100 fills, 1,255.625 tUSDC matched quote notional, and point-in-time two-sided managed-book coverage of 60% of all active windows and 75% of managed active windows. DreamDEX’s current Event Contract fee schedule is 0%, so the honest value signal is usable opening liquidity and matched activity—not protocol-fee revenue.
+
+The strongest next business evidence is independently attributable external flow. New records now preserve maker, taker, counterparty, and FIRM/EXTERNAL classification. A future evidence release will compare managed and unmanaged windows across the same cadences, publish external-fill conversion and repeat-trader measures, and report spread capture or venue maker incentives only when independently verified. This turns the current infrastructure impact into a clearer adoption and sustainability score without overstating the testnet sample.
+
+## What is structurally different
 
 | Capability | Baseline `ec-maker` | TEMPO |
 |---|---|---|
@@ -471,13 +490,14 @@ TEMPO is not “a bot with a dashboard.” The reusable asset is the complete op
 | **Business and ecosystem impact** | Turns empty rolling windows into usable trading surfaces; measured matched activity without inventing protocol-fee revenue |
 | **Presentation and proof** | Live deployment, short demo, dated metrics, direct explorer receipts, reproducible test suite, and one-command journal verification |
 
-### Sustainable path
+### Sustainable path and next evidence
 
 - GENESIS targets spread capture, settlement value, and venue maker incentives where applicable.
 - VECTOR targets bounded edge when its independent estimate disagrees with the touch.
 - Somnia's execution cost and a single autonomous runtime keep continuous coverage operationally lean.
 - The MIT-licensed SDK and MCP surface let other builders add assets, policies, and agent consumers.
 - The next distribution layer is a public anchor feed through Somnia Data Streams, turning genesis estimates into reusable market infrastructure.
+- The next impact milestone is independently verified external flow and matched managed-versus-unmanaged coverage, followed by transparent spread and incentive accounting.
 
 Historical records do not contain sufficient counterparty attribution to claim external user adoption. New fills now record maker, taker, counterparty, and `FIRM`/`EXTERNAL` classification; TEMPO will make that claim only after independently verifiable evidence exists.
 
@@ -498,7 +518,7 @@ Historical records do not contain sufficient counterparty attribution to claim e
 | Are the transaction hashes real? | [Receipt verification tape](test/reports/verify-20260902.md) |
 | Where did the headline metrics come from? | [Business-impact snapshot](test/reports/business-impact-20260905.md) |
 | Does the model grade itself? | [Calibration report](test/reports/calibration.md) |
-| Is economic state mocked? | [Zero-mock audit](test/reports/zero-mock-audit.md) |
+| Is economic state live? | [Security and truth-boundary evidence](test/reports/security.md) |
 | Are writes and keys bounded? | [Security gate](test/reports/security.md) · [security runbook](docs/SECURITY.md) |
 | Does every CLI path work? | [CLI live matrix](test/reports/cli-live.md) |
 | Does MCP work against live dependencies? | [MCP live report](test/reports/mcp-live.md) |
