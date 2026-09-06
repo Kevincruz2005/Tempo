@@ -271,8 +271,12 @@ async function reviewTrade() {
       `chain: ${body.review.chainId} (${walletConfig.network})`,
       `destinations: ${body.review.destinations.join(", ")}`,
       `native value: ${body.review.nativeValue}`,
+      `estimated max network fee: ${Number(body.review.estimatedGasFee || 0) / 1e18} ${walletConfig.nativeCurrency.symbol}`,
+      `wallet transactions: ${calls.length}`,
       "RiskEngine: ACCEPTED · chain status: 1 (Trading)",
-      "Review complete. Select Confirm in wallet to request signatures.",
+      body.approval
+        ? "Approval required first. Confirm it, then select Review IOC again for a fresh order simulation."
+        : "Order simulation passed. Select Confirm in wallet to request one signature.",
     ].join("\n");
     $("wallet-confirm").hidden = false;
     $("wallet-cancel").hidden = false;
@@ -307,9 +311,13 @@ async function signPrepared() {
     const currentChain = await wallet.request({ method: "eth_chainId" });
     if (!Array.isArray(currentAccounts) || currentAccounts[0]?.toLowerCase() !== account.toLowerCase()) throw new Error("wallet account changed after review");
     if (typeof currentChain !== "string" || Number.parseInt(currentChain, 16) !== walletConfig.chainId) throw new Error("wallet network changed after review");
+    const approvalOnly = Boolean(lastPrepared.approval);
     const hashes = [];
-    for (const call of [lastPrepared.approval, lastPrepared.order].filter(Boolean)) {
-      const hash = await wallet.request({ method: "eth_sendTransaction", params: [{ from: account, to: call.to, data: call.data, value: `0x${BigInt(call.value).toString(16)}` }] });
+    for (const call of approvalOnly ? [lastPrepared.approval] : [lastPrepared.order]) {
+      const transaction = { from: account, to: call.to, data: call.data, value: `0x${BigInt(call.value).toString(16)}` };
+      if (BigInt(call.gas ?? 0) > 0n) transaction.gas = `0x${BigInt(call.gas).toString(16)}`;
+      if (BigInt(call.gasPrice ?? 0) > 0n) transaction.gasPrice = `0x${BigInt(call.gasPrice).toString(16)}`;
+      const hash = await wallet.request({ method: "eth_sendTransaction", params: [transaction] });
       if (!HASH.test(hash)) throw new Error("wallet returned malformed transaction hash");
       activeHash = hash;
       $("wallet-summary").textContent += `\n\nPENDING RECEIPT · ${hash}`;
@@ -323,6 +331,11 @@ async function signPrepared() {
         detail: { hash, status: "confirmed", account, chainId, block: receipt.blockNumber, marketId: lastPrepared.prepared.market.marketId },
       }));
       activeHash = undefined;
+    }
+    if (approvalOnly) {
+      $("wallet-summary").textContent += `\n\nAPPROVAL CONFIRMED · ${hashes[0]}\nSelect Review IOC again. The order will be rebuilt and simulated against the current book.`;
+      await refreshWalletActivity();
+      return;
     }
     $("wallet-summary").textContent += `\n\nRECEIPTS · ${hashes.join(" · ")} · status success`;
     window.dispatchEvent(new CustomEvent("tempo:wallet-complete", { detail: { hashes } }));

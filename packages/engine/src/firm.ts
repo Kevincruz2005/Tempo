@@ -19,6 +19,7 @@ import {
   Journal,
   RiskEngine,
   TempoExchange,
+  TempoError,
   type BinaryMarketInfo,
   type BookParams,
   type TempoConfig,
@@ -106,6 +107,7 @@ export class Firm {
   };
   private seenFillIds = new Set<string>();
   private markets = new Map<string, ManagedMarket>();
+  private freshMarketSnapshots = new Set<string>();
   private onchainCache = new Map<string, CacheEntry<Awaited<ReturnType<TempoExchange["onchain"]>>>>();
   private bookParamsCache = new Map<string, CacheEntry<BookParams>>();
   private openingCache = new Map<string, CacheEntry<number | undefined>>();
@@ -205,6 +207,14 @@ export class Firm {
         assets: this.cfg.assets,
       },
     });
+    const restoredMarkets = this.restoreMarketsFromJournal();
+    if (restoredMarkets > 0) {
+      this.journal.append({
+        type: "market-snapshot",
+        source: "journal-recovery",
+        data: { restoredMarkets, managed: false, reason: "awaiting fresh indexer confirmation" },
+      });
+    }
     await this.refreshMarkets(true);
 
     // Whole-protocol tail with birth discovery — Somnia's live watches
@@ -299,6 +309,70 @@ export class Firm {
 
   // -- discovery ------------------------------------------------------------
 
+  private restoreMarketsFromJournal(): number {
+    const nowSec = Date.now() / 1000;
+    const records = this.journal.since(Date.now() - 7 * 24 * 3600_000);
+    const recovered = new Map<string, BinaryMarketInfo>();
+    const openings = new Map<string, number>();
+    const pools = new Map<string, string>();
+    const textValue = (value: unknown): string | undefined => typeof value === "string" && value.length > 0 ? value : undefined;
+
+    for (const record of records) {
+      const marketId = record.marketId;
+      if (!marketId || !/^0x[0-9a-f]{64}$/i.test(marketId)) continue;
+      const data = record.data ?? {};
+      if (record.agent === "APPRAISER") {
+        const strike = Number(data.strike);
+        if (Number.isFinite(strike) && strike > 0) openings.set(marketId, strike);
+        if (record.contractAddress && /^0x[0-9a-f]{40}$/i.test(record.contractAddress)) pools.set(marketId, record.contractAddress);
+      }
+      if (record.type !== "market-birth" && record.type !== "market-snapshot") continue;
+      const symbol = textValue(data.symbol) ?? textValue(record.symbol);
+      const asset = textValue(data.asset)?.toUpperCase();
+      const intervalSec = Number(data.intervalSec);
+      const expiry = Number(data.expiry);
+      if (!symbol || !asset || !this.cfg.assets.includes(asset) || !Number.isFinite(intervalSec) || intervalSec <= 0 || !Number.isFinite(expiry) || expiry <= nowSec - 300) continue;
+      const venueId = textValue(data.venueId);
+      if (this.cfg.venueId && venueId !== this.cfg.venueId) continue;
+      const resolutionMode = data.resolutionMode === "reference" || data.resolutionMode === "fixed" ? data.resolutionMode : undefined;
+      recovered.set(marketId, {
+        marketId,
+        symbol,
+        upSymbol: textValue(data.upSymbol) ?? `${symbol}#YES`,
+        downSymbol: textValue(data.downSymbol) ?? `${symbol}#NO`,
+        asset,
+        intervalSec,
+        expiry,
+        tradingStart: Number.isFinite(Number(data.tradingStart)) ? Number(data.tradingStart) : undefined,
+        venueId,
+        oracleQuestionId: textValue(data.oracleQuestionId),
+        pool: textValue(data.pool),
+        strike: textValue(data.strike),
+        resolutionMode,
+      });
+    }
+
+    const hints: BinaryMarketInfo[] = [];
+    for (const [marketId, row] of recovered) {
+      const market = { ...row, pool: row.pool ?? pools.get(marketId) };
+      this.markets.set(marketId, {
+        ...market,
+        managed: false,
+        watchedAt: 0,
+        lastDecisionAt: 0,
+        lastStatus: -1,
+        birthAnnounced: true,
+        lifecycle: "BIRTH",
+      });
+      const opening = openings.get(marketId);
+      if (opening !== undefined) this.openingCache.set(marketId, { value: opening, at: Date.now() });
+      hints.push(market);
+    }
+    this.maker.primeMarketHints(hints);
+    this.taker.primeMarketHints(hints);
+    return hints.length;
+  }
+
   private async refreshMarkets(first: boolean): Promise<void> {
     if (this.discoveryRunning) return;
     this.discoveryRunning = true;
@@ -315,6 +389,29 @@ export class Firm {
     const seen = new Set<string>();
     for (const row of rows) {
       seen.add(row.marketId);
+      if (!this.freshMarketSnapshots.has(row.marketId)) {
+        this.freshMarketSnapshots.add(row.marketId);
+        this.journal.append({
+          type: "market-snapshot",
+          source: "indexer",
+          marketId: row.marketId,
+          symbol: row.symbol,
+          data: {
+            symbol: row.symbol,
+            upSymbol: row.upSymbol,
+            downSymbol: row.downSymbol,
+            asset: row.asset,
+            intervalSec: row.intervalSec,
+            expiry: row.expiry,
+            tradingStart: row.tradingStart,
+            venueId: row.venueId,
+            oracleQuestionId: row.oracleQuestionId,
+            pool: row.pool,
+            strike: row.strike,
+            resolutionMode: row.resolutionMode,
+          },
+        });
+      }
       const managed = this.managedCadences.has(row.intervalSec) && row.expiry * 1000 > now;
       let m = this.markets.get(row.marketId);
       if (!m) {
@@ -1205,7 +1302,15 @@ export class Firm {
   }
 
   async buildWalletOrder(address: string, marketRef: string, outcome: "UP" | "DOWN", size: number, price: number) {
-    return this.maker.buildWalletOrder(address, marketRef, outcome, size, price);
+    const lowered = marketRef.toLowerCase();
+    const market = [...this.markets.values()].find((row) =>
+      [row.marketId, row.symbol, row.upSymbol, row.downSymbol]
+        .some((value) => value.toLowerCase() === lowered),
+    );
+    if (!market) {
+      throw new TempoError("UNAVAILABLE", "market is not present in the current live firm snapshot");
+    }
+    return this.maker.buildWalletOrder(address, marketRef, outcome, size, price, market);
   }
 
   walletConfig() {

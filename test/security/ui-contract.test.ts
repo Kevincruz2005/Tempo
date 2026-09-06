@@ -7,6 +7,7 @@ const css = readFileSync("packages/web/public/styles.css", "utf8");
 const editorialCss = readFileSync("packages/web/public/ui-v2.css", "utf8");
 const wallet = readFileSync("packages/web/public/wallet.js", "utf8");
 const coreExchange = readFileSync("packages/core/src/exchange.ts", "utf8");
+const firm = readFileSync("packages/engine/src/firm.ts", "utf8");
 
 describe("multipage observatory UI contract", () => {
   it("keeps every planned destination in the persistent top navigation", () => {
@@ -34,6 +35,21 @@ describe("multipage observatory UI contract", () => {
     expect(wallet).toContain('status: "confirmed"');
     expect(wallet).toContain('status: "failed"');
     expect(coreExchange).toContain("autoApprove: true");
+    expect(coreExchange).toContain("browserExpirySec * 1_000_000_000n");
+    expect(coreExchange).toContain("if (allowance >= requiredAllowance) approval = undefined");
+    expect(coreExchange).toContain("IOC has no available fill at limit");
+    expect(coreExchange).toContain("estimatedGas * 12n");
+    expect(coreExchange).toContain("this.publicClient.getGasPrice()");
+    expect(wallet).toContain("transaction.gasPrice");
+    expect(wallet).toContain("estimated max network fee:");
+    expect(wallet).toContain("APPROVAL CONFIRMED");
+    expect(wallet).toContain("approvalOnly ? [lastPrepared.approval] : [lastPrepared.order]");
+    expect(coreExchange).toContain("browserExchange.primeMarketHints([marketHint])");
+    expect(coreExchange).toContain("wallet order preparation failed:");
+    expect(firm).toContain("this.maker.buildWalletOrder(address, marketRef, outcome, size, price, market)");
+    expect(firm).toContain("restoreMarketsFromJournal()");
+    expect(firm).toContain('managed: false');
+    expect(firm).toContain('reason: "awaiting fresh indexer confirmation"');
     expect(wallet).toContain("function walletMarketIsEligible(market)");
     expect(wallet).toContain("Math.max(20, Math.floor(interval * 0.1))");
     expect(wallet).toContain("lastState?.markets?.filter(walletMarketIsEligible)");

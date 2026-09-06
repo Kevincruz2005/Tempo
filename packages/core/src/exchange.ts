@@ -98,6 +98,16 @@ export function normalizeOpeningBoundary(boundary: unknown, referenceSpot: numbe
   return ratio >= 0.5 && ratio <= 2 ? best : undefined;
 }
 
+function rpcErrorData(error: unknown): string | undefined {
+  let current: unknown = error;
+  for (let depth = 0; depth < 8 && current && typeof current === "object"; depth += 1) {
+    const value = current as { data?: unknown; cause?: unknown };
+    if (typeof value.data === "string" && /^0x[0-9a-f]+$/i.test(value.data)) return value.data;
+    current = value.cause;
+  }
+  return undefined;
+}
+
 export interface TempoExchangeOptions {
   config: TempoConfig;
   /** Signer for writes; omit for read-only. */
@@ -124,6 +134,7 @@ export class TempoExchange {
   readonly readonly: boolean;
   private readonly cfg: TempoConfig;
   private marketsCache: { at: number; rows: BinaryMarketInfo[] } | null = null;
+  private readonly marketHints = new Map<string, BinaryMarketInfo>();
   private collateralDecimalsCache: number | null = null;
   private readonly publicClient: PublicClient;
 
@@ -170,7 +181,14 @@ export class TempoExchange {
   }
 
   /** Build unsigned approval/order calls for an external browser wallet. */
-  async buildWalletOrder(address: string, marketRef: string, outcome: "UP" | "DOWN", size: number, price: number) {
+  async buildWalletOrder(
+    address: string,
+    marketRef: string,
+    outcome: "UP" | "DOWN",
+    size: number,
+    price: number,
+    marketHint?: BinaryMarketInfo,
+  ) {
     this.assertWritesAllowed();
     if (!/^0x[0-9a-f]{40}$/i.test(address)) throw new TempoError("UNAVAILABLE", "wallet address is malformed");
     const chain = this.publicClient.chain;
@@ -178,7 +196,17 @@ export class TempoExchange {
     const walletClient = createWalletClient({ account: address as Address, chain, transport: http(this.cfg.endpoints.rpcUrl) });
     const browserExchange = new TempoExchange({ config: this.cfg, walletClient });
     try {
-      const prepared = await browserExchange.prepareTrade(marketRef, outcome, size, price);
+      if (marketHint) {
+        const lowered = marketRef.toLowerCase();
+        const hintMatches = [marketHint.marketId, marketHint.symbol, marketHint.upSymbol, marketHint.downSymbol]
+          .some((value) => value.toLowerCase() === lowered);
+        if (!hintMatches) throw new TempoError("UNAVAILABLE", "wallet market hint does not match the requested market");
+        browserExchange.primeMarketHints([marketHint]);
+      }
+      const browserExpirySec = BigInt(Math.floor(Date.now() / 1000)) + 120n;
+      const prepared = await browserExchange.prepareTrade(marketRef, outcome, size, price, {
+        expireTimestampNs: browserExpirySec * 1_000_000_000n,
+      });
       const params = await browserExchange.bookParams(prepared.onchain.pool);
       const rawPrice = probToTicks(outcome === "DOWN" ? 1 - prepared.price : prepared.price, params.tickSize, params.decimals);
       const rawSize = sizeToLots(prepared.size, params.lotSize, params.decimals);
@@ -191,7 +219,43 @@ export class TempoExchange {
         orderType: ORDER_TYPE.MARKET,
         autoApprove: true,
       });
-      const calls = [unsigned.approval, unsigned.order].filter((call): call is NonNullable<typeof call> => Boolean(call));
+      let approval = unsigned.approval;
+      if (approval) {
+        try {
+          const allowance = await this.publicClient.readContract({
+            address: approval.to as Address,
+            abi: erc20Abi,
+            functionName: "allowance",
+            args: [address as Address, prepared.onchain.pool as Address],
+          });
+          const scale = 10n ** BigInt(params.decimals);
+          const requiredAllowance = (rawPrice * rawSize + scale - 1n) / scale;
+          if (allowance >= requiredAllowance) approval = undefined;
+        } catch {
+          // If allowance cannot be read, keep the SDK approval call as the safe path.
+        }
+      }
+      let order: typeof unsigned.order & { gas?: bigint; gasPrice?: bigint } = unsigned.order;
+      if (!approval) {
+        try {
+          const [estimatedGas, gasPrice] = await Promise.all([
+            this.publicClient.estimateGas({
+              account: address as Address,
+              to: order.to as Address,
+              data: order.data as `0x${string}`,
+              value: BigInt(order.value ?? 0),
+            }),
+            this.publicClient.getGasPrice(),
+          ]);
+          order = { ...order, gas: (estimatedGas * 12n + 9n) / 10n, gasPrice };
+        } catch (error) {
+          if (rpcErrorData(error)?.slice(0, 10).toLowerCase() === "0xd48c4403") {
+            throw new TempoError("RISK_REJECTED", `IOC has no available fill at limit ${prepared.price}; choose a crossing limit and review again`);
+          }
+          throw error;
+        }
+      }
+      const calls = [approval, order].filter((call): call is NonNullable<typeof call> => Boolean(call));
       const protocolAddresses = [
         ...Object.values(this.cfg.addresses).filter((value): value is string => typeof value === "string"),
         prepared.onchain.pool,
@@ -207,20 +271,33 @@ export class TempoExchange {
         throw new TempoError("RISK_REJECTED", `insufficient collateral: need ${prepared.worstCaseCost}, available ${collateral.human}`);
       }
       const nativeValue = calls.reduce((sum, call) => sum + BigInt(call.value ?? 0), 0n);
-      if (nativeRaw < nativeValue) throw new TempoError("RISK_REJECTED", "insufficient native balance for transaction value");
+      const estimatedGasFee = order.gas !== undefined && order.gasPrice !== undefined ? order.gas * order.gasPrice : 0n;
+      if (nativeRaw < nativeValue + estimatedGasFee) {
+        throw new TempoError("RISK_REJECTED", "insufficient native balance for transaction value and estimated network fee");
+      }
       return {
         prepared,
-        approval: unsigned.approval,
-        order: unsigned.order,
+        approval,
+        order,
         review: {
           chainId: expectedChainId(this.cfg.network),
           destinations,
           nativeValue,
+          estimatedGasFee,
           collateralBalance: collateral.human,
           collateralDecimals: collateral.decimals,
           allowlistValidated: true,
         },
       };
+    } catch (error) {
+      if (error instanceof TempoError) throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      const code = /indexer/i.test(message)
+        ? "INDEXER_UNAVAILABLE"
+        : /timeout|aborted|network|rpc|fetch|429|rate limit/i.test(message)
+          ? "CHAIN_UNAVAILABLE"
+          : "UNAVAILABLE";
+      throw new TempoError(code, `wallet order preparation failed: ${message.slice(0, 240)}`);
     } finally {
       await browserExchange.close();
     }
@@ -288,8 +365,19 @@ export class TempoExchange {
     const filtered = rows.filter(
       (r) => (wanted.size ? wanted.has(r.asset.toUpperCase()) : true) && (!this.cfg.venueId || r.venueId === this.cfg.venueId),
     );
+    this.primeMarketHints(filtered);
     this.marketsCache = { at: now, rows: filtered };
     return filtered;
+  }
+
+  /** Prime trusted metadata without claiming that the live indexer cache is fresh. */
+  primeMarketHints(rows: readonly BinaryMarketInfo[]): void {
+    for (const row of rows) {
+      if (!/^0x[0-9a-f]{64}$/i.test(row.marketId) || !row.symbol || !row.upSymbol || !row.downSymbol) {
+        throw new TempoError("UNAVAILABLE", "market hint is malformed");
+      }
+      this.marketHints.set(row.marketId.toLowerCase(), { ...row });
+    }
   }
 
   async onchain(marketId: string): Promise<OnchainMarket> {
@@ -390,7 +478,7 @@ export class TempoExchange {
   /** The window's opening price (the strike) — an on-chain fact. */
   async openingPrice(marketId: string, referenceSpot?: number): Promise<number | undefined> {
     const key = marketId.toLowerCase();
-    const cached = this.marketsCache?.rows.find((row) => row.marketId.toLowerCase() === key);
+    const cached = this.marketsCache?.rows.find((row) => row.marketId.toLowerCase() === key) ?? this.marketHints.get(key);
     const market = cached ?? (await this.markets()).find((row) => row.marketId.toLowerCase() === key);
     let boundary: unknown = market?.resolutionMode === "fixed" ? market.strike : undefined;
     if (boundary === undefined) {
@@ -476,6 +564,8 @@ export class TempoExchange {
       row.downSymbol.toLowerCase() === lowered;
     const cached = this.marketsCache?.rows.find(matches);
     if (cached) return cached;
+    const hinted = [...this.marketHints.values()].find(matches);
+    if (hinted) return hinted;
     const market = (await this.markets({ maxAgeMs: 0 })).find(
       (row) =>
         matches(row),

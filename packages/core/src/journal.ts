@@ -14,6 +14,7 @@ import type { WriteStream } from "node:fs";
 export type JournalType =
   | "startup"
   | "market-birth"
+  | "market-snapshot"
   | "market-state"
   | "price"
   | "decision"
