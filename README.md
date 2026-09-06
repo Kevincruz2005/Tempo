@@ -506,16 +506,6 @@ Historical records do not contain sufficient counterparty attribution to claim e
 | Can I inspect the system design? | [Design document](docs/DESIGN.md) · [ecosystem reconnaissance](docs/RECONNAISSANCE.md) |
 | Can I reproduce the current build? | [Current verification report](test/reports/readme-audit-20260906.md) |
 
-## Roadmap
-
-- [x] Autonomous birth → anchor → quote → settle → claim → roll lifecycle
-- [x] Separate maker/taker agents under a shared deterministic risk engine
-- [x] On-chain receipt replay, Brier scoring, and bounded calibration
-- [x] Public Observatory, browser wallet flow, CLI, typed SDK, and MCP server
-- [ ] Publish genesis estimates as a public Somnia Data Streams anchor feed
-- [ ] Add operator-scoped browser session keys with selector-level permissions
-- [ ] Complete a fresh mainnet risk review and expand supported assets
-
 ---
 
 <div align="center">
