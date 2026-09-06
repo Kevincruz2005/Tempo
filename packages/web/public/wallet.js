@@ -22,6 +22,8 @@ let walletConfig;
 let signing = false;
 let discoveredWallets = [];
 let selectedWalletKey;
+let walletPickerHideTimer;
+let walletPickerFrame;
 
 const FEATURED_WALLETS = [
   { key: "metamask", name: "MetaMask", mark: "M", rdns: ["io.metamask"] },
@@ -66,6 +68,32 @@ function identifyWallet(info) {
   return match?.key ?? "browser";
 }
 
+function setWalletPickerOpen(open) {
+  const picker = $("wallet-picker");
+  const trigger = $("wallet-connect");
+  if (!picker || !trigger) return;
+  clearTimeout(walletPickerHideTimer);
+  cancelAnimationFrame(walletPickerFrame);
+  trigger.setAttribute("aria-expanded", String(open));
+  picker.setAttribute("aria-hidden", String(!open));
+  picker.inert = !open;
+  if (open) {
+    picker.hidden = false;
+    picker.style.setProperty("--wallet-picker-height", `${picker.scrollHeight}px`);
+    walletPickerFrame = requestAnimationFrame(() => {
+      if (picker.getAttribute("aria-hidden") === "false") picker.classList.add("wallet-picker-open");
+    });
+    return;
+  }
+  picker.classList.remove("wallet-picker-open");
+  const hide = () => {
+    if (!picker.classList.contains("wallet-picker-open")) picker.hidden = true;
+  };
+  const reduceMotion = document.body.classList.contains("reduced-motion") || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduceMotion) hide();
+  else walletPickerHideTimer = setTimeout(hide, 320);
+}
+
 function renderWalletChoices() {
   const picker = $("wallet-picker");
   const options = $("wallet-options");
@@ -95,11 +123,11 @@ function renderWalletChoices() {
       selectedWalletKey = entry.key;
       provider = entry.provider;
       bindProviderEvents(provider);
-      picker.hidden = true;
+      setWalletPickerOpen(false);
       void connect();
     });
   });
-  picker.hidden = false;
+  picker.style.setProperty("--wallet-picker-height", `${picker.scrollHeight}px`);
 }
 
 function bindProviderEvents(wallet) {
@@ -155,7 +183,7 @@ async function connect() {
     const balance = await readBalance();
     setState("CONNECTED", `${account.slice(0, 8)}...${account.slice(-6)} · chain ${chainId} · ${balance}`);
     $("wallet-connect").textContent = "Disconnect wallet";
-    $("wallet-picker").hidden = true;
+    setWalletPickerOpen(false);
     showNetworkState();
     await refreshWalletActivity();
     populateMarkets();
@@ -318,14 +346,13 @@ $("wallet-connect")?.addEventListener("click", () => {
     account = undefined;
     setState("DISCONNECTED", "Wallet disconnected.");
     $("wallet-connect").textContent = "Connect wallet";
+    setWalletPickerOpen(false);
     renderWalletChoices();
     return;
   }
-  if (!provider) {
-    renderWalletChoices();
-    return;
-  }
-  void connect();
+  renderWalletChoices();
+  const picker = $("wallet-picker");
+  setWalletPickerOpen(!picker?.classList.contains("wallet-picker-open"));
 });
 $("wallet-warning")?.addEventListener("click", () => void switchNetwork());
 $("wallet-prepare")?.addEventListener("click", () => void reviewTrade());

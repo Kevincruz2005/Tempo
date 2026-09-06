@@ -115,6 +115,17 @@ describe("multipage observatory UI contract", () => {
     expect(app).toContain('openOverlay("wallet-overlay", "#wallet-connect")');
   });
 
+  it("opens detected wallet choices as an accessible top-down tray", () => {
+    expect(html).toContain('aria-controls="wallet-picker"');
+    expect(html).toContain('aria-expanded="false"');
+    expect(wallet).toContain("function setWalletPickerOpen(open)");
+    expect(wallet).toContain('picker.classList.add("wallet-picker-open")');
+    expect(wallet).toContain('setWalletPickerOpen(!picker?.classList.contains("wallet-picker-open"))');
+    expect(css).toContain(".wallet-picker.wallet-picker-open");
+    expect(css).toContain("max-height: var(--wallet-picker-height)");
+    expect(css).toContain("transform: translateY(-10px)");
+  });
+
   it("provides complete market and audit filtering without synthetic data", () => {
     for (const id of ["market-status", "market-asset", "market-interval", "market-sort", "history-window", "history-asset", "history-interval", "history-type", "history-source", "history-status"]) {
       expect(app).toContain(id);

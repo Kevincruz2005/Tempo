@@ -107,8 +107,8 @@
       <section class="wallet-panel" id="wallet-panel">
         <div class="wallet-head"><b>Connection</b><span id="wallet-state">DISCONNECTED</span></div>
         <div class="wallet-meta" id="wallet-meta">Connect an EIP-6963 wallet to inspect your on-chain activity.</div>
-        <button class="button button-primary full-button" id="wallet-connect" type="button">Connect wallet</button>
-        <div class="wallet-picker" id="wallet-picker" hidden>
+        <button class="button button-primary full-button" id="wallet-connect" type="button" aria-expanded="false" aria-controls="wallet-picker">Connect wallet</button>
+        <div class="wallet-picker" id="wallet-picker" aria-label="Detected wallet choices" aria-hidden="true" inert hidden>
           <div class="wallet-picker-label">Choose a detected wallet</div>
           <div class="wallet-options" id="wallet-options"></div>
         </div>
