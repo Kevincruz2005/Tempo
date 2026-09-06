@@ -264,7 +264,7 @@ The system deliberately separates truth, estimates, policy, and narration:
 | **Deterministic hot path** | Diffusion estimate, quote policy, risk checks, calibration | Pure TypeScript math with recorded inputs and tests |
 | **Autonomous execution** | Discover, quote, cancel, take, claim, roll | Separate signers; every write chain-gated and receipt-checked |
 | **Cold LLM path** | Optional `tempo report --llm` narrative synthesis | Labeled `AI NARRATIVE`; never allowed to sign or alter hot-path policy |
-| **MCP interoperability** | Structured reads, non-broadcast risk preview, optional governed order request | Writes disabled by default and still routed through the same risk boundary |
+| **MCP interoperability** | Structured live reads and an optional governed order request | Writes disabled by default and still routed through the same risk boundary |
 
 ### SDK and ecosystem utilization
 
