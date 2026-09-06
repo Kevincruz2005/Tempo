@@ -214,30 +214,30 @@ The complete ledger, timestamps, market ID, and remaining quote receipts are in 
 
 ```mermaid
 flowchart LR
-    subgraph Inputs[Verified inputs]
-        Feed[Official BTC/ETH<br/>price feed]
-        Chain[Somnia chain<br/>status · strike · grid]
-        Watches[Chain-log watches<br/>books · fills · births]
+    subgraph Inputs["Verified inputs"]
+        Feed["Official BTC/ETH<br/>price feed"]
+        Chain["Somnia chain<br/>status · strike · grid"]
+        Watches["Chain-log watches<br/>books · fills · births"]
     end
 
-    subgraph Core[@tempo/core]
-        Exchange[TempoExchange]
-        Appraiser[Fair-value<br/>MODEL ESTIMATE]
-        Risk[Deterministic<br/>RiskEngine]
-        Journal[Typed journal<br/>+ receipt verification]
+    subgraph Core["@tempo/core"]
+        Exchange["TempoExchange"]
+        Appraiser["Fair-value<br/>MODEL ESTIMATE"]
+        Risk["Deterministic<br/>RiskEngine"]
+        Journal["Typed journal<br/>+ receipt verification"]
     end
 
-    subgraph Firm[@tempo/engine]
-        Genesis[GENESIS<br/>post-only maker]
-        Vector[VECTOR<br/>IOC taker]
-        Lifecycle[Lifecycle<br/>settle · claim · roll]
+    subgraph Firm["@tempo/engine"]
+        Genesis["GENESIS<br/>post-only maker"]
+        Vector["VECTOR<br/>IOC taker"]
+        Lifecycle["Lifecycle<br/>settle · claim · roll"]
     end
 
-    subgraph Surfaces[One core, four surfaces]
-        Web[Web Observatory<br/>wallet + SSE]
-        CLI[tempo CLI]
-        SDK[Typed SDK]
-        MCP[MCP server]
+    subgraph Surfaces["One core, four surfaces"]
+        Web["Web Observatory<br/>wallet + SSE"]
+        CLI["tempo CLI"]
+        SDK["Typed SDK"]
+        MCP["MCP server"]
     end
 
     Feed --> Exchange
