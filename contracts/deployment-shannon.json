@@ -1,0 +1,12 @@
+{
+  "contractName": "TempoAuctionVault",
+  "address": "0x75ff5310d736fa06e8813d8665d729df55e3c5c3",
+  "deployer": "0xE7a8a7d81Bad87512f9cab931E5122B5eaEE8c7a",
+  "transactionHash": "0x35d49eb1303c47c2a305981afc9b7fb16574fbcfa0ab354be3821bc05c028ba3",
+  "blockNumber": "481601034",
+  "network": "Somnia Shannon Testnet (50312)",
+  "collateral": "0x70a86D8842FB63C4Ad2b7cdddF530eBf1BB25d8E",
+  "genesisOperator": "0xE7a8a7d81Bad87512f9cab931E5122B5eaEE8c7a",
+  "explorerUrl": "https://shannon-explorer.somnia.network/address/0x75ff5310d736fa06e8813d8665d729df55e3c5c3",
+  "deployedAt": "2026-09-06T22:21:02.661Z"
+}

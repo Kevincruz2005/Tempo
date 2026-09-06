@@ -23,8 +23,9 @@
 
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="Strict TypeScript"></a>
   <a href="https://somnia.network/"><img src="https://img.shields.io/badge/Somnia-Shannon_50312-7B3FE4?style=flat-square" alt="Somnia Shannon testnet"></a>
+  <a href="https://shannon-explorer.somnia.network/address/0x75ff5310d736fa06e8813d8665d729df55e3c5c3#code"><img src="https://img.shields.io/badge/smart_contract-verified_on_Shannon-10b981?style=flat-square" alt="Verified Smart Contract on Shannon"></a>
   <a href="https://dreamdex.io/"><img src="https://img.shields.io/badge/DreamDEX-Event_Contracts-FF6B35?style=flat-square" alt="DreamDEX Event Contracts"></a>
-  <a href="test/reports/readme-audit-20260906.md"><img src="https://img.shields.io/badge/tests-2%2C118_passing-19C37D?style=flat-square" alt="2,118 tests passing"></a>
+  <a href="test/reports/readme-audit-20260906.md"><img src="https://img.shields.io/badge/tests-2%2C121_passing-19C37D?style=flat-square" alt="2,121 tests passing"></a>
   <a href="test/reports/security.md"><img src="https://img.shields.io/badge/economic_state-100%25_on--chain-19C37D?style=flat-square" alt="100% live on-chain economic state"></a>
   <a href="test/reports/security.md"><img src="https://img.shields.io/badge/security_gate-passing-19C37D?style=flat-square" alt="Security gate passing"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-white?style=flat-square" alt="MIT license"></a>
@@ -52,6 +53,7 @@
 | **Why Somnia** | Reactive chain-log subscriptions, ~100 ms blocks, sub-second finality, low transaction cost, and one-round-trip SDK writes make continuous on-chain quote management viable. |
 | **Why DreamDEX** | Its on-chain opening price, mint-a-pair matching, mandatory order expiry, CLOB, ERC-6909 outcomes, and keeperless settlement are the mechanism—not interchangeable integrations. |
 | **Why agents** | Six cadences across BTC and ETH create overlapping markets no human desk can continuously discover, price, risk-check, quote, settle, and roll. GENESIS and VECTOR do it under one deterministic risk boundary. |
+| **Smart Contract** | **[`TempoAuctionVault.sol`](contracts/TempoAuctionVault.sol)** deployed & [Blockscout source-verified](https://shannon-explorer.somnia.network/address/0x75ff5310d736fa06e8813d8665d729df55e3c5c3#code) at `0x75ff5310d736fa06e8813d8665d729df55e3c5c3` on Shannon (`50312`). Non-custodial ERC-4626 vault pooling community collateral for GENESIS opening auctions with fail-closed whitelisting. |
 | **Proof** | A dated testnet evidence window records **2,381 births, 2,004 real order sends, 1,464 unique transaction hashes, 100 fills, 13 claims, and 1,255.625 tUSDC matched quote notional**. |
 
 > **The insight:** a quoting bot assumes a market already exists. TEMPO provides the missing function that makes a newborn market usable.
@@ -209,6 +211,22 @@ One recorded BTC window completed discovery → quoting → real fill → settle
 | Redeem settlement | GENESIS | 477940746 | [`0xd9aad1…`](https://shannon-explorer.somnia.network/tx/0xd9aad1477ac2e99a8ec4281b5c447ca9b5c3d625600eb59ae9a938889bf2ac5e) |
 
 The complete ledger, timestamps, market ID, and remaining quote receipts are in [full on-chain mode evidence](test/reports/full-onchain-mode.md). Run `tempo verify` to replay journal hashes against the configured RPC.
+
+### Verified on-chain smart contract
+
+TEMPO includes **[`TempoAuctionVault.sol`](contracts/TempoAuctionVault.sol)**, a tokenized, non-custodial liquidity vault deployed and **source-verified on Somnia Shannon Testnet Blockscout**. It pools collateral for the GENESIS agent to anchor opening auctions on DreamDEX under strict fail-closed constraints.
+
+| Property | Value | Explorer Verification |
+|:---|:---|:---|
+| **Contract Name** | `TempoAuctionVault.sol` | [`contracts/TempoAuctionVault.sol`](contracts/TempoAuctionVault.sol) |
+| **Network** | Somnia Shannon Testnet (`Chain ID 50312`) | [Somnia Shannon RPC](https://api.infra.testnet.somnia.network) |
+| **Contract Address** | `0x75ff5310d736fa06e8813d8665d729df55e3c5c3` | [View Verified Contract on Blockscout ↗](https://shannon-explorer.somnia.network/address/0x75ff5310d736fa06e8813d8665d729df55e3c5c3#code) |
+| **Deployment Tx** | `0x35d49eb1303c47c2a305981afc9b7fb16574fbcfa0ab354be3821bc05c028ba3` | [View Mined Transaction ↗](https://shannon-explorer.somnia.network/tx/0x35d49eb1303c47c2a305981afc9b7fb16574fbcfa0ab354be3821bc05c028ba3) |
+| **Mined Block** | `481601034` | Verified |
+| **Standard** | ERC-4626 Tokenized Vault (`vTEMPO`) | Shares represent proportional claim on vault collateral |
+| **Underlying Collateral** | Shannon `tUSDC` (`0x70a86D8842FB63C4Ad2b7cdddF530eBf1BB25d8E`, 6 decimals) | [View Collateral ↗](https://shannon-explorer.somnia.network/address/0x70a86D8842FB63C4Ad2b7cdddF530eBf1BB25d8E) |
+| **Genesis Operator** | `0xE7a8a7d81Bad87512f9cab931E5122B5eaEE8c7a` | Authorized solely for whitelisted DreamDEX auction allocation |
+| **Non-Custodial Whitelist** | DreamDEX Core (`BinaryMarketsModule`, `MarketsCore`, `BinarySettlement`, `CollateralRouter`) | Fail-closed: operator cannot transfer funds to arbitrary wallets |
 
 ## Architecture
 

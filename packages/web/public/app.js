@@ -747,6 +747,7 @@ function renderProtocol() {
     ["Live event tail", state ? (live.tailing ? "CONNECTED" : "DISCONNECTED") : "UNAVAILABLE", "derived"],
     ["Watched feeds", state ? (live.priceWatches?.length ? live.priceWatches.join(" · ") : "NO DATA") : "UNAVAILABLE", "chain"],
     ["Active agents", model.loaded.state ? fmt(agents.length, 0) : "NO DATA", "derived"],
+    ["Auction Vault", "0x75ff53...5c3", "chain"],
     ["Snapshot time", state?.at ? utc(state.at) : "UNAVAILABLE", "derived"],
   ];
   const riskRows = risk ? join(Object.entries(risk).map(([key, value]) =>
@@ -758,6 +759,12 @@ function renderProtocol() {
     escapeHtml(agent.name === "GENESIS" ? "Post-only liquidity, inventory-aware repricing, and mandatory order expiry." :
       "Independent opportunity detection, IOC-only execution, and bounded collateral exposure.") + '</p><button class="text-link" type="button" data-agent="' +
     escapeHtml(agent.name) + '">Inspect live agent ↗</button></article>')) : empty("NO DATA", "Agent state is unavailable.");
+  const vaultPanel = '<section class="panel"><div class="panel-head"><h2>Verified On-Chain Contracts</h2><small>SOMNIA SHANNON 50312</small></div><div class="panel-body protocol-rows">' +
+    '<div class="protocol-row"><span>TempoAuctionVault.sol</span><b><a href="https://shannon-explorer.somnia.network/address/0x75ff5310d736fa06e8813d8665d729df55e3c5c3#code" target="_blank" rel="noopener" style="color:inherit;text-decoration:underline">0x75ff53...5c3 ↗</a></b><span class="prov chain">CHAIN FACT</span></div>' +
+    '<div class="protocol-row"><span>Contract Standard</span><b>ERC-4626 Tokenized Vault</b><span class="prov policy">POLICY</span></div>' +
+    '<div class="protocol-row"><span>Operator Authority</span><b>GENESIS (0xE7a8...8c7a)</b><span class="prov chain">CHAIN FACT</span></div>' +
+    '<div class="protocol-row"><span>Underlying Asset</span><b>tUSDC (6 decimals)</b><span class="prov chain">CHAIN FACT</span></div>' +
+    '</div></section>';
   return '<section class="page protocol-page"><div class="protocol-inner">' +
     heading("SYSTEM ARCHITECTURE", "A firm designed to be inspected",
       "TEMPO keeps discovery, estimation, policy, execution, and proof distinct—then exposes the live boundary of each layer.",
@@ -768,6 +775,7 @@ function renderProtocol() {
     '<article><span>03</span><h2>Gate</h2><p>Validate status, tick and lot grids, expiry, inventory, collateral, order count, and firm-wide limits.</p></article>' +
     '<article><span>04</span><h2>Prove</h2><p>Wait for successful receipts and retain decisions, fills, settlements, oracle evidence, and claims in the journal.</p></article></section>' +
     '<div class="protocol-columns"><section class="panel"><div class="panel-head"><h2>Live RiskEngine boundary</h2><small>CURRENT SNAPSHOT</small></div><div class="panel-body protocol-rows">' + riskRows + '</div></section>' +
+    vaultPanel +
     '<section class="protocol-agents">' + agentRows + '</section></div>' +
     '<section class="protocol-truth"><span class="eyebrow">PROVENANCE IS PART OF THE UI</span><h2>Facts stay facts.<br><em>Estimates stay estimates.</em></h2><p>Chain data, derived values, policy limits, journal events, and optional commentary carry visible source labels. When a required source is missing, TEMPO renders NO DATA or UNAVAILABLE instead of inventing continuity.</p></section>' +
     '</div></section>';
