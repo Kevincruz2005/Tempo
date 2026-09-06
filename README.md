@@ -264,7 +264,7 @@ The system deliberately separates truth, estimates, policy, and narration:
 | **Deterministic hot path** | Diffusion estimate, quote policy, risk checks, calibration | Pure TypeScript math with recorded inputs and tests |
 | **Autonomous execution** | Discover, quote, cancel, take, claim, roll | Separate signers; every write chain-gated and receipt-checked |
 | **Cold LLM path** | Optional `tempo report --llm` narrative synthesis | Labeled `AI NARRATIVE`; never allowed to sign or alter hot-path policy |
-| **MCP interoperability** | Structured reads, simulation, optional governed order request | Writes disabled by default and still routed through the same risk boundary |
+| **MCP interoperability** | Structured reads, non-broadcast risk preview, optional governed order request | Writes disabled by default and still routed through the same risk boundary |
 
 ## Product surfaces
 
@@ -350,13 +350,25 @@ try {
 
 ### MCP server
 
-The MCP server exposes ten read tools, one always-dry simulation tool, and one opt-in write tool:
+The MCP server exposes ten live read tools, one always-dry **non-broadcast risk-preview** tool, and one opt-in write tool:
 
-| Reads | Simulation | Guarded write |
+| Live reads | Non-broadcast risk preview | Guarded write |
 |---|---|---|
 | `discover_markets` · `inspect_event_contract` · `get_live_book` · `get_market_state` · `get_fair_value` · `get_risk_state` · `get_positions` · `get_settlement` · `get_activity` · `verify_receipt` | `simulate_trade` | `place_order` |
 
-`place_order` is absent unless `TEMPO_MCP_WRITES=true` and a signer is configured. If enabled, it still passes through on-chain status checks, quantization, the `RiskEngine`, journaling, and receipt validation.
+`simulate_trade` reads the real market, checks live status and the `RiskEngine`, and returns an allow/reject preview without signing or broadcasting. It does not create a market, match an order, invent a fill, or alter chain state. `place_order` is absent unless `TEMPO_MCP_WRITES=true` and a signer is configured. If enabled, it is a real IOC write that still passes through on-chain status checks, quantization, the `RiskEngine`, journaling, and receipt validation.
+
+### What “simulation” means here
+
+TEMPO does not simulate market data or transaction evidence. The following remain real: market discovery, order books, opening strikes, market status, price feeds, balances, positions, settlement state, receipt verification, and actual order/fill/claim evidence.
+
+The word **simulation** refers only to explicitly labeled non-broadcast previews:
+
+- `simulate_trade` prepares one proposed order and returns its live risk verdict without signing or broadcasting;
+- `firm simulate` runs the autonomous decision loop in dry-run mode, journals decisions, and sends no transactions;
+- the MCP preview exposes that same safe order-preparation path to external agents.
+
+No economic metric or on-chain performance claim is derived from these preview paths. The separate `backtest` command replays recorded real feed and settlement data and is never rendered as live state.
 
 ## Run it in under two minutes
 
