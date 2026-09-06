@@ -914,7 +914,45 @@ body.theme-dark .wallet-modal {
   white-space: nowrap;
 }
 
+.intelligence-actions {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.intelligence-actions .panel-toggle {
+  flex: 0 0 auto;
+}
+
+.intelligence-grid-shell {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 1fr;
+  overflow: hidden;
+  opacity: 1;
+  transform-origin: top;
+  transform: translateY(0);
+  visibility: visible;
+  transition: grid-template-rows .24s var(--ease), opacity .2s ease, transform .24s var(--ease), visibility 0s;
+}
+
+.firm-intelligence.intelligence-minimized .intelligence-head {
+  border-bottom-color: transparent;
+}
+
+.firm-intelligence.intelligence-minimized .intelligence-grid-shell {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transform: translateY(-6px);
+  visibility: hidden;
+  pointer-events: none;
+  transition: grid-template-rows .2s var(--ease), opacity .16s ease, transform .2s var(--ease), visibility 0s .2s;
+}
+
 .intelligence-grid {
+  min-height: 0;
   display: grid;
   grid-template-columns: repeat(9, minmax(112px, 1fr));
   overflow-x: auto;
@@ -1074,6 +1112,14 @@ body.theme-dark .onboarding-dialog {
   background: var(--surface-solid);
 }
 
+body.reduced-motion .intelligence-grid-shell {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intelligence-grid-shell { transition: none !important; }
+}
+
 @media (max-width: 940px) {
   .intelligence-grid { grid-template-columns: repeat(3, minmax(150px, 1fr)); }
   .onboarding-map { grid-template-columns: 1fr 1fr; }
@@ -1084,6 +1130,8 @@ body.theme-dark .onboarding-dialog {
 @media (max-width: 620px) {
   .intelligence-head { align-items: flex-start; flex-direction: column; gap: 4px; padding-block: 10px; }
   .intelligence-head > div { align-items: flex-start; flex-direction: column; gap: 3px; }
+  .intelligence-actions { width: 100%; justify-content: space-between; }
+  .intelligence-actions small { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .intelligence-grid { grid-template-columns: repeat(2, minmax(145px, 1fr)); }
   .intelligence-stat:nth-child(2n) { border-right: 0; }
   .onboarding-dialog { width: calc(100vw - 20px); max-height: calc(100dvh - 20px); }

@@ -33,7 +33,7 @@ const model = {
   births: new Set(),
   walletProofs: new Map(),
   loaded: { state: false, stats: false, journal: false, wallet: false },
-  dashboard: { venue: true, right: true, agents: true, evidence: true },
+  dashboard: { intelligence: false, venue: true, right: true, agents: true, evidence: true },
   filters: {
     marketQuery: "", marketStatus: "ALL", asset: "ALL", interval: "ALL", sort: "EXPIRY",
     historyTab: "OPERATIONS", historyQuery: "", historyAgent: "ALL", historySource: "ALL", historyStatus: "ALL",
@@ -332,7 +332,7 @@ function briefing() {
 
 function panelToggle(key, minimized) {
   const left = key === "venue";
-  const arrow = key === "lifecycle" ? (minimized ? "↑" : "↓") : key === "agents" && minimized ? "↓" : key === "evidence" && minimized ? "↑" : minimized ? (left ? "→" : "←") : (left ? "←" : "→");
+  const arrow = key === "intelligence" ? (minimized ? "↓" : "↑") : key === "lifecycle" ? (minimized ? "↑" : "↓") : key === "agents" && minimized ? "↓" : key === "evidence" && minimized ? "↑" : minimized ? (left ? "→" : "←") : (left ? "←" : "→");
   return '<button class="panel-toggle" type="button" data-toggle-panel="' + key + '" aria-expanded="' + (!minimized) + '" aria-label="' + (minimized ? "Expand " : "Minimize ") + key + ' panel"><span class="toggle-arrow" aria-hidden="true">' + arrow + '</span><span class="toggle-text">' + (minimized ? "Expand" : "Minimize") + '</span></button>';
 }
 
@@ -340,7 +340,7 @@ function rightTab(key, label) {
   return '<button class="right-tab" type="button" data-toggle-panel="' + key + '" aria-expanded="false" aria-label="Open ' + label + '"><span class="toggle-arrow" aria-hidden="true">←</span><span class="toggle-text">' + label + '</span></button>';
 }
 
-function firmIntelligence() {
+function firmIntelligence(minimized = false) {
   const stats = model.stats;
   const quality = stats?.estimateQuality;
   const fills = stats?.execution?.fills;
@@ -349,8 +349,8 @@ function firmIntelligence() {
   const item = (value, label, source, title) => '<div class="intelligence-stat"><span>' + escapeHtml(label) + " " + badge(source, title) +
     '</span><b>' + escapeHtml(value) + "</b></div>";
   const period = stats?.window?.since ? "JOURNAL SINCE " + utc(stats.window.since).slice(0, 10) : "AWAITING JOURNAL AGGREGATE";
-  return '<section class="firm-intelligence" aria-label="Firm intelligence and ecosystem impact"><div class="intelligence-head"><div><span class="eyebrow">VERIFIABLE TRADING INTELLIGENCE</span><h2>Measured against settlement truth</h2></div><small>' +
-    escapeHtml(period) + '</small></div><div class="intelligence-grid">' +
+  return '<section class="firm-intelligence ' + (minimized ? "intelligence-minimized" : "intelligence-expanded") + '" aria-label="Firm intelligence and ecosystem impact"><div class="intelligence-head"><div><span class="eyebrow">VERIFIABLE TRADING INTELLIGENCE</span><h2>Measured against settlement truth</h2></div><span class="intelligence-actions"><small>' +
+    escapeHtml(period) + '</small>' + panelToggle("intelligence", minimized) + '</span></div><div class="intelligence-grid-shell"><div class="intelligence-grid">' +
     item(quality?.brier === null || quality?.brier === undefined ? "NO DATA" : fmt(quality.brier, 4), "BRIER", "model", "Brier score over journaled pre-expiry estimates and on-chain outcomes") +
     item(quality?.directionalAccuracy === null || quality?.directionalAccuracy === undefined ? "NO DATA" : pct(quality.directionalAccuracy), "DIR. ACC.", "derived") +
     item(stats ? fmt(stats.markets?.births, 0) : "NO DATA", "WINDOW BIRTHS", "journal") +
@@ -360,7 +360,7 @@ function firmIntelligence() {
     item(stats ? fmt(stats.execution?.uniqueTxCount, 0) : "NO DATA", "TX HASHES", "journal", "Journaled hashes; verify independently with tempo verify") +
     item("0%", "VENUE FEES", "chain", "DreamDEX maker, taker, and settlement fees are currently zero") +
     item("0", "MOCKED VALUES", "policy") +
-    "</div></section>";
+    "</div></div></section>";
 }
 
 function dashboardLifecycle(selected, minimized = false) {
@@ -446,7 +446,7 @@ function renderDashboard() {
     badge("chain") + "</div>" + settlements(model.state?.settlements || [], 2) + briefing() + "</div></div></div></section>";
   const rightPanels = dash.right ? '<section class="panel right-rail"><div class="right-rail-tabs">' + rightTab("agents", "Agents & risk") + rightTab("evidence", "Evidence stream") + '</div></section>' : agentsPanel + evidencePanel;
   return '<section class="page dashboard ' + (dash.lifecycle ? "lifecycle-minimized" : "lifecycle-expanded") + '" data-scroll-key="dashboard-page"><div class="dashboard-intro">' + heading("LIVE COMMAND CENTER", "The autonomous firm, in evidence",
-    "Market state first. Agent action second. Risk and on-chain proof always visible.", actions) + firmIntelligence() + "</div>" +
+    "Market state first. Agent action second. Risk and on-chain proof always visible.", actions) + firmIntelligence(dash.intelligence) + "</div>" +
     '<div class="' + gridClass + '"><section class="panel venue-panel ' + (dash.venue ? "panel-minimized" : "") + '"><div class="panel-head"><div class="panel-head-title"><h2>Venue pulse</h2><small>' +
     fmt(markets.length, 0) + " WINDOWS · " + (model.loaded.journal ? fmt(births, 0) : "NO DATA") + ' BIRTHS LOADED</small></div>' + panelToggle("venue", dash.venue) + '</div><div class="venue-panel-body"><div class="pulse-grid">' +
     '<div class="pulse-stat"><span>TRADING WINDOWS ' + badge("chain") + "</span><b>" + fmt(markets.filter((row) => row.secondsLeft > 0 && row.status === 1).length, 0) +
@@ -1304,7 +1304,19 @@ function bindGlobal() {
       const key = target.dataset.togglePanel;
       if (Object.prototype.hasOwnProperty.call(model.dashboard, key)) {
         const opening = model.dashboard[key];
-        if (key === "agents" || key === "evidence") {
+        if (key === "intelligence") {
+          const minimized = !opening;
+          model.dashboard.intelligence = minimized;
+          const panel = target.closest(".firm-intelligence");
+          panel?.classList.toggle("intelligence-minimized", minimized);
+          panel?.classList.toggle("intelligence-expanded", !minimized);
+          target.setAttribute("aria-expanded", String(!minimized));
+          target.setAttribute("aria-label", (minimized ? "Expand" : "Minimize") + " intelligence panel");
+          const arrow = target.querySelector(".toggle-arrow");
+          const text = target.querySelector(".toggle-text");
+          if (arrow) arrow.textContent = minimized ? "↓" : "↑";
+          if (text) text.textContent = minimized ? "Expand" : "Minimize";
+        } else if (key === "agents" || key === "evidence") {
           if (model.dashboard.right || opening) {
             model.dashboard.right = false;
             model.dashboard.agents = key !== "agents";
@@ -1317,7 +1329,7 @@ function bindGlobal() {
         } else {
           model.dashboard[key] = !opening;
         }
-        renderRoute({ preserve: true });
+        if (key !== "intelligence") renderRoute({ preserve: true });
       }
     } else if (target.matches("[data-open-settings]")) openSettings();
     else if (target.matches("[data-refresh]")) void Promise.all([refreshJournal(), refreshState(true)]);

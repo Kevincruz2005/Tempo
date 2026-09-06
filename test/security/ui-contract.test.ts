@@ -49,7 +49,7 @@ describe("multipage observatory UI contract", () => {
     expect(editorialCss).toContain(".editorial-hero");
     expect(editorialCss).toContain(".mobile-menu");
     expect(editorialCss).toContain("@media (prefers-reduced-motion: reduce)");
-    expect(app).toContain('dashboard: { venue: true, right: true, agents: true, evidence: true }');
+    expect(app).toContain('dashboard: { intelligence: false, venue: true, right: true, agents: true, evidence: true }');
     expect(app).toContain('data-toggle-panel');
     expect(app).toContain("GENESIS EXPANDED");
     expect(app).toContain('rightTab("agents", "Agents & risk")');
@@ -57,6 +57,11 @@ describe("multipage observatory UI contract", () => {
     expect(app).toContain("model.dashboard.right = false");
     expect(app).toContain('key === "agents" && minimized ? "↓"');
     expect(app).toContain('key === "evidence" && minimized ? "↑"');
+    expect(app).toContain('key === "intelligence" ? (minimized ? "↓" : "↑")');
+    expect(app).toContain('firmIntelligence(dash.intelligence)');
+    expect(editorialCss).toContain(".firm-intelligence.intelligence-minimized");
+    expect(editorialCss).toContain("grid-template-rows: 0fr");
+    expect(app).toContain('if (key !== "intelligence") renderRoute');
     expect(app).toContain('model.dashboard.agents = key !== "agents"');
     expect(app).toContain('model.dashboard.evidence = key !== "evidence"');
     expect(css).toContain("dashboard-grid.venue-minimized");
