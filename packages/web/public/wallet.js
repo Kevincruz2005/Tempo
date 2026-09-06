@@ -219,9 +219,18 @@ async function refreshWalletActivity() {
   }
 }
 
+function walletMarketIsEligible(market) {
+  const configuredMin = Number(lastState?.risk?.minLeftSecMaker);
+  const interval = Number(market?.intervalSec);
+  const minLeft = Number.isFinite(configuredMin) && configuredMin > 0
+    ? configuredMin
+    : Math.max(20, Math.floor(interval * 0.1));
+  return market?.status === 1 && Number.isFinite(Number(market.secondsLeft)) && Number(market.secondsLeft) >= minLeft;
+}
+
 function populateMarkets() {
   const select = $("wallet-market");
-  const markets = lastState?.markets?.filter((market) => market.status === 1) ?? [];
+  const markets = lastState?.markets?.filter(walletMarketIsEligible) ?? [];
   select.innerHTML = markets.length
     ? markets.map((market) => `<option value="${escapeHtml(market.marketId)}">${escapeHtml(market.asset)} ${market.intervalSec / 60}m · ${Math.max(0, market.secondsLeft)}s</option>`).join("")
     : "<option value=\"\">NO TRADING WINDOWS</option>";
@@ -235,6 +244,11 @@ async function reviewTrade() {
   const price = Number($("wallet-price").value);
   const summary = $("wallet-summary");
   try {
+    const selectedMarket = lastState?.markets?.find((row) => row.marketId === market);
+    if (!selectedMarket || !walletMarketIsEligible(selectedMarket)) {
+      populateMarkets();
+      throw new Error("selected market is expired, closing soon, or no longer trading; choose another live window");
+    }
     const query = new URLSearchParams({ address: account, market, outcome, size: String(size), price: String(price) });
     const response = await fetch(apiUrl(`/api/wallet/prepare?${query}`));
     const body = await response.json();

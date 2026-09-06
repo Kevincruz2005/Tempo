@@ -19,3 +19,19 @@ coverage/
 ui_update
 env
 .vercel
+
+# local planning/reference artifacts (not part of the public hackathon build)
+/navbar.png
+/BUILD_PLAN.md
+/FINAL_UI_PLAN.md
+/UIPlan.md
+/UI_FINAL_PROMPT.md
+/UI_PLAN.md
+/RECONNAISSANCE.md
+/business.md
+/final_touch.md
+/originality_package.md
+/remaining.md
+/ux_package.md
+/docs/README-az-backup.md
+/docs/UI-BASE-PLAN.md

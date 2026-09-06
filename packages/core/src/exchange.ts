@@ -189,7 +189,7 @@ export class TempoExchange {
         quantity: rawSize,
         expireTimestampNs: prepared.expireTimestampNs,
         orderType: ORDER_TYPE.MARKET,
-        autoApprove: false,
+        autoApprove: true,
       });
       const calls = [unsigned.approval, unsigned.order].filter((call): call is NonNullable<typeof call> => Boolean(call));
       const protocolAddresses = [

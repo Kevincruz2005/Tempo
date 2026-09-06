@@ -6,6 +6,7 @@ const app = readFileSync("packages/web/public/app.js", "utf8");
 const css = readFileSync("packages/web/public/styles.css", "utf8");
 const editorialCss = readFileSync("packages/web/public/ui-v2.css", "utf8");
 const wallet = readFileSync("packages/web/public/wallet.js", "utf8");
+const coreExchange = readFileSync("packages/core/src/exchange.ts", "utf8");
 
 describe("multipage observatory UI contract", () => {
   it("keeps every planned destination in the persistent top navigation", () => {
@@ -32,6 +33,11 @@ describe("multipage observatory UI contract", () => {
     expect(wallet).toContain("PENDING RECEIPT");
     expect(wallet).toContain('status: "confirmed"');
     expect(wallet).toContain('status: "failed"');
+    expect(coreExchange).toContain("autoApprove: true");
+    expect(wallet).toContain("function walletMarketIsEligible(market)");
+    expect(wallet).toContain("Math.max(20, Math.floor(interval * 0.1))");
+    expect(wallet).toContain("lastState?.markets?.filter(walletMarketIsEligible)");
+    expect(wallet).toContain("selected market is expired, closing soon, or no longer trading");
   });
 
   it("includes keyboard, responsive, and reduced-motion behavior", () => {

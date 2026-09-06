@@ -6,7 +6,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { extname, resolve, sep } from "node:path";
-import { aggregate, type JournalRecord, type ReportStats } from "@tempo/core";
+import { aggregate, isTempoError, type JournalRecord, type ReportStats } from "@tempo/core";
 import type { Firm } from "./firm.js";
 
 const MIME: Record<string, string> = {
@@ -400,8 +400,16 @@ export class TempoServer {
           return this.json(response, 400, { error: "market, outcome, positive size, and price in (0,1) are required" });
         }
         if (!/^0x[0-9a-f]{40}$/i.test(address)) return this.json(response, 400, { error: "address must be a 20-byte hex address" });
-        const prepared = await this.firm.buildWalletOrder(address, market, outcome, size, price);
-        return this.json(response, 200, prepared);
+        try {
+          const prepared = await this.firm.buildWalletOrder(address, market, outcome, size, price);
+          return this.json(response, 200, prepared);
+        } catch (error) {
+          if (isTempoError(error)) {
+            const status = error.code === "CHAIN_UNAVAILABLE" || error.code === "INDEXER_UNAVAILABLE" ? 503 : 409;
+            return this.json(response, status, { error: error.message, code: error.code });
+          }
+          throw error;
+        }
       }
       if (url.pathname === "/api/state") return this.json(response, 200, await this.firm.snapshot());
       if (url.pathname === "/api/stats") return this.json(response, 200, this.stats());
