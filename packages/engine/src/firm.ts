@@ -39,7 +39,7 @@ const ONCHAIN_TTL_MS = 2000;
 const BOOKPARAMS_TTL_MS = 60_000;
 const OPENING_TTL_FOUND_MS = 60_000;
 const OPENING_TTL_MISSING_MS = 2000;
-const LIVE_TAIL_START_TIMEOUT_MS = 15_000;
+const LIVE_TAIL_START_TIMEOUT_MS = 30_000;
 
 /** Only windows of these cadences are actively managed (display shows all). */
 const MANAGED_CADENCES = new Set([60, 300, 900, 3600, 14400, 86400]);
@@ -242,6 +242,7 @@ export class Firm {
       });
     } catch (e) {
       clearTimeout(liveTailTimer);
+      this.liveTailRequested = false;
       this.maker.sdk.client.stopLive();
       this.journal.append({
         type: "error",
