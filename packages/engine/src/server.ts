@@ -441,14 +441,14 @@ export class TempoServer {
 
   private async narrative(): Promise<NonNullable<TempoServer["narrativeCache"]>["value"]> {
     const now = Date.now();
-    if (this.narrativeCache && now - this.narrativeCache.at < 60_000) return this.narrativeCache.value;
+    if (this.narrativeCache && now - this.narrativeCache.at < 15 * 60_000) return this.narrativeCache.value;
     if (this.narrativeInFlight) return this.narrativeInFlight;
     this.narrativeInFlight = (async () => {
       const apiKey = process.env.TEMPO_LLM_API_KEY ?? process.env.OPENAI_API_KEY;
       if (!apiKey) return { status: "UNAVAILABLE" as const, reason: "Gemini narrative is not configured" };
       const records = this.firm.journal.readFiles(Date.now() - 24 * 3600_000);
       const stats = aggregate(records, new Date(Date.now() - 24 * 3600_000).toISOString(), new Date().toISOString());
-      const model = process.env.TEMPO_LLM_MODEL ?? "gemini-2.5-flash";
+      const model = process.env.TEMPO_LLM_MODEL ?? "gemini-3.6-flash";
       const url = process.env.TEMPO_LLM_URL ?? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 30_000);
@@ -459,11 +459,12 @@ export class TempoServer {
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
           body: JSON.stringify({
             model,
-            temperature: 0.2,
+            temperature: 0.1,
+            max_tokens: 180,
             messages: [
               {
                 role: "system",
-                content: "Write a concise executive summary of this trading-firm report in 3-5 sentences. Use only the supplied statistics. Do not calculate new metrics, repeat transaction hashes, or present model estimates as on-chain facts.",
+                content: "Write a concise 2-3 sentence executive summary from the supplied statistics only. Do not calculate metrics, repeat hashes, or present estimates as chain facts.",
               },
               { role: "user", content: JSON.stringify(stats) },
             ],
