@@ -6,7 +6,7 @@
 
   <h3>The autonomous opening auction for DreamDEX Event Contracts</h3>
 
-  <p><strong>A market is born every minute. TEMPO is already there.</strong></p>
+  <p><strong>A market is born every minute. TEMPO arrives with the first price, the first liquidity, and the receipts.</strong></p>
 
   DreamDEX provides the on-chain CLOB. Somnia provides the real-time execution layer.<br>
   TEMPO supplies the missing market-opening function: <strong>price it, quote it, manage it, settle it, and roll.</strong>
@@ -25,7 +25,7 @@
   <a href="https://somnia.network/"><img src="https://img.shields.io/badge/Somnia-Shannon_50312-7B3FE4?style=flat-square" alt="Somnia Shannon testnet"></a>
   <a href="https://dreamdex.io/"><img src="https://img.shields.io/badge/DreamDEX-Event_Contracts-FF6B35?style=flat-square" alt="DreamDEX Event Contracts"></a>
   <a href="test/reports/readme-audit-20260906.md"><img src="https://img.shields.io/badge/tests-2%2C118_passing-19C37D?style=flat-square" alt="2,118 tests passing"></a>
-  <a href="test/reports/security.md"><img src="https://img.shields.io/badge/economic_state-100%25_on--chain-19C37D?style=flat-square" alt="100% live on-chain economic state"></a>
+  <a href="test/reports/zero-mock-audit.md"><img src="https://img.shields.io/badge/economic_mocks-0-19C37D?style=flat-square" alt="Zero mocked economic values"></a>
   <a href="test/reports/security.md"><img src="https://img.shields.io/badge/security_gate-passing-19C37D?style=flat-square" alt="Security gate passing"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-white?style=flat-square" alt="MIT license"></a>
 
@@ -50,11 +50,20 @@
 | **Problem** | DreamDEX continuously creates short-lived prediction markets, but each new window begins with an empty order book. In a dated live snapshot, **10 of the latest 12 finalized windows had zero trades**. |
 | **Primitive** | **Liquidity Genesis**: an autonomous opening service that derives a fair-value estimate before a book exists, seeds bounded two-sided liquidity, manages the window through expiry, claims settlement, and rolls capital into its successor. |
 | **Why Somnia** | Reactive chain-log subscriptions, ~100 ms blocks, sub-second finality, low transaction cost, and one-round-trip SDK writes make continuous on-chain quote management viable. |
-| **Why DreamDEX** | Its on-chain opening price, mint-a-pair matching, mandatory order expiry, CLOB, ERC-6909 outcomes, and keeperless settlement are the mechanism—not interchangeable integrations. |
+| **Why DreamDEX** | Its existing on-chain opening price, mint-a-pair matching, mandatory order expiry, CLOB, ERC-6909 outcomes, and keeperless settlement are the mechanism. TEMPO uses those primitives directly rather than adding a parallel custody contract. |
 | **Why agents** | Six cadences across BTC and ETH create overlapping markets no human desk can continuously discover, price, risk-check, quote, settle, and roll. GENESIS and VECTOR do it under one deterministic risk boundary. |
+| **Why it is defensible** | The reusable asset is the operating loop and evidence trail: birth discovery, non-circular pricing, bounded execution, settlement, calibration, and receipt replay across every rolling window. |
 | **Proof** | A dated testnet evidence window records **2,381 births, 2,004 real order sends, 1,464 unique transaction hashes, 100 fills, 13 claims, and 1,255.625 tUSDC matched quote notional**. |
 
 > **The insight:** a quoting bot assumes a market already exists. TEMPO provides the missing function that makes a newborn market usable.
+
+### Verify the thesis in 90 seconds
+
+1. Open the [live Observatory](https://tempo-somnia.vercel.app) and inspect the current market, on-chain strike, live book, labeled estimate, and agent state.
+2. Follow any transaction link in [Proof, not promises](#proof-not-promises) to verify the recorded lifecycle directly on Shannon.
+3. Run `npm test` for the 2,118-test offline gate, then `npm run cli -- verify` to replay journal transaction receipts against the configured RPC.
+
+No private key is required to inspect the system. No screenshot, generated narrative, or simulated fill is used as execution evidence.
 
 ## The empty-book problem
 
@@ -371,13 +380,13 @@ try {
 
 ### MCP server
 
-The MCP server exposes ten live read tools and one governed write tool:
+The MCP server exposes ten live read tools, one always-dry non-broadcast preview, and one opt-in governed write tool:
 
-| Live reads | Governed write |
+| Live reads | Non-broadcast preview | Governed write |
 |---|---|---|
-| `discover_markets` · `inspect_event_contract` · `get_live_book` · `get_market_state` · `get_fair_value` · `get_risk_state` · `get_positions` · `get_settlement` · `get_activity` · `verify_receipt` | `place_order` |
+| `discover_markets` · `inspect_event_contract` · `get_live_book` · `get_market_state` · `get_fair_value` · `get_risk_state` · `get_positions` · `get_settlement` · `get_activity` · `verify_receipt` | `simulate_trade` | `place_order` |
 
-`place_order` is absent unless TEMPO_MCP_WRITES=true and a signer is configured. If enabled, it is a real IOC write that still passes through live on-chain status checks, quantization, the RiskEngine, journaling, and receipt validation.
+`simulate_trade` prepares a proposed order from live market state and returns the chain-gated `RiskEngine` verdict without signing or broadcasting. `place_order` is absent unless `TEMPO_MCP_WRITES=true` and a signer is configured. If enabled, it is a real IOC write that still passes through live on-chain status checks, quantization, the `RiskEngine`, journaling, and receipt validation.
 
 ### Operational truth boundaries
 
@@ -447,7 +456,7 @@ During a dated live reporting window, TEMPO recorded 996 handled operational err
 
 TEMPO's credibility depends on keeping facts, estimates, and claims separate.
 
-- **100% on-chain economic state:** production prices, balances, fills, receipts, and settlements come from live sources; derived values preserve provenance and successful writes are receipt-checked.
+- **Zero mocked economic state:** production prices come from the official feed; balances, fills, receipts, and settlements come from chain/indexer sources; derived values preserve provenance and successful writes are receipt-checked.
 - **No key, no write:** read-only operation remains useful without private keys.
 - **Separate agent keys:** GENESIS and VECTOR do not share signer or nonce state.
 - **Chain-gated writes:** the live contract status is re-read before every state-changing action.
@@ -456,7 +465,7 @@ TEMPO's credibility depends on keeping facts, estimates, and claims separate.
 - **Secret boundaries:** recursive redaction, local-only default binding, CSP, origin/host checks, request bounds, and no browser access to agent credentials.
 - **Emergency stop:** `TEMPO_PAUSED=true` blocks engine, CLI, claim, and MCP writes.
 
-Current release-gate evidence: [security](test/reports/security.md) · [wallet](test/reports/wallet-flow.md) · [receipt and truth-boundary evidence](test/reports/security.md).
+Current release-gate evidence: [security](test/reports/security.md) · [wallet](test/reports/wallet-flow.md) · [zero-mock audit](test/reports/zero-mock-audit.md) · [receipt replay](test/reports/verify-20260902.md).
 
 ### How to read the business impact
 
