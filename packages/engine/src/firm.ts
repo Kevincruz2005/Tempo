@@ -302,24 +302,7 @@ export class Firm {
 
   private async connectLiveTail(): Promise<void> {
     if (!this.running || this.liveTailConnecting) return;
-    try {
-      if (this.maker.sdk.client.isTailing()) return;
-    } catch {
-      // A failed status read is treated as disconnected and retried below.
-    }
-    this.liveTailConnecting = true;
-    let timeout: ReturnType<typeof setTimeout> | undefined;
-    try {
-      await Promise.race([
-        this.maker.sdk.client.watchMarkets({ discover: true }),
-        new Promise<never>((_, reject) => {
-          timeout = setTimeout(
-            () => reject(new Error(`watchMarkets startup exceeded ${LIVE_TAIL_START_TIMEOUT_MS} ms`)),
-            LIVE_TAIL_START_TIMEOUT_MS,
-          );
-        }),
-      ]);
-      this.unsubLive?.();
+    if (!this.unsubLive) {
       this.unsubLive = this.maker.sdk.client.subscribeLive(() => {
         if (this.cycleQueued) return;
         this.cycleQueued = true;
@@ -328,10 +311,31 @@ export class Firm {
           void this.cycle("event");
         }, 350);
       });
+    }
+    try {
+      if (this.maker.sdk.client.isTailing()) return;
+    } catch {
+      // A failed status read is treated as disconnected and retried below.
+    }
+    this.liveTailConnecting = true;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const market = [...this.markets.values()]
+        .filter((row) => row.managed && row.pool && row.expiry > Date.now() / 1000)
+        .sort((a, b) => a.expiry - b.expiry)[0];
+      if (!market?.pool) throw new Error("no freshly confirmed managed market pool is available for live-tail hydration");
+      await Promise.race([
+        this.maker.sdk.client.watchMarket(market.pool),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new Error(`watchMarket startup exceeded ${LIVE_TAIL_START_TIMEOUT_MS} ms`)),
+            LIVE_TAIL_START_TIMEOUT_MS,
+          );
+        }),
+      ]);
     } catch (error) {
-      this.unsubLive?.();
-      this.unsubLive = undefined;
       this.maker.sdk.client.stopLive();
+      for (const market of this.markets.values()) market.watchedAt = 0;
       this.journal.append({
         type: "error",
         data: { what: "live tail unavailable — using interval cycles and retrying", message: String(error) },
@@ -473,7 +477,7 @@ export class Firm {
         });
       }
       // Watch scope: manage the book for cadences we trade; cheap ref-counted.
-      if (m.managed && m.pool && now - m.watchedAt > BOOKPARAMS_TTL_MS) {
+      if (m.managed && m.pool && m.watchedAt === 0) {
         m.watchedAt = now;
         void this.maker.sdk.client.watchMarket(m.pool).catch(() => {
           m!.watchedAt = 0;
