@@ -30,4 +30,23 @@ describe("Journal", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it("scans disk and buffered records exactly once", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "tempo-journal-scan-"));
+    try {
+      const journal = new Journal(dir, "scan");
+      journal.open();
+      journal.append({ type: "market-birth", data: { asset: "BTC" } });
+      const beforeClose: string[] = [];
+      await journal.scanFiles(0, (record) => beforeClose.push(record.eventId ?? "missing"));
+      expect(beforeClose).toHaveLength(1);
+
+      await journal.close();
+      const afterClose: string[] = [];
+      await journal.scanFiles(0, (record) => afterClose.push(record.eventId ?? "missing"));
+      expect(afterClose).toEqual(beforeClose);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });

@@ -6,7 +6,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { extname, resolve, sep } from "node:path";
-import { aggregate, isTempoError, type JournalRecord, type ReportStats } from "@tempo/core";
+import { aggregate, createReportAccumulator, isTempoError, type JournalRecord, type ReportAccumulator, type ReportStats } from "@tempo/core";
 import type { Firm } from "./firm.js";
 
 const MIME: Record<string, string> = {
@@ -223,7 +223,8 @@ export class TempoServer {
   private unsubscribe?: () => void;
   private readonly readinessProbe: () => Promise<ReadinessResult>;
   private readinessCache?: { at: number; result: ReadinessResult };
-  private statsCache?: { at: number; value: PublicStats };
+  private statsAccumulator?: ReportAccumulator;
+  private statsSince?: string;
   private narrativeCache?: { at: number; value: { status: "READY" | "UNAVAILABLE"; model?: string; generatedAt?: string; text?: string; reason?: string } };
   private narrativeInFlight?: Promise<NonNullable<TempoServer["narrativeCache"]>["value"]>;
 
@@ -243,13 +244,22 @@ export class TempoServer {
     if (!this.host.trim()) throw new Error("invalid HTTP host");
   }
 
-  start(): Promise<void> {
+  async start(): Promise<void> {
     if (this.server) return Promise.reject(new Error("TEMPO server already started"));
+    const hydratedAt = new Date().toISOString();
+    const accumulator = createReportAccumulator(hydratedAt, hydratedAt);
+    let firstRecordAt: string | undefined;
+    await this.firm.journal.scanFiles(0, (record) => {
+      if (!firstRecordAt || Date.parse(record.ts) < Date.parse(firstRecordAt)) firstRecordAt = record.ts;
+      accumulator.add(record);
+    });
+    this.statsAccumulator = accumulator;
+    this.statsSince = firstRecordAt ?? hydratedAt;
     this.unsubscribe = this.firm.journal.subscribe((record: JournalRecord) => {
-      // Every public aggregate is derived from the journal. Invalidate the
-      // cache before broadcasting so the dashboard's SSE-triggered refresh
-      // observes the record that caused it.
-      this.statsCache = undefined;
+      // Keep all-time public aggregates current without reloading the growing
+      // journal into memory for every dashboard refresh.
+      this.statsAccumulator?.add(record);
+      if (!this.statsSince || Date.parse(record.ts) < Date.parse(this.statsSince)) this.statsSince = record.ts;
       const frame = `data: ${JSON.stringify(sanitizeForTransport(record))}\n\n`;
       for (const response of this.sseClients.keys()) {
         try {
@@ -492,12 +502,11 @@ export class TempoServer {
 
   private stats(): PublicStats {
     const now = Date.now();
-    if (this.statsCache && now - this.statsCache.at < 60_000) return this.statsCache.value;
-    const records = this.firm.journal.since(0);
     const until = new Date(now).toISOString();
-    const since = records[0]?.ts ?? until;
-    const totals = aggregate(records, since, until);
-    const value: PublicStats = {
+    const accumulator = this.statsAccumulator ?? createReportAccumulator(until, until);
+    const totals = accumulator.snapshot(until);
+    totals.window.since = this.statsSince ?? until;
+    return {
       window: totals.window,
       markets: totals.markets,
       execution: {
@@ -514,8 +523,6 @@ export class TempoServer {
         note: "DreamDEX Event Contracts currently set maker, taker, and settlement fees to zero.",
       },
     };
-    this.statsCache = { at: now, value };
-    return value;
   }
 
   private async ready(response: ServerResponse): Promise<void> {

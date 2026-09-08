@@ -7,7 +7,8 @@
  * exact inputs a decision saw.
  */
 import { randomUUID } from "node:crypto";
-import { createWriteStream, mkdirSync, existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { createReadStream, createWriteStream, mkdirSync, existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { createInterface } from "node:readline";
 import { join } from "node:path";
 import type { WriteStream } from "node:fs";
 
@@ -141,6 +142,49 @@ export class Journal {
       }
     }
     return out.sort((a, b) => Date.parse(a.ts) - Date.parse(b.ts));
+  }
+
+  /**
+   * Visit journal records with bounded memory. Recent records not yet visible
+   * through the write stream are included exactly once by event id.
+   */
+  async scanFiles(
+    sinceMs: number,
+    visit: (record: JournalRecord) => void,
+    untilMs = Number.POSITIVE_INFINITY,
+  ): Promise<void> {
+    if (!existsSync(this.dir)) return;
+    const recent = this.recent.filter((record) => {
+      const ts = Date.parse(record.ts);
+      return ts >= sinceMs && ts <= untilMs;
+    });
+    const recentIds = new Set(recent.map((record) => record.eventId).filter((id): id is string => Boolean(id)));
+    const seenRecentIds = new Set<string>();
+    for (const file of readdirSafe(this.dir).filter((entry) => entry.endsWith(".jsonl")).sort()) {
+      const path = join(this.dir, file);
+      try {
+        if (statSync(path).mtimeMs < sinceMs) continue;
+        const lines = createInterface({ input: createReadStream(path, { encoding: "utf8" }), crlfDelay: Infinity });
+        for await (const line of lines) {
+          if (!line.trim()) continue;
+          let record: JournalRecord;
+          try {
+            record = JSON.parse(line) as JournalRecord;
+          } catch {
+            continue;
+          }
+          const ts = Date.parse(record.ts);
+          if (ts < sinceMs || ts > untilMs) continue;
+          if (record.eventId && recentIds.has(record.eventId)) seenRecentIds.add(record.eventId);
+          visit(record);
+        }
+      } catch {
+        // Unreadable files are skipped consistently with readFiles().
+      }
+    }
+    for (const record of recent) {
+      if (!record.eventId || !seenRecentIds.has(record.eventId)) visit(record);
+    }
   }
 
   close(): Promise<void> {

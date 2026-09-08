@@ -1,7 +1,7 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Journal } from "@tempo/core";
 import { TempoServer, type ReadinessResult } from "@tempo/engine";
 
@@ -90,6 +90,24 @@ describe("health and readiness boundary", () => {
     expect(body.markets.births).toBe(1);
     expect(body.execution.fills).toMatchObject({ count: 1, quoteVolume: 15 });
     expect(body.fees).toMatchObject({ takerRate: 0, protocolRevenue: 0 });
+  });
+
+  it("updates stats incrementally without reloading the journal per request", async () => {
+    const firm = fakeFirm(async () => healthy());
+    const journal = (firm as unknown as { journal: Journal }).journal;
+    journal.append({ type: "market-birth", data: { asset: "BTC" } });
+    const server = new TempoServer(firm, 0, tmpdir());
+    servers.push(server);
+    await server.start();
+    vi.spyOn(journal, "since").mockImplementation(() => { throw new Error("unbounded reload"); });
+    journal.append({ type: "market-birth", data: { asset: "ETH" } });
+
+    const first = await request(server, "/api/stats");
+    const second = await request(server, "/api/stats");
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect((await first.json() as { markets: { births: number } }).markets.births).toBe(2);
+    expect((await second.json() as { markets: { births: number } }).markets.births).toBe(2);
   });
 
   it("returns cached readiness and a safe 503 when a dependency fails", async () => {

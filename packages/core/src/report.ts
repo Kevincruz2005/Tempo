@@ -34,9 +34,18 @@ export interface ReportStats {
   errors: { count: number; byWhat: Record<string, number> };
 }
 
-export function aggregate(records: JournalRecord[], since: string, until: string): ReportStats {
+export interface ReportAccumulator {
+  add(record: JournalRecord): void;
+  snapshot(until?: string): ReportStats;
+}
+
+/**
+ * Incrementally aggregate journal records without retaining the full journal.
+ * This keeps the live dashboard bounded even after months of operation.
+ */
+export function createReportAccumulator(since: string, initialUntil: string): ReportAccumulator {
   const stats: ReportStats = {
-    window: { since, until },
+    window: { since, until: initialUntil },
     runs: { startups: 0, shutdowns: 0, uptimeMs: 0, dryRunShares: { dry: 0, live: 0 } },
     markets: { births: 0, byAsset: {} },
     decisions: { total: 0, byAgent: {}, withFairValue: 0 },
@@ -54,16 +63,20 @@ export function aggregate(records: JournalRecord[], since: string, until: string
   };
 
   // --- first pass: everything except estimate quality ---
-  const decisionsByMarket = new Map<string, Array<{ fairP: number; secondsLeft: number }>>();
-  const settlements = new Map<string, { voided: boolean; winningOutcome?: number }>();
+  const decisionsByMarket = new Map<string, {
+    latest: { fairP: number; ts: number };
+    nearExpiry?: { fairP: number; secondsLeft: number; ts: number };
+  }>();
+  const settlements = new Map<string, { voided: boolean; winningOutcome?: number; ts: number }>();
   const reasonCounts: Record<string, number> = {};
+  const uniqueTxHashes = new Set<string>();
+  const claimTxs = new Set<string>();
   const bump = (rec: Record<string, number>, key: string): void => {
     rec[key] = (rec[key] ?? 0) + 1;
   };
-  void bump;
-
-  for (const r of records) {
+  const add = (r: JournalRecord): void => {
     const d = (r.data ?? {}) as Record<string, unknown>;
+    if (r.tx) uniqueTxHashes.add(r.tx);
     switch (r.type) {
       case "startup":
         stats.runs.startups++;
@@ -85,9 +98,17 @@ export function aggregate(records: JournalRecord[], since: string, until: string
         if (typeof fairP === "number" && Number.isFinite(fairP)) {
           stats.decisions.withFairValue++;
           const marketId = r.marketId ?? "";
-          const arr = decisionsByMarket.get(marketId) ?? [];
-          arr.push({ fairP, secondsLeft: Number(d.secondsLeft ?? Infinity) });
-          decisionsByMarket.set(marketId, arr);
+          const ts = Date.parse(r.ts);
+          const secondsLeft = Number(d.secondsLeft ?? Infinity);
+          const previous = decisionsByMarket.get(marketId);
+          const latest = !previous || ts >= previous.latest.ts ? { fairP, ts } : previous.latest;
+          let nearExpiry = previous?.nearExpiry;
+          if (secondsLeft >= 0 && secondsLeft <= 600 && (
+            !nearExpiry || secondsLeft < nearExpiry.secondsLeft || (secondsLeft === nearExpiry.secondsLeft && ts < nearExpiry.ts)
+          )) {
+            nearExpiry = { fairP, secondsLeft, ts };
+          }
+          decisionsByMarket.set(marketId, { latest, ...(nearExpiry ? { nearExpiry } : {}) });
         }
         break;
       }
@@ -112,14 +133,19 @@ export function aggregate(records: JournalRecord[], since: string, until: string
         break;
       case "claim":
         stats.execution.claims.count++;
-        if (r.tx && !stats.execution.claims.txs.includes(r.tx)) stats.execution.claims.txs.push(r.tx);
+        if (r.tx) claimTxs.add(r.tx);
         break;
       case "settlement":
         if (r.marketId) {
-          settlements.set(r.marketId, {
-            voided: d.voided === true,
-            winningOutcome: typeof d.winningOutcome === "number" ? d.winningOutcome : undefined,
-          });
+          const ts = Date.parse(r.ts);
+          const previous = settlements.get(r.marketId);
+          if (!previous || ts >= previous.ts) {
+            settlements.set(r.marketId, {
+              voided: d.voided === true,
+              winningOutcome: typeof d.winningOutcome === "number" ? d.winningOutcome : undefined,
+              ts,
+            });
+          }
         }
         break;
       case "risk-reject":
@@ -134,43 +160,50 @@ export function aggregate(records: JournalRecord[], since: string, until: string
       default:
         break;
     }
-  }
+  };
 
-  // --- estimate quality: last pre-expiry fair value per settled market ---
-  const briers: number[] = [];
-  let correct = 0;
-  for (const [marketId, s] of settlements) {
-    if (s.voided) continue; // no directional truth on a void
-    if (s.winningOutcome === undefined) continue;
-    const ds = decisionsByMarket.get(marketId);
-    if (!ds || ds.length === 0) continue;
-    // Use the last non-null estimate within 10 minutes of expiry — the
-    // estimate closest to settlement that still had real time left.
-    const recent = ds
-      .filter((x) => x.secondsLeft >= 0 && x.secondsLeft <= 600)
-      .sort((a, b) => a.secondsLeft - b.secondsLeft);
-    const pick = recent[0] ?? ds[ds.length - 1];
-    const y = s.winningOutcome === 0 ? 1 : 0; // 0 = UP wins
-    briers.push((pick.fairP - y) ** 2);
-    if ((pick.fairP >= 0.5 ? 1 : 0) === y) correct++;
-    stats.estimateQuality.scoredMarkets++;
-  }
-  if (briers.length > 0) {
-    stats.estimateQuality.brier = briers.reduce((a, b) => a + b, 0) / briers.length;
-    stats.estimateQuality.directionalAccuracy = correct / briers.length;
-  } else {
-    stats.estimateQuality.note = "no settled market carried a pre-expiry fair-value estimate in this window — UNAVAILABLE, not zero";
-  }
+  const snapshot = (until = initialUntil): ReportStats => {
+    const briers: number[] = [];
+    let correct = 0;
+    for (const [marketId, settlement] of settlements) {
+      if (settlement.voided || settlement.winningOutcome === undefined) continue;
+      const decisions = decisionsByMarket.get(marketId);
+      if (!decisions) continue;
+      const pick = decisions.nearExpiry ?? decisions.latest;
+      const outcome = settlement.winningOutcome === 0 ? 1 : 0;
+      briers.push((pick.fairP - outcome) ** 2);
+      if ((pick.fairP >= 0.5 ? 1 : 0) === outcome) correct++;
+    }
+    stats.window.until = until;
+    stats.execution.uniqueTxHashes = [...uniqueTxHashes];
+    stats.execution.claims.txs = [...claimTxs];
+    stats.estimateQuality = briers.length > 0
+      ? {
+          scoredMarkets: briers.length,
+          brier: briers.reduce((sum, value) => sum + value, 0) / briers.length,
+          directionalAccuracy: correct / briers.length,
+          note: "",
+        }
+      : {
+          scoredMarkets: 0,
+          brier: null,
+          directionalAccuracy: null,
+          note: "no settled market carried a pre-expiry fair-value estimate in this window — UNAVAILABLE, not zero",
+        };
+    stats.risk.topReasons = Object.entries(reasonCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([reason, count]) => ({ reason, count }));
+    return stats;
+  };
 
-  stats.execution.uniqueTxHashes = [...new Set(
-    records.filter((r) => r.tx).map((r) => r.tx as string),
-  )];
-  stats.risk.topReasons = Object.entries(reasonCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([reason, count]) => ({ reason, count }));
+  return { add, snapshot };
+}
 
-  return stats;
+export function aggregate(records: JournalRecord[], since: string, until: string): ReportStats {
+  const accumulator = createReportAccumulator(since, until);
+  for (const record of records) accumulator.add(record);
+  return accumulator.snapshot();
 }
 
 function fmt(n: number, digits = 2): string {
