@@ -321,11 +321,14 @@ export class Firm {
     let timeout: ReturnType<typeof setTimeout> | undefined;
     try {
       const market = [...this.markets.values()]
-        .filter((row) => row.managed && row.pool && row.expiry > Date.now() / 1000)
+        .filter((row) => row.managed && row.expiry > Date.now() / 1000)
         .sort((a, b) => a.expiry - b.expiry)[0];
-      if (!market?.pool) throw new Error("no freshly confirmed managed market pool is available for live-tail hydration");
+      if (!market) throw new Error("no freshly confirmed managed market is available for live-tail hydration");
+      const pool = market.pool ?? this.onchainCache.get(market.marketId)?.value.pool ?? (await this.onchain(market.marketId)).pool;
+      market.pool = pool;
+      market.watchedAt = Date.now();
       await Promise.race([
-        this.maker.sdk.client.watchMarket(market.pool),
+        this.maker.sdk.client.watchMarket(pool),
         new Promise<never>((_, reject) => {
           timeout = setTimeout(
             () => reject(new Error(`watchMarket startup exceeded ${LIVE_TAIL_START_TIMEOUT_MS} ms`)),
