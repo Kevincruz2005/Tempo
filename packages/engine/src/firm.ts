@@ -41,6 +41,7 @@ const BOOKPARAMS_TTL_MS = 60_000;
 const OPENING_TTL_FOUND_MS = 60_000;
 const OPENING_TTL_MISSING_MS = 2000;
 const LIVE_TAIL_START_TIMEOUT_MS = 30_000;
+const LIVE_TAIL_RETRY_MS = 30_000;
 
 /** Only windows of these cadences are actively managed (display shows all). */
 const MANAGED_CADENCES = new Set([60, 300, 900, 3600, 14400, 86400]);
@@ -145,6 +146,7 @@ export class Firm {
   private readonly calibration: CalibrationEngine;
   private calibratedTakerEdge: number;
   private liveTailRequested = false;
+  private liveTailConnecting = false;
   private readinessRpc?: { block: bigint; advancedAt: number };
   private feeCache?: { at: number; value: VenueFeeSnapshot };
 
@@ -233,36 +235,10 @@ export class Firm {
 
     // Whole-protocol tail with birth discovery — Somnia's live watches
     // materialize books locally and pick up new markets the block they deploy.
-    let liveTailTimer: ReturnType<typeof setTimeout> | undefined;
-    try {
-      this.liveTailRequested = true;
-      await Promise.race([
-        this.maker.sdk.client.watchMarkets({ discover: true }),
-        new Promise<never>((_, reject) => {
-          liveTailTimer = setTimeout(
-            () => reject(new Error(`watchMarkets startup exceeded ${LIVE_TAIL_START_TIMEOUT_MS} ms`)),
-            LIVE_TAIL_START_TIMEOUT_MS,
-          );
-        }),
-      ]);
-      clearTimeout(liveTailTimer);
-      this.unsubLive = this.maker.sdk.client.subscribeLive(() => {
-        if (this.cycleQueued) return;
-        this.cycleQueued = true;
-        setTimeout(() => {
-          this.cycleQueued = false;
-          void this.cycle("event");
-        }, 350);
-      });
-    } catch (e) {
-      clearTimeout(liveTailTimer);
-      this.liveTailRequested = false;
-      this.maker.sdk.client.stopLive();
-      this.journal.append({
-        type: "error",
-        data: { what: "live tail unavailable — falling back to interval cycles", message: String(e) },
-      });
-    }
+    // Interval cycles remain the real-data fallback while transient WebSocket
+    // failures reconnect automatically.
+    this.liveTailRequested = true;
+    await this.connectLiveTail();
 
     // Per-asset price watch loops (official feed). watchPrice resolves on the
     // next tick — the loop re-arms itself; each tick feeds the appraiser.
@@ -279,6 +255,7 @@ export class Firm {
       setInterval(() => void this.refreshMarkets(false), DISCOVERY_INTERVAL_MS),
       setInterval(() => void this.sweepClaims(), CLAIM_SWEEP_MS),
       setInterval(() => void this.refreshAgentState(), 10_000),
+      setInterval(() => void this.connectLiveTail(), LIVE_TAIL_RETRY_MS),
     );
     this.discoveryHandle = this.timers[1];
     void this.refreshAgentState();
@@ -294,6 +271,7 @@ export class Firm {
     this.timers = [];
     if (this.discoveryHandle) clearInterval(this.discoveryHandle);
     this.unsubLive?.();
+    this.unsubLive = undefined;
     this.maker.sdk.client.stopLive();
     this.journal.append({ type: "shutdown", data: { uptimeMs: Date.now() - this.startedAt } });
     await this.journal.close();
@@ -319,6 +297,48 @@ export class Firm {
         this.journal.append({ type: "error", data: { what: `price loop ${asset}`, message: String(e) } });
         await new Promise((r) => setTimeout(r, 2000));
       }
+    }
+  }
+
+  private async connectLiveTail(): Promise<void> {
+    if (!this.running || this.liveTailConnecting) return;
+    try {
+      if (this.maker.sdk.client.isTailing()) return;
+    } catch {
+      // A failed status read is treated as disconnected and retried below.
+    }
+    this.liveTailConnecting = true;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        this.maker.sdk.client.watchMarkets({ discover: true }),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(
+            () => reject(new Error(`watchMarkets startup exceeded ${LIVE_TAIL_START_TIMEOUT_MS} ms`)),
+            LIVE_TAIL_START_TIMEOUT_MS,
+          );
+        }),
+      ]);
+      this.unsubLive?.();
+      this.unsubLive = this.maker.sdk.client.subscribeLive(() => {
+        if (this.cycleQueued) return;
+        this.cycleQueued = true;
+        setTimeout(() => {
+          this.cycleQueued = false;
+          void this.cycle("event");
+        }, 350);
+      });
+    } catch (error) {
+      this.unsubLive?.();
+      this.unsubLive = undefined;
+      this.maker.sdk.client.stopLive();
+      this.journal.append({
+        type: "error",
+        data: { what: "live tail unavailable — using interval cycles and retrying", message: String(error) },
+      });
+    } finally {
+      if (timeout) clearTimeout(timeout);
+      this.liveTailConnecting = false;
     }
   }
 
