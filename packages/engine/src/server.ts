@@ -7,7 +7,7 @@ import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { extname, resolve, sep } from "node:path";
 import { createReportAccumulator, isTempoError, type JournalRecord, type ReportAccumulator, type ReportStats } from "@tempo/core";
-import type { Firm } from "./firm.js";
+import type { Firm, VenueFeeSnapshot } from "./firm.js";
 
 const MIME: Record<string, string> = {
   ".css": "text/css; charset=utf-8",
@@ -73,7 +73,7 @@ interface PublicStats {
     fills: ReportStats["execution"]["fills"];
   };
   estimateQuality: ReportStats["estimateQuality"];
-  fees: { makerRate: 0; takerRate: 0; settlementRate: 0; protocolRevenue: 0; note: string };
+  fees: VenueFeeSnapshot;
 }
 
 export function isSameOriginRequest(origin?: string, host?: string, fetchSite?: string): boolean {
@@ -422,7 +422,7 @@ export class TempoServer {
         }
       }
       if (url.pathname === "/api/state") return this.json(response, 200, await this.firm.snapshot());
-      if (url.pathname === "/api/stats") return this.json(response, 200, this.stats());
+      if (url.pathname === "/api/stats") return this.json(response, 200, await this.stats());
       if (url.pathname === "/api/narrative") return this.json(response, 200, await this.narrative());
       if (url.pathname === "/api/journal") {
         const limit = parseJournalLimit(url.searchParams.get("n"));
@@ -503,7 +503,7 @@ export class TempoServer {
     }
   }
 
-  private stats(): PublicStats {
+  private async stats(): Promise<PublicStats> {
     const now = Date.now();
     const until = new Date(now).toISOString();
     const accumulator = this.statsAccumulator ?? createReportAccumulator(until, until);
@@ -518,13 +518,7 @@ export class TempoServer {
         fills: totals.execution.fills,
       },
       estimateQuality: totals.estimateQuality,
-      fees: {
-        makerRate: 0 as const,
-        takerRate: 0 as const,
-        settlementRate: 0 as const,
-        protocolRevenue: 0 as const,
-        note: "DreamDEX Event Contracts currently set maker, taker, and settlement fees to zero.",
-      },
+      fees: await this.firm.feeSchedule(),
     };
   }
 
@@ -596,5 +590,6 @@ const PROVENANCE = [
   { key: "balances", source: "on-chain", via: "collateral ERC-20 + ERC-6909 outcome balances" },
   { key: "fills", source: "on-chain events", via: "live fill tape (OrderFilled logs)" },
   { key: "settlement", source: "on-chain", via: "market resolution + oracle explorer link" },
+  { key: "venueFees", source: "official indexer/on-chain events", via: "getMarketFees(marketId), frozen at market creation" },
   { key: "tx", source: "on-chain", via: "realtime_sendRawTransaction receipts" },
 ] as const;

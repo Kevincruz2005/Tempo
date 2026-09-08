@@ -125,6 +125,9 @@ describe("multipage observatory UI contract", () => {
     expect(html).toContain('data-onboarding="dashboard"');
     expect(app).toContain('getJson("/api/stats")');
     expect(app).toContain("firmIntelligence");
+    expect(app).toContain("fees?.makerRate");
+    expect(app).toContain("NO MOCK FALLBACKS");
+    expect(app).not.toContain('item("0%", "VENUE FEES"');
   });
 
   it("uses the centered wallet connection modal without a dry-run navbar chip", () => {

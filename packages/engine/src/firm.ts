@@ -95,6 +95,18 @@ interface SettlementView {
   source: "indexer/on-chain";
 }
 
+export interface VenueFeeSnapshot {
+  makerRate: number | null;
+  takerRate: number | null;
+  settlementRate: number | null;
+  protocolRevenue: number | null;
+  marketId?: string;
+  venueId?: string;
+  observedAt: string;
+  source: "official-indexer/on-chain-event" | "UNAVAILABLE";
+  note: string;
+}
+
 export class Firm {
   readonly journal: Journal;
   readonly appraiser: Appraiser;
@@ -134,6 +146,7 @@ export class Firm {
   private calibratedTakerEdge: number;
   private liveTailRequested = false;
   private readinessRpc?: { block: bigint; advancedAt: number };
+  private feeCache?: { at: number; value: VenueFeeSnapshot };
 
   constructor(cfg: TempoConfig, opts: { managedCadences?: readonly number[] } = {}) {
     this.cfg = cfg;
@@ -1227,6 +1240,55 @@ export class Firm {
       risk: this.cfg.risk,
       settlements: this.settlements,
     };
+  }
+
+  /** Fee configuration frozen into a current market and mirrored from chain events by the official indexer. */
+  async feeSchedule(): Promise<VenueFeeSnapshot> {
+    const now = Date.now();
+    if (this.feeCache && now - this.feeCache.at < 60_000) return this.feeCache.value;
+    const market = [...this.markets.values()]
+      .filter((row) => row.expiry * 1000 > now && row.marketId)
+      .sort((a, b) => a.expiry - b.expiry)[0];
+    const unavailable = (note: string): VenueFeeSnapshot => ({
+      makerRate: null,
+      takerRate: null,
+      settlementRate: null,
+      protocolRevenue: null,
+      ...(market ? { marketId: market.marketId, ...(market.venueId ? { venueId: market.venueId } : {}) } : {}),
+      observedAt: new Date().toISOString(),
+      source: "UNAVAILABLE",
+      note,
+    });
+    if (!market) return unavailable("No current market is available for a live fee read.");
+    try {
+      const fees = await this.maker.sdk.client.getMarketFees(market.marketId);
+      const rate = (value: string | null): number | null => {
+        if (value === null || !/^\d+$/.test(value)) return null;
+        const bps = Number(value);
+        return Number.isFinite(bps) ? bps / 10_000 : null;
+      };
+      if (!fees) return unavailable("The official indexer returned no fee attribution for the current market.");
+      let protocolRevenue: number | null = null;
+      if (fees.settlementFeesCollected !== null && /^\d+$/.test(fees.settlementFeesCollected)) {
+        const decimals = await this.maker.collateralDecimals();
+        protocolRevenue = Number(fees.settlementFeesCollected) / 10 ** decimals;
+      }
+      const value: VenueFeeSnapshot = {
+        makerRate: rate(fees.makerFeeBps),
+        takerRate: rate(fees.takerFeeBps),
+        settlementRate: rate(fees.settlementFeeBps),
+        protocolRevenue,
+        marketId: market.marketId,
+        venueId: fees.venueId,
+        observedAt: new Date().toISOString(),
+        source: "official-indexer/on-chain-event",
+        note: "Fee configuration frozen into this market at creation and mirrored from on-chain events by the official indexer.",
+      };
+      this.feeCache = { at: now, value };
+      return value;
+    } catch {
+      return unavailable("Current market fee configuration is unavailable; no fallback value was substituted.");
+    }
   }
 
   /** Readiness probe composed only from live dependency checks and safe status. */

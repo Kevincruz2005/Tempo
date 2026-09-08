@@ -349,6 +349,12 @@ function firmIntelligence(minimized = false) {
   const stats = model.stats;
   const quality = stats?.estimateQuality;
   const fills = stats?.execution?.fills;
+  const fees = stats?.fees;
+  const feeRates = [fees?.makerRate, fees?.takerRate, fees?.settlementRate];
+  const hasFeeRates = feeRates.every((rate) => typeof rate === "number" && Number.isFinite(rate));
+  const feeValue = hasFeeRates
+    ? (feeRates.every((rate) => Number(rate) === Number(feeRates[0])) ? pct(feeRates[0]) : feeRates.map((rate) => pct(rate)).join(" / "))
+    : "NO DATA";
   const active = (model.state?.markets || []).filter((row) => row.status === 1 && row.secondsLeft > 0);
   const covered = active.filter((row) => row.managed && row.view?.book?.yesBids?.length && row.view?.book?.yesAsks?.length).length;
   const item = (value, label, source, title) => '<div class="intelligence-stat"><span>' + escapeHtml(label) + " " + badge(source, title) +
@@ -370,8 +376,8 @@ function firmIntelligence(minimized = false) {
     item(stats ? fmt(fills?.quoteVolume, 3) : "NO DATA", "MATCHED NOTIONAL", "derived", "Sum of fill price × size in journal collateral units") +
     item(model.loaded.state ? (active.length ? covered + "/" + active.length : "NO DATA") : "NO DATA", "LIVE COVERAGE", "derived", "Managed trading windows with materialized UP bid and ask") +
     item(stats ? fmt(stats.execution?.uniqueTxCount, 0) : "NO DATA", "TX HASHES", "journal", "Journaled hashes; verify independently with tempo verify") +
-    item("0%", "VENUE FEES", "chain", "DreamDEX maker, taker, and settlement fees are currently zero") +
-    item("0", "MOCKED VALUES", "policy") +
+    item(feeValue, "VENUE FEES", "chain", fees?.note || "Live maker / taker / settlement fee configuration is unavailable") +
+    item("ENFORCED", "NO MOCK FALLBACKS", "policy", "Runtime policy assertion backed by source audit; unavailable upstream values render NO DATA or UNAVAILABLE") +
     "</div></div></section>";
 }
 

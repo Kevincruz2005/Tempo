@@ -19,6 +19,15 @@ function fakeFirm(readiness: () => Promise<ReadinessResult>) {
   return {
     journal: new Journal(root, "health-test"),
     snapshot: async () => ({}),
+    feeSchedule: async () => ({
+      makerRate: 0,
+      takerRate: 0,
+      settlementRate: 0,
+      protocolRevenue: 0,
+      observedAt: new Date().toISOString(),
+      source: "official-indexer/on-chain-event",
+      note: "test fee evidence",
+    }),
     readiness,
   } as never;
 }
@@ -85,11 +94,11 @@ describe("health and readiness boundary", () => {
     const body = await response.json() as {
       markets: { births: number };
       execution: { fills: { count: number; quoteVolume: number } };
-      fees: { takerRate: number; protocolRevenue: number };
+      fees: { takerRate: number | null; protocolRevenue: number | null; source: string };
     };
     expect(body.markets.births).toBe(1);
     expect(body.execution.fills).toMatchObject({ count: 1, quoteVolume: 15 });
-    expect(body.fees).toMatchObject({ takerRate: 0, protocolRevenue: 0 });
+    expect(body.fees).toMatchObject({ takerRate: 0, protocolRevenue: 0, source: "official-indexer/on-chain-event" });
   });
 
   it("updates stats incrementally without reloading the journal per request", async () => {
