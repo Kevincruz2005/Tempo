@@ -50,6 +50,11 @@ export interface CalibrationResult {
   reason?: string;
 }
 
+export interface CalibrationAccumulator {
+  add(record: JournalRecord): void;
+  snapshot(): CalibrationScore;
+}
+
 const clamp = (value: number, base: number): number => Math.max(base * 0.5, Math.min(base * 2, value));
 
 const calibratedProbability = (p: number, temperature: number): number => {
@@ -68,70 +73,90 @@ function fitTemperature(probabilities: readonly number[], outcomes: readonly num
   return best;
 }
 
-export function scoreCalibrationRecords(records: readonly JournalRecord[]): CalibrationScore {
-  const decisions = new Map<string, Array<{ p: number; secondsLeft: number; ts: number }>>();
+export function createCalibrationAccumulator(): CalibrationAccumulator {
+  const decisions = new Map<string, {
+    closest: { p: number; secondsLeft: number; ts: number };
+    nearExpiry?: { p: number; secondsLeft: number; ts: number };
+  }>();
   const settlements = new Map<string, { voided: boolean; winner?: number; ts: number }>();
-  const vectorDirections = new Map<string, Array<{ up: boolean; ts: number }>>();
+  const vectorDirections = new Map<string, { up: number; down: number }>();
   let vectorFills = 0;
-  for (const record of records) {
+  const add = (record: JournalRecord): void => {
     const data = record.data ?? {};
     if (record.type === "decision" && typeof data.fairP === "number" && Number.isFinite(data.fairP) && record.marketId) {
-      const list = decisions.get(record.marketId) ?? [];
-      list.push({ p: data.fairP, secondsLeft: Number(data.secondsLeft ?? Number.POSITIVE_INFINITY), ts: Date.parse(record.ts) });
-      decisions.set(record.marketId, list);
+      const entry = { p: data.fairP, secondsLeft: Number(data.secondsLeft ?? Number.POSITIVE_INFINITY), ts: Date.parse(record.ts) };
+      const previous = decisions.get(record.marketId);
+      const closest = !previous || entry.secondsLeft < previous.closest.secondsLeft ? entry : previous.closest;
+      let nearExpiry = previous?.nearExpiry;
+      if (entry.secondsLeft >= 0 && entry.secondsLeft <= 600 && (!nearExpiry || entry.secondsLeft < nearExpiry.secondsLeft)) {
+        nearExpiry = entry;
+      }
+      decisions.set(record.marketId, { closest, ...(nearExpiry ? { nearExpiry } : {}) });
     } else if (record.type === "settlement" && record.marketId) {
-      settlements.set(record.marketId, {
-        voided: data.voided === true,
-        winner: typeof data.winningOutcome === "number" ? data.winningOutcome : undefined,
-        ts: Date.parse(record.ts),
-      });
+      const ts = Date.parse(record.ts);
+      const previous = settlements.get(record.marketId);
+      if (!previous || ts >= previous.ts) {
+        settlements.set(record.marketId, {
+          voided: data.voided === true,
+          winner: typeof data.winningOutcome === "number" ? data.winningOutcome : undefined,
+          ts,
+        });
+      }
     } else if (record.type === "fill" && record.agent === "VECTOR") {
       vectorFills++;
       if (record.marketId && typeof data.kind === "string") {
-        const list = vectorDirections.get(record.marketId) ?? [];
-        list.push({ up: data.kind.includes("UP"), ts: Date.parse(record.ts) });
-        vectorDirections.set(record.marketId, list);
+        const directions = vectorDirections.get(record.marketId) ?? { up: 0, down: 0 };
+        if (data.kind.includes("UP")) directions.up++;
+        else directions.down++;
+        vectorDirections.set(record.marketId, directions);
       }
     }
-  }
-  const rollingSettlements = [...settlements.entries()]
-    .filter(([, settlement]) => !settlement.voided && settlement.winner !== undefined)
-    .sort((a, b) => b[1].ts - a[1].ts)
-    .slice(0, 30);
-  const briers: number[] = [];
-  const probabilities: number[] = [];
-  const outcomes: number[] = [];
-  let correct = 0;
-  let vectorScored = 0;
-  let vectorCorrect = 0;
-  const fingerprintRows: string[] = [];
-  for (const [marketId, settlement] of rollingSettlements) {
-    const list = decisions.get(marketId);
-    if (!list?.length) continue;
-    const eligible = list.filter((entry) => entry.secondsLeft >= 0 && entry.secondsLeft <= 600);
-    const picked = [...(eligible.length ? eligible : list)].sort((a, b) => a.secondsLeft - b.secondsLeft)[0];
-    const outcome = settlement.winner === 0 ? 1 : 0;
-    briers.push((picked.p - outcome) ** 2);
-    probabilities.push(picked.p);
-    outcomes.push(outcome);
-    fingerprintRows.push(`${marketId}:${picked.p}:${outcome}`);
-    if ((picked.p >= 0.5 ? 1 : 0) === outcome) correct++;
-    for (const direction of vectorDirections.get(marketId) ?? []) {
-      vectorScored++;
-      if ((direction.up ? 1 : 0) === outcome) vectorCorrect++;
-    }
-  }
-  return {
-    scoredCount: briers.length,
-    brier: briers.length ? briers.reduce((sum, value) => sum + value, 0) / briers.length : null,
-    directionalAccuracy: briers.length ? correct / briers.length : null,
-    vectorFills,
-    vectorScored,
-    vectorDirectionalAccuracy: vectorScored ? vectorCorrect / vectorScored : null,
-    windowFingerprint: createHash("sha256").update(fingerprintRows.sort().join("|")).digest("hex"),
-    probabilities,
-    outcomes,
   };
+  const snapshot = (): CalibrationScore => {
+    const rollingSettlements = [...settlements.entries()]
+      .filter(([, settlement]) => !settlement.voided && settlement.winner !== undefined)
+      .sort((a, b) => b[1].ts - a[1].ts)
+      .slice(0, 30);
+    const briers: number[] = [];
+    const probabilities: number[] = [];
+    const outcomes: number[] = [];
+    let correct = 0;
+    let vectorScored = 0;
+    let vectorCorrect = 0;
+    const fingerprintRows: string[] = [];
+    for (const [marketId, settlement] of rollingSettlements) {
+      const choices = decisions.get(marketId);
+      if (!choices) continue;
+      const picked = choices.nearExpiry ?? choices.closest;
+      const outcome = settlement.winner === 0 ? 1 : 0;
+      briers.push((picked.p - outcome) ** 2);
+      probabilities.push(picked.p);
+      outcomes.push(outcome);
+      fingerprintRows.push(`${marketId}:${picked.p}:${outcome}`);
+      if ((picked.p >= 0.5 ? 1 : 0) === outcome) correct++;
+      const directions = vectorDirections.get(marketId) ?? { up: 0, down: 0 };
+      vectorScored += directions.up + directions.down;
+      vectorCorrect += outcome === 1 ? directions.up : directions.down;
+    }
+    return {
+      scoredCount: briers.length,
+      brier: briers.length ? briers.reduce((sum, value) => sum + value, 0) / briers.length : null,
+      directionalAccuracy: briers.length ? correct / briers.length : null,
+      vectorFills,
+      vectorScored,
+      vectorDirectionalAccuracy: vectorScored ? vectorCorrect / vectorScored : null,
+      windowFingerprint: createHash("sha256").update(fingerprintRows.sort().join("|")).digest("hex"),
+      probabilities,
+      outcomes,
+    };
+  };
+  return { add, snapshot };
+}
+
+export function scoreCalibrationRecords(records: readonly JournalRecord[]): CalibrationScore {
+  const accumulator = createCalibrationAccumulator();
+  for (const record of records) accumulator.add(record);
+  return accumulator.snapshot();
 }
 
 export class CalibrationStore {
@@ -177,8 +202,11 @@ export class CalibrationEngine {
   }
 
   run(records: readonly JournalRecord[], force = false, now = Date.now()): CalibrationResult {
+    return this.runScore(scoreCalibrationRecords(records), force, now);
+  }
+
+  runScore(score: CalibrationScore, force = false, now = Date.now()): CalibrationResult {
     const state = this.store.load(this.onCorrupt);
-    const score = scoreCalibrationRecords(records);
     if (!force && score.scoredCount < 25) {
       return { status: "GATED", score, state, reason: `epoch requires 25 scored markets; found ${score.scoredCount}` };
     }

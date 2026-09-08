@@ -6,7 +6,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { readFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { extname, resolve, sep } from "node:path";
-import { aggregate, createReportAccumulator, isTempoError, type JournalRecord, type ReportAccumulator, type ReportStats } from "@tempo/core";
+import { createReportAccumulator, isTempoError, type JournalRecord, type ReportAccumulator, type ReportStats } from "@tempo/core";
 import type { Firm } from "./firm.js";
 
 const MIME: Record<string, string> = {
@@ -456,8 +456,11 @@ export class TempoServer {
     this.narrativeInFlight = (async () => {
       const apiKey = process.env.TEMPO_LLM_API_KEY ?? process.env.OPENAI_API_KEY;
       if (!apiKey) return { status: "UNAVAILABLE" as const, reason: "Gemini narrative is not configured" };
-      const records = this.firm.journal.readFiles(Date.now() - 24 * 3600_000);
-      const stats = aggregate(records, new Date(Date.now() - 24 * 3600_000).toISOString(), new Date().toISOString());
+      const sinceMs = Date.now() - 24 * 3600_000;
+      const until = new Date().toISOString();
+      const accumulator = createReportAccumulator(new Date(sinceMs).toISOString(), until);
+      await this.firm.journal.scanFiles(sinceMs, (record) => accumulator.add(record));
+      const stats = accumulator.snapshot();
       const model = process.env.TEMPO_LLM_MODEL ?? "gemini-3.6-flash";
       const url = process.env.TEMPO_LLM_URL ?? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
       const controller = new AbortController();

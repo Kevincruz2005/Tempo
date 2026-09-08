@@ -27,7 +27,8 @@ import {
   oracleQuestionUrl,
   CalibrationEngine,
   CalibrationStore,
-  } from "@tempo/core";
+  createCalibrationAccumulator,
+} from "@tempo/core";
 import { Appraiser } from "./appraiser.js";
 import { Executor, type ExecutionResult } from "./executor.js";
 import { genesisQuotePlan, takerPlan, type Book, type MakerInputs, type TakerInputs } from "@tempo/core";
@@ -207,7 +208,7 @@ export class Firm {
         assets: this.cfg.assets,
       },
     });
-    const restoredMarkets = this.restoreMarketsFromJournal();
+    const restoredMarkets = await this.restoreMarketsFromJournal();
     if (restoredMarkets > 0) {
       this.journal.append({
         type: "market-snapshot",
@@ -310,31 +311,30 @@ export class Firm {
 
   // -- discovery ------------------------------------------------------------
 
-  private restoreMarketsFromJournal(): number {
+  private async restoreMarketsFromJournal(): Promise<number> {
     const nowSec = Date.now() / 1000;
-    const records = this.journal.since(Date.now() - 7 * 24 * 3600_000);
     const recovered = new Map<string, BinaryMarketInfo>();
     const openings = new Map<string, number>();
     const pools = new Map<string, string>();
     const textValue = (value: unknown): string | undefined => typeof value === "string" && value.length > 0 ? value : undefined;
 
-    for (const record of records) {
+    await this.journal.scanFiles(Date.now() - 7 * 24 * 3600_000, (record) => {
       const marketId = record.marketId;
-      if (!marketId || !/^0x[0-9a-f]{64}$/i.test(marketId)) continue;
+      if (!marketId || !/^0x[0-9a-f]{64}$/i.test(marketId)) return;
       const data = record.data ?? {};
       if (record.agent === "APPRAISER") {
         const strike = Number(data.strike);
         if (Number.isFinite(strike) && strike > 0) openings.set(marketId, strike);
         if (record.contractAddress && /^0x[0-9a-f]{40}$/i.test(record.contractAddress)) pools.set(marketId, record.contractAddress);
       }
-      if (record.type !== "market-birth" && record.type !== "market-snapshot") continue;
+      if (record.type !== "market-birth" && record.type !== "market-snapshot") return;
       const symbol = textValue(data.symbol) ?? textValue(record.symbol);
       const asset = textValue(data.asset)?.toUpperCase();
       const intervalSec = Number(data.intervalSec);
       const expiry = Number(data.expiry);
-      if (!symbol || !asset || !this.cfg.assets.includes(asset) || !Number.isFinite(intervalSec) || intervalSec <= 0 || !Number.isFinite(expiry) || expiry <= nowSec - 300) continue;
+      if (!symbol || !asset || !this.cfg.assets.includes(asset) || !Number.isFinite(intervalSec) || intervalSec <= 0 || !Number.isFinite(expiry) || expiry <= nowSec - 300) return;
       const venueId = textValue(data.venueId);
-      if (this.cfg.venueId && venueId !== this.cfg.venueId) continue;
+      if (this.cfg.venueId && venueId !== this.cfg.venueId) return;
       const resolutionMode = data.resolutionMode === "reference" || data.resolutionMode === "fixed" ? data.resolutionMode : undefined;
       recovered.set(marketId, {
         marketId,
@@ -351,7 +351,7 @@ export class Firm {
         strike: textValue(data.strike),
         resolutionMode,
       });
-    }
+    });
 
     const hints: BinaryMarketInfo[] = [];
     for (const [marketId, row] of recovered) {
@@ -1108,7 +1108,9 @@ export class Firm {
 
   /** Run one bounded calibration epoch from the journal; never changes risk caps. */
   async calibrate(force = false): Promise<ReturnType<CalibrationEngine["run"]>> {
-    const result = this.calibration.run(this.journal.since(Date.now() - 30 * 24 * 3600_000), force);
+    const accumulator = createCalibrationAccumulator();
+    await this.journal.scanFiles(Date.now() - 30 * 24 * 3600_000, (record) => accumulator.add(record));
+    const result = this.calibration.runScore(accumulator.snapshot(), force);
     if (result.status === "APPLIED" && result.epoch) {
       this.calibratedTakerEdge = result.state.params.takerEdge;
       this.appraiser.setSigmaMultiplier(result.state.params.sigmaMultiplier);
