@@ -444,7 +444,7 @@ An autonomous firm is defined as much by what it refuses and survives as by what
 | Indexer reports a stale trading window | Re-read on-chain status; reject the write unless status is `Trading` |
 | `PostOnlyWouldCross` | Treat as market movement; refresh inputs and re-quote |
 | Price history or feed unavailable | Emit `NO DATA`; do not invent volatility or price |
-| WebSocket interruption | Reconnect with backoff and rehydrate from a bounded snapshot path |
+| WebSocket interruption | Retry every 30 seconds; resolve the current managed pool from on-chain state and rehydrate its bounded snapshot while interval cycles continue |
 | Inventory or capital cap reached | Block the offending side before signing |
 | Market resolves void | Redeem both outcomes at the protocol's 0.5 void payout |
 | Process dies with resting orders | Mandatory order expiry ages quotes off the book |
@@ -469,7 +469,7 @@ Current release-gate evidence: [security](test/reports/security.md) · [wallet](
 
 ### How to read the business impact
 
-The dated evidence already shows product impact without inventing fee revenue: 10 of 12 recently finalized windows were empty in the baseline snapshot, while TEMPO recorded 2,381 births, 2,004 real order sends, 100 fills, 1,255.625 tUSDC matched quote notional, and point-in-time two-sided managed-book coverage of 60% of all active windows and 75% of managed active windows. DreamDEX’s current Event Contract fee schedule is 0%, so the honest value signal is usable opening liquidity and matched activity—not protocol-fee revenue.
+The dated evidence already shows product impact without inventing fee revenue: 10 of 12 recently finalized windows were empty in the baseline snapshot, while TEMPO recorded 2,381 births, 2,004 real order sends, 100 fills, 1,255.625 tUSDC matched quote notional, and point-in-time two-sided managed-book coverage of 60% of all active windows and 75% of managed active windows. DreamDEX’s current Event Contract fee schedule is 0%, so the honest value signal is usable opening liquidity and matched activity—not protocol-fee revenue. The dashboard reads the current market’s fee configuration from the official indexer through `getMarketFees(marketId)` and displays `NO DATA` when that evidence is unavailable; it never substitutes a hardcoded zero.
 
 The strongest next business evidence is independently attributable external flow. New records now preserve maker, taker, counterparty, and FIRM/EXTERNAL classification. A future evidence release will compare managed and unmanaged windows across the same cadences, publish external-fill conversion and repeat-trader measures, and report spread capture or venue maker incentives only when independently verified. This turns the current infrastructure impact into a clearer adoption and sustainability score without overstating the testnet sample.
 
