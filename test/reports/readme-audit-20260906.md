@@ -9,7 +9,7 @@
 | Check | Result |
 | --- | --- |
 | `npm run typecheck` | PASS — core, engine, CLI, and MCP compile successfully |
-| `npm test` | PASS — 18 files, 2,118 tests |
+| `npm test` | PASS — 18 files, 2,120 tests |
 | `npm run security:secrets` | PASS — 131 repository files inspected after repository cleanup |
 | `npm audit --audit-level=high` | PASS — 0 vulnerabilities |
 | README local-link target check | PASS |
@@ -18,7 +18,7 @@
 ## README accuracy checks
 
 - Headline operating metrics are explicitly tied to the dated 2026-09-05 business-impact snapshot.
-- The test badge and test claim match the current 2,118-test suite.
+- The test badge and test claim match the current 2,120-test suite.
 - The CLI surface matches the 17 top-level commands returned by `tempo --help`.
 - The MCP table matches the ten read tools, one simulation tool, and one opt-in write tool defined by `packages/mcp/src/index.ts`.
 - The SDK section distinguishes repository package version 0.3.1 from the latest packaged GitHub artifact, v0.3.0.

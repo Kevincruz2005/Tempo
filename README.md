@@ -24,7 +24,7 @@
   <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="Strict TypeScript"></a>
   <a href="https://somnia.network/"><img src="https://img.shields.io/badge/Somnia-Shannon_50312-7B3FE4?style=flat-square" alt="Somnia Shannon testnet"></a>
   <a href="https://dreamdex.io/"><img src="https://img.shields.io/badge/DreamDEX-Event_Contracts-FF6B35?style=flat-square" alt="DreamDEX Event Contracts"></a>
-  <a href="test/reports/readme-audit-20260906.md"><img src="https://img.shields.io/badge/tests-2%2C118_passing-19C37D?style=flat-square" alt="2,118 tests passing"></a>
+  <a href="test/reports/readme-audit-20260906.md"><img src="https://img.shields.io/badge/tests-2%2C120_passing-19C37D?style=flat-square" alt="2,120 tests passing"></a>
   <a href="test/reports/zero-mock-audit.md"><img src="https://img.shields.io/badge/economic_mocks-0-19C37D?style=flat-square" alt="Zero mocked economic values"></a>
   <a href="test/reports/security.md"><img src="https://img.shields.io/badge/security_gate-passing-19C37D?style=flat-square" alt="Security gate passing"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-white?style=flat-square" alt="MIT license"></a>
@@ -61,7 +61,7 @@
 
 1. Open the [live Observatory](https://tempo-somnia.vercel.app) and inspect the current market, on-chain strike, live book, labeled estimate, and agent state.
 2. Follow any transaction link in [Proof, not promises](#proof-not-promises) to verify the recorded lifecycle directly on Shannon.
-3. Run `npm test` for the 2,118-test offline gate, then `npm run cli -- verify` to replay journal transaction receipts against the configured RPC.
+3. Run `npm test` for the 2,120-test offline gate, then `npm run cli -- verify` to replay journal transaction receipts against the configured RPC.
 
 No private key is required to inspect the system. No screenshot, generated narrative, or simulated fill is used as execution evidence.
 
@@ -186,7 +186,7 @@ All economic figures below come from the typed journal, chain receipts, or deter
 | Matched quote notional | **1,255.625 tUSDC** | [Business-impact snapshot](test/reports/business-impact-20260905.md) |
 | Settlement claims | **13** | [Business-impact snapshot](test/reports/business-impact-20260905.md) |
 | Funded receipt verification | **31/31 successful** | [Receipt replay](test/reports/verify-20260902.md) |
-| Current automated suite | **2,118/2,118 passing** | [Current verification](test/reports/readme-audit-20260906.md) |
+| Current automated suite | **2,120/2,120 passing** | [Current verification](test/reports/readme-audit-20260906.md) |
 | Economic invariant matrix | **2,048 cases** across 6- and 18-decimal collateral | [Offline report](test/reports/offline-20260903.md) |
 
 Snapshot window: `2026-09-02T05:10:23.810Z` through `2026-09-05T16:51:04.237Z`, Somnia Shannon testnet, chain ID `50312`.
