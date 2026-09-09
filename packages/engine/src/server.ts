@@ -464,7 +464,7 @@ export class TempoServer {
       const model = process.env.TEMPO_LLM_MODEL ?? "gemini-3.6-flash";
       const url = process.env.TEMPO_LLM_URL ?? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30_000);
+      const timeout = setTimeout(() => controller.abort(), 60_000);
       try {
         const result = await fetch(url, {
           method: "POST",
