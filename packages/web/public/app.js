@@ -333,7 +333,7 @@ function briefing() {
     ? "Sending current journal metrics for optional narration…"
     : (narrative?.text || "Optional narration is generated only when requested. Journal facts remain authoritative.");
   const meta = narrative && !isLoading
-    ? "LLM COMMENTARY · " + (narrative.model || "gemini-3.6-flash") + " · " + (narrative.generatedAt ? time(narrative.generatedAt, true) : "recent") + " · never controls execution"
+    ? "LLM COMMENTARY · " + (narrative.model || "gemini-3.6-flash") + " · " + (narrative.generatedAt ? time(narrative.generatedAt) : "recent") + " · never controls execution"
     : (isLoading ? "Contacting Google Gemini via Vercel proxy…" : "Nothing is sent until Generate · LLM does not control pricing, risk, or execution.");
   const btnText = isLoading ? "Generating…" : (narrative ? "Regenerate" : "Generate");
 
@@ -1032,7 +1032,7 @@ async function refreshNarrative() {
   model.narrativeLoading = true;
   scheduleLiveRender(0);
   try {
-    const body = await getJson("/api/narrative");
+    const body = await getJson("/api/narrative?fresh=1");
     if (body.status === "READY" && typeof body.text === "string") {
       model.narrative = body;
     } else {

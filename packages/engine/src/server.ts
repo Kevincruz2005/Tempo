@@ -423,7 +423,7 @@ export class TempoServer {
       }
       if (url.pathname === "/api/state") return this.json(response, 200, await this.firm.snapshot());
       if (url.pathname === "/api/stats") return this.json(response, 200, await this.stats());
-      if (url.pathname === "/api/narrative") return this.json(response, 200, await this.narrative());
+      if (url.pathname === "/api/narrative") return this.json(response, 200, await this.narrative(url.searchParams.get("fresh") === "1" || url.searchParams.get("fresh") === "true"));
       if (url.pathname === "/api/journal") {
         const limit = parseJournalLimit(url.searchParams.get("n"));
         if (limit === undefined) return this.json(response, 400, { error: "n must be an integer from 1 to 300" });
@@ -449,9 +449,9 @@ export class TempoServer {
     }
   }
 
-  private async narrative(): Promise<NonNullable<TempoServer["narrativeCache"]>["value"]> {
+  private async narrative(forceFresh = false): Promise<NonNullable<TempoServer["narrativeCache"]>["value"]> {
     const now = Date.now();
-    if (this.narrativeCache && now - this.narrativeCache.at < 15 * 60_000) return this.narrativeCache.value;
+    if (!forceFresh && this.narrativeCache && now - this.narrativeCache.at < 15 * 60_000) return this.narrativeCache.value;
     if (this.narrativeInFlight) return this.narrativeInFlight;
     this.narrativeInFlight = (async () => {
       const apiKey = process.env.TEMPO_LLM_API_KEY ?? process.env.OPENAI_API_KEY;
@@ -473,7 +473,6 @@ export class TempoServer {
           body: JSON.stringify({
             model,
             temperature: 0.1,
-            max_tokens: 180,
             messages: [
               {
                 role: "system",
