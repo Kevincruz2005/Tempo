@@ -16,6 +16,8 @@ function apiUrl(pathname) { return new URL(pathname, API_BASE).toString(); }
 const LIFE = ["BIRTH", "ANCHOR", "GENESIS", "REPRICE", "ENDGAME", "SETTLE", "CLAIM", "ROLL"];
 const HASH = /^0x[0-9a-f]{64}$/i;
 const model = {
+  narrative: null,
+  narrativeLoading: false,
   state: null,
   stats: null,
   records: [],
@@ -325,10 +327,20 @@ function settlements(rows, limit = 8) {
 }
 
 function briefing() {
+  const narrative = model.narrative;
+  const isLoading = Boolean(model.narrativeLoading);
+  const text = isLoading
+    ? "Sending current journal metrics for optional narration…"
+    : (narrative?.text || "Optional narration is generated only when requested. Journal facts remain authoritative.");
+  const meta = narrative && !isLoading
+    ? "LLM COMMENTARY · " + (narrative.model || "gemini-3.6-flash") + " · " + (narrative.generatedAt ? time(narrative.generatedAt, true) : "recent") + " · never controls execution"
+    : (isLoading ? "Contacting Google Gemini via Vercel proxy…" : "Nothing is sent until Generate · LLM does not control pricing, risk, or execution.");
+  const btnText = isLoading ? "Generating…" : (narrative ? "Regenerate" : "Generate");
+
   return '<article class="briefing" aria-live="polite"><div class="briefing-head"><span class="section-kicker" style="margin:0">OPERATOR BRIEFING ' +
-    badge("llm") + '</span><button class="button button-small button-ghost" id="ai-summary" type="button">Generate</button></div>' +
-    '<blockquote id="ai-narrative-text">Optional narration is generated only when requested. Journal facts remain authoritative.</blockquote>' +
-    '<small id="ai-narrative-meta">Nothing is sent until Generate · LLM does not control pricing, risk, or execution.</small></article>';
+    badge("llm") + '</span><button class="button button-small button-ghost" id="ai-summary" type="button"' + (isLoading ? " disabled" : "") + '>' + btnText + '</button></div>' +
+    '<blockquote id="ai-narrative-text">' + escapeHtml(text) + '</blockquote>' +
+    '<small id="ai-narrative-meta">' + escapeHtml(meta) + '</small></article>';
 }
 
 function panelToggle(key, minimized) {
@@ -994,28 +1006,29 @@ function scheduleStatsRefresh(delay = 350) {
 }
 
 async function refreshNarrative() {
-  const button = $("ai-summary");
-  const text = $("ai-narrative-text");
-  const meta = $("ai-narrative-meta");
-  if (!button || !text || !meta) return;
-  button.disabled = true;
-  button.textContent = "Generating…";
-  text.textContent = "Sending current journal metrics for optional narration…";
+  if (model.narrativeLoading) return;
+  model.narrativeLoading = true;
+  scheduleLiveRender(0);
   try {
     const body = await getJson("/api/narrative");
-    if (body.status !== "READY" || typeof body.text !== "string") {
-      text.textContent = body.reason || "LLM narration not configured — deterministic mode";
-      meta.textContent = "LLM COMMENTARY unavailable · journal metrics remain authoritative";
+    if (body.status === "READY" && typeof body.text === "string") {
+      model.narrative = body;
     } else {
-      text.textContent = body.text;
-      meta.textContent = "LLM COMMENTARY · " + (body.model || "model") + " · " + (body.generatedAt || "generation time unavailable") + " · never controls execution";
+      model.narrative = {
+        text: body.reason || "LLM narration not configured — deterministic mode",
+        model: body.model || "gemini-3.6-flash",
+        generatedAt: body.generatedAt,
+      };
     }
   } catch {
-    text.textContent = "LLM narration unavailable — deterministic mode";
-    meta.textContent = "Journal metrics remain authoritative.";
+    model.narrative = {
+      text: "LLM narration unavailable — deterministic mode",
+      model: "gemini-3.6-flash",
+      generatedAt: new Date().toISOString(),
+    };
   } finally {
-    button.disabled = false;
-    button.textContent = "Generate";
+    model.narrativeLoading = false;
+    scheduleLiveRender(0);
   }
 }
 
