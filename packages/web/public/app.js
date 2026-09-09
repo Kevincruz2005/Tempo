@@ -795,6 +795,13 @@ const SCROLL_SELECTOR = "[data-scroll-key], .scroll-region, .data-table-wrap, .d
 
 function captureScrollPositions(host) {
   const positions = new Map();
+  positions.set("__window__", {
+    top: window.scrollY || document.documentElement.scrollTop || document.body.scrollTop || 0,
+    left: window.scrollX || document.documentElement.scrollLeft || document.body.scrollLeft || 0,
+  });
+  if (host) {
+    positions.set("__host__", { top: host.scrollTop, left: host.scrollLeft });
+  }
   const occurrences = new Map();
   host.querySelectorAll(SCROLL_SELECTOR).forEach((node) => {
     const base = node.dataset.scrollKey || [...node.classList].sort().join(".") || node.tagName.toLowerCase();
@@ -806,6 +813,18 @@ function captureScrollPositions(host) {
 }
 
 function restoreScrollPositions(host, positions) {
+  const winPos = positions.get("__window__");
+  if (winPos) {
+    const prevBehavior = document.documentElement.style.scrollBehavior;
+    document.documentElement.style.scrollBehavior = "auto";
+    window.scrollTo(winPos.left, winPos.top);
+    document.documentElement.style.scrollBehavior = prevBehavior;
+  }
+  const hostPos = positions.get("__host__");
+  if (host && hostPos) {
+    host.scrollTop = hostPos.top;
+    host.scrollLeft = hostPos.left;
+  }
   const occurrences = new Map();
   host.querySelectorAll(SCROLL_SELECTOR).forEach((node) => {
     const base = node.dataset.scrollKey || [...node.classList].sort().join(".") || node.tagName.toLowerCase();
@@ -838,7 +857,10 @@ function renderRoute(options = {}) {
   updateNavigation();
   restoreSelects();
   bindPage();
-  if (scrollPositions) restoreScrollPositions(host, scrollPositions);
+  if (scrollPositions) {
+    restoreScrollPositions(host, scrollPositions);
+    requestAnimationFrame(() => restoreScrollPositions(host, scrollPositions));
+  }
   if (route === "/docs" && location.hash) requestAnimationFrame(() => {
     const id = location.hash.slice(1);
     document.getElementById(id)?.scrollIntoView({ block: "start" });
@@ -1373,7 +1395,7 @@ function bindGlobal() {
       }
     } else if (target.matches("[data-open-settings]")) openSettings();
     else if (target.matches("[data-refresh]")) void Promise.all([refreshJournal(), refreshState(true)]);
-    else if (target.matches("[data-select-market]")) { model.selected = target.dataset.selectMarket; renderRoute(); }
+    else if (target.matches("[data-select-market]")) { model.selected = target.dataset.selectMarket; renderRoute({ preserve: true }); }
     else if (target.matches("[data-market-row]")) navigate(marketPath(target.dataset.marketRow));
     else if (target.matches("[data-history-tab]")) { model.filters.historyTab = target.dataset.historyTab; renderRoute(); }
     else if (target.matches("[data-clear-market-filters]")) {
