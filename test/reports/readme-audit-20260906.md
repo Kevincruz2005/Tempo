@@ -33,7 +33,7 @@ The following entry points responded during the verification pass:
 
 - `https://tempo-somnia.vercel.app`
 - `https://20-189-112-129.sslip.io/health`
-- `https://youtu.be/YchdanIf05A`
+- `https://youtu.be/ki_l3mHsE04`
 - GitHub release artifact `sdk-v0.3.0/tempo-core-0.3.0.tgz`
 
 This report proves the repository checks executed on the stated date. Dynamic chain, journal, and deployment state can change after the run; historical economic metrics remain tied to their separately timestamped evidence reports.

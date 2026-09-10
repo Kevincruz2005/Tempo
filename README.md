@@ -15,7 +15,7 @@
 
   <a href="https://tempo-somnia.vercel.app"><strong>ENTER THE LIVE OBSERVATORY</strong></a>
   &nbsp;&nbsp;·&nbsp;&nbsp;
-  <a href="https://youtu.be/YchdanIf05A"><strong>WATCH THE DEMO</strong></a>
+  <a href="https://youtu.be/ki_l3mHsE04"><strong>WATCH THE DEMO</strong></a>
   &nbsp;&nbsp;·&nbsp;&nbsp;
   <a href="#proof-not-promises"><strong>VERIFY ON-CHAIN</strong></a>
 
@@ -34,7 +34,7 @@
 <br>
 
 <div align="center">
-  <a href="https://youtu.be/YchdanIf05A">
+  <a href="https://youtu.be/ki_l3mHsE04">
     <img src="assets/tempo-flow-animation.gif" width="720" alt="TEMPO lifecycle: birth, anchor, genesis liquidity, reprice, settle, claim, and roll">
   </a>
   <br>
@@ -545,7 +545,7 @@ Historical records do not contain sufficient counterparty attribution to claim e
 
   <a href="https://tempo-somnia.vercel.app"><strong>Open Observatory</strong></a>
   &nbsp;·&nbsp;
-  <a href="https://youtu.be/YchdanIf05A"><strong>Watch Demo</strong></a>
+  <a href="https://youtu.be/ki_l3mHsE04"><strong>Watch Demo</strong></a>
   &nbsp;·&nbsp;
   <a href="docs/DESIGN.md"><strong>Read Design</strong></a>
   &nbsp;·&nbsp;

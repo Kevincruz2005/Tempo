@@ -188,7 +188,7 @@ Historical fills did not retain enough counterparty identity to prove external a
 ## Live Links
 
 - **GitHub:** https://github.com/Kevincruz2005/Tempo
-- **Demo video (2–3 min):** [REPLACE WITH FINAL VIDEO LINK — re-cut per requirement before submitting]
+- **Demo video (2–3 min):** https://youtu.be/ki_l3mHsE04
 - **Dashboard:** `npm run firm` → http://localhost:7333 (runs from the repo; live testnet data)
 - **On-chain evidence:** [`test/reports/full-onchain-mode.md`](https://github.com/Kevincruz2005/Tempo/blob/main/test/reports/full-onchain-mode.md) · verify any hash yourself: `tempo verify`
 - **Current evaluation report:** [`test/reports/gemini-report.md`](https://github.com/Kevincruz2005/Tempo/blob/main/test/reports/gemini-report.md)
